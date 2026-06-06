@@ -1,0 +1,19 @@
+# Neovim / Lua
+*.swp
+*.swo
+tags
+tags.temp
+netrw.vim
+
+# Plugin managers
+lazy-lock.json
+packer_compiled.lua
+site/pack/packer/
+
+# Compiled Lua cache
+.lua/
+luac.out
+
+# OS
+.DS_Store
+Thumbs.db
