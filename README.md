@@ -14,11 +14,13 @@ A Neovim configuration focused on Fortran development, built around the SWAT+ hy
 ## Requirements
 
 - **Neovim ≥ 0.11** (uses built-in `vim.pack` package manager and `vim.lsp.config`/`vim.lsp.enable`)
-- **[Nerd Font](https://www.nerdfonts.com/)** in your terminal (icons throughout the UI)
-- **`fortls`** — Fortran language server: `pip install fortls`
+- **[Nerd Font](https://www.nerdfonts.com/)** in your terminal (icons throughout the UI). I use mononike nerd font 11 pt.
+- **`fortls`** — Fortran language server: `pip install fortls`,  If on Arch, must be loaded via pacman.
 - **`gdb`** — GNU debugger for DAP: install via your system package manager
 - **`lazygit`** — terminal git UI: see [lazygit releases](https://github.com/jesseduffield/lazygit)
 - **`make`** — for compiling the Telescope fzf native sorter (optional but recommended)
+- **`CMake`** - must install for using cmake with swatplus
+- **`git`** - must install if you wish to submit pull requests 
 
 Mason auto-installs `lua_ls` and `stylua` on first launch.
 
