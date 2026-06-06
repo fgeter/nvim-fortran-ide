@@ -1,6 +1,8 @@
 # Neovim / Lua
 *.swp
 *.swo
+*backup*
+*bak
 tags
 tags.temp
 netrw.vim
