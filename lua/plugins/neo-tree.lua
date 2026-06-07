@@ -50,20 +50,15 @@ vim.keymap.set('n', '<leader>\\', function()
   end, 50)
 end, { desc = 'Neo-tree: focus buffer list', silent = true })
 
--- ── Setup helpers ────────────────────────────────────────────
--- Open the node under the cursor, or navigate to the parent directory
--- when on line 1 (the root-header line). Line 1 is always the root in
--- neo-tree's filesystem view regardless of which directory is shown.
-local function open_or_navigate_up(state)
-  if vim.fn.line('.') == 1 then
-    require('neo-tree.sources.filesystem.commands').navigate_up(state)
-  else
-    require('neo-tree.sources.filesystem.commands').open(state)
-  end
-end
-
 -- ── Setup ────────────────────────────────────────────────────
 require('neo-tree').setup {
+  -- Close neo-tree when any file is opened from it
+  -- (comment out if you prefer the tree to stay open)
+  -- event_handlers = {
+  --   { event = 'file_opened',
+  --     handler = function() require('neo-tree.command').execute({ action = 'close' }) end }
+  -- },
+
   filesystem = {
     -- Keep neo-tree's root in sync with Neovim's global cwd
     bind_to_cwd = true,
@@ -93,11 +88,10 @@ require('neo-tree').setup {
       mappings = {
         -- Toggle the tree closed with the same key that opens it
         ['\\']            = 'close_window',
-        -- Open / expand — routes through open_or_navigate_up so that
-        -- selecting the '..' entry navigates to the parent directory.
-        ['<CR>']          = open_or_navigate_up,
-        ['<2-LeftMouse>'] = open_or_navigate_up,
-        ['o']             = open_or_navigate_up,
+        -- Open / expand
+        ['<CR>']          = 'open',
+        ['<2-LeftMouse>'] = 'open',
+        ['o']             = 'open',
         ['s']             = 'open_split',
         ['v']             = 'open_vsplit',
         -- Navigation
@@ -116,6 +110,38 @@ require('neo-tree').setup {
         ['H']             = 'toggle_hidden',  -- show/hide dotfiles
         ['R']             = 'refresh',
         ['?']             = 'show_help',
+
+        -- Telescope search scoped to neo-tree's current root directory.
+        -- '/' launches fuzzy file finder; 'g/' launches live grep.
+        -- Both are scoped to the directory neo-tree is currently showing
+        -- so you only search within the tree you are browsing.
+        ['/'] = function(state)
+          -- get_node() returns the node under the cursor; walk up to find
+          -- its parent directory so search is rooted at a meaningful path
+          local node = state.tree:get_node()
+          local dir  = node.type == 'directory'
+            and node:get_id()
+            or vim.fn.fnamemodify(node:get_id(), ':h')
+
+          require('telescope.builtin').find_files {
+            cwd        = dir,
+            hidden     = true,
+            no_ignore  = true,
+            prompt_title = 'Find files in ' .. vim.fn.fnamemodify(dir, ':~:.'),
+          }
+        end,
+
+        ['g/'] = function(state)
+          local node = state.tree:get_node()
+          local dir  = node.type == 'directory'
+            and node:get_id()
+            or vim.fn.fnamemodify(node:get_id(), ':h')
+
+          require('telescope.builtin').live_grep {
+            cwd          = dir,
+            prompt_title = 'Live grep in ' .. vim.fn.fnamemodify(dir, ':~:.'),
+          }
+        end,
       },
     },
 
@@ -187,44 +213,6 @@ require('neo-tree').setup {
     },
   },
 }
-
--- ── Root-header hint ──────────────────────────────────────────
--- Stamp '← ..' as EOL virtual text on line 1 of the neo-tree buffer after
--- every render. Uses nvim_buf_attach so the extmark is re-applied on ALL
--- buffer writes — both the full show_nodes path and the renderer.redraw
--- path (git-status refresh, file-watch events, expand/collapse), which do
--- not fire the AFTER_RENDER event and would otherwise leave the hint missing.
--- vim.schedule batches the on_bytes calls from one render into a single apply.
-vim.api.nvim_create_autocmd('FileType', {
-  pattern  = 'neo-tree',
-  callback = function(args)
-    local buf = args.buf
-    local ns  = vim.api.nvim_create_namespace('neo_tree_up_hint')
-
-    local function apply()
-      if not vim.api.nvim_buf_is_valid(buf) then return end
-      if vim.api.nvim_buf_line_count(buf) < 1 then return end
-      vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-      vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
-        virt_text     = { { '  ← ..', 'Comment' } },
-        virt_text_pos = 'eol',
-      })
-    end
-
-    local pending = false
-    vim.api.nvim_buf_attach(buf, false, {
-      on_bytes = function()
-        if pending then return false end
-        pending = true
-        vim.schedule(function()
-          pending = false
-          apply()
-        end)
-        return false  -- keep the attachment alive
-      end,
-    })
-  end,
-})
 
 -- ── Startup behaviour ─────────────────────────────────────────
 -- Open neo-tree on startup depending on how Neovim was launched:
