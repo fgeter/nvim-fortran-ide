@@ -111,7 +111,8 @@ Inside neo-tree:
 |-----|--------|--------|
 | `<leader>cp` | Select preset + auto-run Generate | `plugins/cmake-tools.lua` |
 | `<leader>cg` | CMake Generate (configure) | `plugins/cmake-tools.lua` |
-| `<leader>cb` | Build active preset (`-j 32`) | `plugins/cmake-tools.lua` |
+| `<leader>cb` | Build active preset with max threads (`-j <max>`) | `plugins/cmake-tools.lua` |
+| `<leader>cB` | Build active preset with one thread (`-j 1`) | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
 | `<leader>cr` | Run swatplus (pick exe + workdata, cleans output first) | `plugins/cmake-tools.lua` |

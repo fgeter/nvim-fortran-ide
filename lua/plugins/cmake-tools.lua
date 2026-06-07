@@ -8,9 +8,9 @@
 --     cmake output windows open and close
 --   • Chained preset+generate — <leader>cp selects a preset AND
 --     automatically runs CMakeGenerate afterwards
---   • Build via terminal — <leader>cb uses a persistent bash
---     terminal (not the cmake-tools toggleterm) for raw cmake
---     output, which is more reliable for -j 32 parallel builds
+--   • Build via terminal — <leader>cb builds using all CPU cores
+--     (detected via nproc at call time); <leader>cB builds with
+--     -j 1 for clean single-threaded compile error output
 --   • Run picker — <leader>cr shows ALL executables from
 --     build/debug/ and build/release/ so you can choose which
 --     build to run without changing the active preset
@@ -370,11 +370,29 @@ local function activate()
   ---------------------------------------------------------------------------
   -- Build: cmake --build using the active preset's build directory
   ---------------------------------------------------------------------------
-  local function do_build()
+
+  -- Detect the number of logical CPU cores available on this machine.
+  -- Used as the default thread count for parallel builds.
+  -- nproc is available on Linux; sysctl -n hw.logicalcpu is the macOS equivalent.
+  -- Falls back to 4 if neither command is available.
+  local function get_cpu_count()
+    -- gsub returns (string, count) — wrap in parentheses to discard the count
+    -- before passing to tonumber, otherwise tonumber gets two args and errors.
+    local nproc   = tonumber((vim.fn.system('nproc 2>/dev/null'):gsub('%s+', '')))
+    local sysctl  = tonumber((vim.fn.system('sysctl -n hw.logicalcpu 2>/dev/null'):gsub('%s+', '')))
+    return nproc or sysctl or 4
+  end
+
+  -- Build with `jobs` parallel threads.
+  -- jobs=1 is useful when debugging compile errors: the build stops at the
+  -- first error with clean output rather than interleaving errors from
+  -- multiple threads, making it much easier to read the error message.
+  local function do_build(jobs)
     local build = get_active_build_dir()
     if not build then return end
-    vim.notify('Building: ' .. build.label, vim.log.levels.INFO)
-    run_in_terminal('cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j 32')
+    local j = jobs or get_cpu_count()
+    vim.notify('Building: ' .. build.label .. ' (-j ' .. j .. ')', vim.log.levels.INFO)
+    run_in_terminal('cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j ' .. j)
   end
 
   ---------------------------------------------------------------------------
@@ -511,9 +529,16 @@ local function activate()
 
     -- Build: runs cmake --build in the persistent terminal
     -- pcall(del) first so re-sourcing this file doesn't error on duplicate maps
+    -- <leader>cb  — parallel build using all available CPU cores (fast)
+    -- <leader>cB  — single-threaded build (-j 1) for debugging compile errors:
+    --               stops at the first error with clean, uninterleaved output
     pcall(vim.keymap.del, 'n', '<leader>cb')
-    vim.keymap.set('n', '<leader>cb', do_build,
-      { desc = 'CMake: build (-j 32)', nowait = true })
+    vim.keymap.set('n', '<leader>cb', function() do_build() end,
+      { desc = 'CMake: build (all CPU cores)', nowait = true })
+
+    pcall(vim.keymap.del, 'n', '<leader>cB')
+    vim.keymap.set('n', '<leader>cB', function() do_build(1) end,
+      { desc = 'CMake: build single-threaded (debug compile errors)', nowait = true })
 
     -- Run: pick executable and workdata directory, launch in terminal
     pcall(vim.keymap.del, 'n', '<leader>cr')
