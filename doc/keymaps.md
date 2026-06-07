@@ -79,6 +79,8 @@ Inside neo-tree:
 | Key | Action | Plugin |
 |-----|--------|--------|
 | `<CR>` / `o` | Open file | `plugins/neo-tree.lua` |
+| / | Open Treesitter File Search at directory under cursor | `plugins/neo-tree.lua` |
+| g/ | Open Treesitter grep search at directory under cursor | `plugins/neo-tree.lua` |
 | `s` | Open in horizontal split | `plugins/neo-tree.lua` |
 | `v` | Open in vertical split | `plugins/neo-tree.lua` |
 | `<BS>` | Navigate up one directory | `plugins/neo-tree.lua` |
