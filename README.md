@@ -142,7 +142,8 @@ Inside neo-tree:
 |-----|--------|
 | `<leader>cp` | Select preset + auto-run Generate |
 | `<leader>cg` | CMake Generate (configure) |
-| `<leader>cb` | Build (`-j 32`) |
+| `<leader>cb` | Build with max threads (`-j <max>`) |
+| `<leader>cB` | Build with one thread (`-j 1`) |
 | `<leader>cx` | Clean |
 | `<leader>cd` | Delete build directory (prompts confirmation) |
 | `<leader>cr` | Run swatplus (pick executable + workdata) |
