@@ -32,6 +32,43 @@ config system that keeps language-specific paths out of the shared config.
 - **`cmake`** — for CMake integration
 - **`gfortran`** — for linting
 
+**Intel Fortran compiler (optional — required for SWAT+ and other projects using `ifx`):**
+
+The Intel oneAPI Fortran compiler (`ifx`) is needed if your CMake presets
+target it. `gfortran` is used for LSP linting regardless of which compiler
+you build with.
+
+1. Download the Intel oneAPI HPC Toolkit from:
+   https://www.intel.com/content/www/us/en/developer/tools/oneapi/fortran-compiler-download.html
+
+2. Install it to `~/intel/oneapi` (the default location):
+   ```bash
+   # Follow the Intel installer prompts, accepting ~/intel/oneapi as the install path
+   ```
+
+3. Before starting Neovim on a project that uses `ifx`, source the Intel
+   environment setup script to add the compiler to your `PATH` and set the
+   required `LD_LIBRARY_PATH`:
+   ```bash
+   source ~/intel/oneapi/setvars.sh
+   ```
+
+4. Then open Neovim from the project root:
+   ```bash
+   cd ~/myproject && nvim
+   ```
+
+   The `setvars.sh` step must be repeated each time you open a new terminal
+   session. To avoid doing this manually, add it to your shell's startup file
+   or create a shell alias:
+   ```bash
+   # Add to ~/.bashrc or ~/.zshrc (sources Intel env only if installed)
+   [ -f ~/intel/oneapi/setvars.sh ] && source ~/intel/oneapi/setvars.sh
+
+   # Or create an alias to source + open nvim in one step
+   alias nvim-intel='source ~/intel/oneapi/setvars.sh && nvim'
+   ```
+
 **Python development (installed via Mason on first use):**
 - `basedpyright` — Python language server
 - `debugpy` — Python debug adapter
