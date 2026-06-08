@@ -12,6 +12,11 @@ config system that keeps language-specific paths out of the shared config.
 > verified. **Pull requests adding macOS instructions or compatibility fixes
 > are very welcome.**
 
+## Credits
+The owner/creator of this repository worked extensively with AI to develop this
+NeoVim IDE and to extend its features.  Primary AI tools were Claude, Claude Code,
+Grok, and Gemini in that order.
+
 ## Features
 
 - **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`)
