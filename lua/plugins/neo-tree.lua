@@ -85,6 +85,32 @@ require('neo-tree').setup {
       ['R']             = 'refresh',
       ['?']             = 'show_help',
 
+      -- Execute the selected file if it has the executable bit set.
+      ['X'] = function(state)
+        local node = state.tree:get_node()
+        if node.type ~= 'file' then
+          vim.notify('neo-tree: X only works on files', vim.log.levels.WARN)
+          return
+        end
+        local path = node:get_id()
+        if vim.fn.executable(path) ~= 1 then
+          vim.notify('neo-tree: ' .. vim.fn.fnamemodify(path, ':t') .. ' is not executable',
+            vim.log.levels.WARN)
+          return
+        end
+        local dir   = vim.fn.fnamemodify(path, ':h')
+        local terms = require('toggleterm.terminal')
+        local term, is_new = terms.get_or_create_term(1, dir, 'horizontal')
+        if is_new then
+          term:open(15)
+          vim.defer_fn(function() term:send(vim.fn.shellescape(path)) end, 200)
+        else
+          if not term:is_open() then term:open(15) end
+          term:change_dir(dir)
+          term:send(vim.fn.shellescape(path))
+        end
+      end,
+
       -- Open (or reuse) the bottom toggleterm terminal, cd-ing into the
       -- directory of the node under the cursor.
       ['t'] = function(state)

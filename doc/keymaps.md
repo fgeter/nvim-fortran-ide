@@ -84,6 +84,7 @@ Inside neo-tree:
 | `v` | Open in vertical split | `plugins/neo-tree.lua` |
 | `<BS>` | Navigate up one directory | `plugins/neo-tree.lua` |
 | `t` | Open bottom terminal at directory under cursor (reuses toggleterm #1) | `plugins/neo-tree.lua` |
+| `X` | Execute selected file if it has the executable bit set (reuses toggleterm #1) | `plugins/neo-tree.lua` |
 | `.` | Set as tree root | `plugins/neo-tree.lua` |
 | `a` | Add file/directory | `plugins/neo-tree.lua` |
 | `d` | Delete | `plugins/neo-tree.lua` |

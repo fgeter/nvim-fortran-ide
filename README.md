@@ -265,6 +265,7 @@ Inside neo-tree:
 | `s` / `v` | Open in horizontal / vertical split |
 | `<BS>` | Navigate up one directory |
 | `t` | Open bottom terminal at directory under cursor (reuses toggleterm #1) |
+| `X` | Execute selected file if it has the executable bit set (reuses toggleterm #1) |
 | `.` | Set as tree root |
 | `a` / `d` / `r` | Add / delete / rename |
 | `c` / `m` | Copy / move |
