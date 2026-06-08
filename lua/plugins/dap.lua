@@ -97,7 +97,13 @@ dapui.setup {
 -- Auto open/close the UI panels with the debug session.
 -- Registered once here so they work for all languages without
 -- duplication in each language file.
-dap.listeners.after.event_initialized['dapui_config']  = function() dapui.open()  end
+dap.listeners.after.event_initialized['dapui_config']  = function()
+  dapui.open()
+  vim.notify(
+    'DAP active — F1: step into  F2: step over  F3: step out  F5: continue  F7: toggle UI',
+    vim.log.levels.INFO,
+    { title = 'Debugger' })
+end
 dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close() end
 dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
 
@@ -146,3 +152,36 @@ vim.keymap.set('n', '<leader>dU', function() dapui.toggle()  end, { desc = 'DAP:
 vim.keymap.set('n', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval expression' })
 vim.keymap.set('v', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval selection' })
 vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP: open REPL' })
+
+vim.keymap.set('n', '<leader>dF', function()
+  local lines = {
+    '  F1    Step into   ',
+    '  F2    Step over   ',
+    '  F3    Step out    ',
+    '  F5    Continue    ',
+    '  F7    Toggle UI   ',
+    '',
+    '  q / <Esc>  close  ',
+  }
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+  local width  = #lines[1]
+  local height = #lines
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative  = 'editor',
+    row       = math.floor((vim.o.lines   - height) / 2),
+    col       = math.floor((vim.o.columns - width)  / 2),
+    width     = width,
+    height    = height,
+    style     = 'minimal',
+    border    = 'rounded',
+    title     = ' DAP keys ',
+    title_pos = 'center',
+  })
+  for _, key in ipairs({ 'q', '<Esc>' }) do
+    vim.keymap.set('n', key, function()
+      vim.api.nvim_win_close(win, true)
+    end, { buffer = buf, nowait = true })
+  end
+end, { desc = 'DAP: show F-key reference' })

@@ -328,6 +328,7 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>dx` | | Clear all breakpoints |
 | `<leader>dw` | | Add word under cursor to watches |
 | `<leader>dU` | `<F7>` | Toggle DAP UI |
+| `<leader>dF` | | Show F-key reference popup |
 | `<leader>de` | | Eval expression / selection |
 | `<leader>dR` | | Open REPL |
 | | `<F5>` | Continue (global alias) |

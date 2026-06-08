@@ -163,6 +163,7 @@ Inside neo-tree:
 | `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/fortran-tools.lua` / `plugins/dap.lua` |
 | `<leader>de` | | Eval expression / selection | `plugins/fortran-tools.lua` |
 | `<leader>dR` | | Open REPL | `plugins/fortran-tools.lua` |
+| `<leader>dF` | | Show F-key reference popup | `plugins/dap.lua` |
 | | `<F5>` | Continue (global alias) | `plugins/dap.lua` |
 
 While debugging, press `K` over any variable to see its current value. Move the cursor to close the popup.
