@@ -1,0 +1,44 @@
+-- ============================================================
+-- .nvim.lua — Python project-local configuration template
+--
+-- Copy this file to your Python project root and edit the
+-- paths below. Trust it with :trust on first open.
+--
+-- Example projects this works for:
+--   - Standalone Python scripts
+--   - Django / Flask / FastAPI applications
+--   - Data science / Jupyter projects
+--   - Python packages with pyproject.toml
+-- ============================================================
+
+-- ── Project identity ─────────────────────────────────────────
+vim.g.project_name = 'My Python Project'   -- change this
+vim.g.project_type = 'python'
+
+-- ── Project paths ────────────────────────────────────────────
+vim.g.project_repo_root = vim.fn.getcwd()  -- usually correct as-is
+
+-- Path to virtualenv. Uncomment and set if your venv is not
+-- at <project_root>/.venv (which is checked automatically).
+-- vim.g.project_venv = vim.g.project_repo_root .. '/.venv'
+
+-- Explicit python binary override. Only needed if you have
+-- multiple Python installations and the wrong one is picked.
+-- vim.g.project_python_bin = '/usr/bin/python3.11'
+
+-- ── Load shared Python project configuration ──────────────────
+require('projects.python')
+
+-- ── Project-local overrides (optional) ───────────────────────
+-- Add project-specific keymaps below. Examples:
+--
+-- Run tests with pytest
+-- vim.keymap.set('n', '<leader>pt', function()
+--   require('plugins.toggleterm') -- ensure loaded
+--   vim.cmd('TermExec cmd="cd ' .. vim.g.project_repo_root .. ' && pytest -v"')
+-- end, { desc = 'Project: run pytest' })
+--
+-- Start the dev server
+-- vim.keymap.set('n', '<leader>ps', function()
+--   vim.cmd('TermExec cmd="cd ' .. vim.g.project_repo_root .. ' && python manage.py runserver"')
+-- end, { desc = 'Project: start dev server' })

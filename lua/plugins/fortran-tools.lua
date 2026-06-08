@@ -21,11 +21,13 @@ if vim.g.loaded_fortran_tools then return end
 vim.g.loaded_fortran_tools = true
 
 -- ── Paths ────────────────────────────────────────────────────
--- Centralised here so they are easy to update if the project moves
-local REPO_ROOT = '/home/fgeter/code/swatplus_repos/swatplus_fg_fork'
-local SRC_DIR   = REPO_ROOT .. '/src'
-local WORK_ROOT = REPO_ROOT .. '/workdata'
-local BUILD_ROOT = REPO_ROOT .. '/build'
+-- Read from vim.g variables set by the project's .nvim.lua file.
+-- Falls back to cwd-relative defaults so fortran-tools works for
+-- any Fortran project even without a .nvim.lua config.
+local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
+local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
+local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
+local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 
 -- ── activate() ───────────────────────────────────────────────
 -- All setup is deferred into this function and run once on

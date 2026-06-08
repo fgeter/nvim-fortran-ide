@@ -1,0 +1,51 @@
+-- ============================================================
+-- .nvim.lua — SWAT+ project-local configuration
+--
+-- Place this file at:
+--   ~/code/swatplus_repos/swatplus_fg_fork/.nvim.lua
+--
+-- Trust it once with :trust (stored in ~/.local/share/nvim/trust)
+-- Requires vim.o.exrc = true in core/options.lua
+--
+-- This file sets project-specific paths then delegates to
+-- lua/projects/fortran.lua which contains the shared Fortran
+-- LSP + DAP + cmake configuration.
+-- ============================================================
+
+-- ── Project identity ─────────────────────────────────────────
+vim.g.project_name = 'SWAT+'
+vim.g.project_type = 'fortran'
+
+-- ── Project paths ────────────────────────────────────────────
+-- These are read by plugins/cmake-tools.lua and
+-- plugins/fortran-tools.lua instead of hardcoded paths.
+-- Update these if the project moves to a different location.
+vim.g.project_repo_root  = '/home/fgeter/code/swatplus_repos/swatplus_fg_fork'
+vim.g.project_src_dir    = vim.g.project_repo_root .. '/src'
+vim.g.project_work_root  = vim.g.project_repo_root .. '/workdata'
+vim.g.project_build_root = vim.g.project_repo_root .. '/build'
+
+-- ── Project-specific settings ────────────────────────────────
+-- Override the default parallel build thread count if desired.
+-- Defaults to nproc (all cores) if not set.
+-- vim.g.project_build_jobs = 16
+
+-- ── Load shared Fortran project configuration ─────────────────
+-- This activates cmake-tools and fortran-tools with the paths
+-- defined above. All LSP, DAP, and cmake keymaps are set up
+-- by the shared config — nothing needs to be duplicated here.
+require('projects.fortran')
+
+-- ── Project-local overrides (optional) ───────────────────────
+-- Add any SWAT+-specific keymaps or settings below that don't
+-- belong in the shared config. For example:
+--
+-- Open the SWAT+ documentation
+-- vim.keymap.set('n', '<leader>pd', function()
+--   vim.cmd('edit ' .. vim.g.project_repo_root .. '/docs/README.md')
+-- end, { desc = 'Project: open SWAT+ docs' })
+--
+-- Quick jump to the main entry point
+-- vim.keymap.set('n', '<leader>pm', function()
+--   vim.cmd('edit ' .. vim.g.project_src_dir .. '/main.f90')
+-- end, { desc = 'Project: open main.f90' })

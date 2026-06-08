@@ -79,8 +79,6 @@ Inside neo-tree:
 | Key | Action | Plugin |
 |-----|--------|--------|
 | `<CR>` / `o` | Open file | `plugins/neo-tree.lua` |
-| / | Open Treesitter File Search at directory under cursor | `plugins/neo-tree.lua` |
-| g/ | Open Treesitter grep search at directory under cursor | `plugins/neo-tree.lua` |
 | `s` | Open in horizontal split | `plugins/neo-tree.lua` |
 | `v` | Open in vertical split | `plugins/neo-tree.lua` |
 | `<BS>` | Navigate up one directory | `plugins/neo-tree.lua` |
@@ -113,8 +111,7 @@ Inside neo-tree:
 |-----|--------|--------|
 | `<leader>cp` | Select preset + auto-run Generate | `plugins/cmake-tools.lua` |
 | `<leader>cg` | CMake Generate (configure) | `plugins/cmake-tools.lua` |
-| `<leader>cb` | Build active preset with max threads (`-j <max>`) | `plugins/cmake-tools.lua` |
-| `<leader>cB` | Build active preset with one thread (`-j 1`) | `plugins/cmake-tools.lua` |
+| `<leader>cb` | Build active preset (`-j 32`) | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
 | `<leader>cr` | Run swatplus (pick exe + workdata, cleans output first) | `plugins/cmake-tools.lua` |
@@ -202,16 +199,6 @@ While debugging, press `K` over any variable to see its current value. Move the 
 | `<leader>e` | n | Show diagnostic float | `plugins/fortran-tools.lua` |
 | `<leader>rn` | n | Rename symbol (Fortran) | `plugins/fortran-tools.lua` |
 | `<leader>ca` | n | Code action (Fortran) | `plugins/fortran-tools.lua` |
-
----
-
-## Markdown (`<leader>m`) — active only in markdown buffers
-
-| Key | Action | Plugin |
-|-----|--------|--------|
-| `<leader>mr` | Toggle rendering on/off | `plugins/markdown.lua` |
-| `<leader>me` | Expand all sections | `plugins/markdown.lua` |
-| `<leader>mc` | Collapse all sections | `plugins/markdown.lua` |
 
 ---
 

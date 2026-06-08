@@ -36,6 +36,12 @@ require('mason').setup {}
 local servers = {
   stylua = {},
 
+  -- Python tools (used by plugins/python.lua)
+  -- Install with :MasonInstall or they are auto-installed below
+  basedpyright = {},
+  debugpy      = {},
+  ruff         = {},
+
   lua_ls = {
     on_init = function(client)
       -- Disable lua_ls formatting in favour of stylua (via conform.nvim)

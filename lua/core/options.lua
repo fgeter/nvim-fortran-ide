@@ -84,3 +84,9 @@ vim.opt.fillchars = {
   stl       = '─',   -- active statusline fill
   stlnc     = '─',   -- inactive statusline fill
 }
+
+-- Enable per-project .nvim.lua config files.
+-- Each project can have a .nvim.lua in its root that sets paths
+-- and loads project-specific configuration (see lua/projects/).
+-- Trust a .nvim.lua once with :trust to allow it to run.
+vim.o.exrc = true

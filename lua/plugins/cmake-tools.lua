@@ -37,9 +37,13 @@ if vim.g.loaded_cmake_tools_wrapper then return end
 vim.g.loaded_cmake_tools_wrapper = true
 
 -- ── Paths ─────────────────────────────────────────────────────
-local REPO_ROOT  = '/home/fgeter/code/swatplus_repos/swatplus_fg_fork'
-local WORK_ROOT  = REPO_ROOT .. '/workdata'
-local BUILD_ROOT = REPO_ROOT .. '/build'
+-- Read from vim.g variables set by the project's .nvim.lua file.
+-- Falls back to sensible defaults relative to cwd so cmake-tools
+-- works even without a project config (e.g. opening a random
+-- CMake project for the first time).
+local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
+local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
+local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
 
 -- ── CMake project detection ───────────────────────────────────
 -- Walk up the directory tree from `path` looking for CMakeLists.txt.
