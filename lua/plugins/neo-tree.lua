@@ -7,10 +7,12 @@
 --   • Show hidden and gitignored files
 --   • Open alongside a file when Neovim starts
 --   • NOT steal focus when toggleterm closes (handled in toggleterm.lua)
+--   • Show "← .." at top of tree for navigating to parent directory
+--     (injected via renderer.show_nodes monkey-patch; see bottom of file)
 --
 -- Keymaps:
---   \       — reveal current file in neo-tree (or open tree)
---   <leader>\ — show open buffers in neo-tree
+--   \         — reveal current file in neo-tree (or open tree)
+--   <leader>\ — show and focus open buffers in neo-tree
 --
 -- LAZY: No — neo-tree opens at startup and must be ready immediately.
 -- ============================================================
@@ -28,15 +30,10 @@ end
 vim.pack.add(plugins)
 
 -- ── Keymaps ──────────────────────────────────────────────────
--- \ reveals the current file in the filesystem tree (or opens the tree
--- if it is closed). Inside neo-tree, \ closes the window.
-vim.keymap.set('n', '\\',          '<Cmd>Neotree reveal<CR>',       { desc = 'Neo-tree: reveal file',    silent = true })
--- <leader>\ opens the buffers view in neo-tree and moves focus into it.
--- Step 1: Neotree show opens/switches the panel to the buffers source.
--- Step 2: vim.defer_fn finds the neo-tree window and sets it as current
---         so the cursor lands there ready to navigate.
--- The defer is necessary because neo-tree opens asynchronously — trying
--- to focus the window in the same tick finds nothing yet.
+vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>',
+  { desc = 'Neo-tree: reveal file', silent = true })
+
+-- <leader>\ opens the buffers view and moves focus into the neo-tree window
 vim.keymap.set('n', '<leader>\\', function()
   vim.cmd('Neotree show buffers left')
   vim.defer_fn(function()
@@ -50,109 +47,100 @@ vim.keymap.set('n', '<leader>\\', function()
   end, 50)
 end, { desc = 'Neo-tree: focus buffer list', silent = true })
 
+-- ── Helpers ───────────────────────────────────────────────────
+-- On the "← .." nav node call navigate_up; everywhere else call open.
+local function open_or_up(state)
+  local node = state.tree:get_node()
+  if node and node.id == '__nav_up__' then
+    require('neo-tree.sources.filesystem.commands').navigate_up(state)
+  else
+    state.commands['open'](state)
+  end
+end
+
 -- ── Setup ────────────────────────────────────────────────────
 require('neo-tree').setup {
-  -- Close neo-tree when any file is opened from it
-  -- (comment out if you prefer the tree to stay open)
-  -- event_handlers = {
-  --   { event = 'file_opened',
-  --     handler = function() require('neo-tree.command').execute({ action = 'close' }) end }
-  -- },
+
+  window = {
+    width = 35,
+    mappings = {
+      ['\\']            = 'close_window',
+      ['<CR>']          = open_or_up,
+      ['<2-LeftMouse>'] = open_or_up,
+      ['o']             = open_or_up,
+      ['s']             = 'open_split',
+      ['v']             = 'open_vsplit',
+      ['<BS>']          = 'navigate_up',
+      ['.']             = 'set_root',
+      ['a']             = { 'add', config = { show_path = 'relative' } },
+      ['d']             = 'delete',
+      ['r']             = 'rename',
+      ['c']             = 'copy',
+      ['m']             = 'move',
+      ['y']             = 'copy_to_clipboard',
+      ['x']             = 'cut_to_clipboard',
+      ['p']             = 'paste_from_clipboard',
+      ['H']             = 'toggle_hidden',
+      ['R']             = 'refresh',
+      ['?']             = 'show_help',
+
+      -- Telescope search scoped to the directory under the cursor
+      ['/'] = function(state)
+        local node = state.tree:get_node()
+        local dir  = node.type == 'directory'
+          and node:get_id()
+          or vim.fn.fnamemodify(node:get_id(), ':h')
+        require('telescope.builtin').find_files {
+          cwd          = dir,
+          hidden       = true,
+          no_ignore    = true,
+          prompt_title = 'Find files in ' .. vim.fn.fnamemodify(dir, ':~:.'),
+        }
+      end,
+
+      ['g/'] = function(state)
+        local node = state.tree:get_node()
+        local dir  = node.type == 'directory'
+          and node:get_id()
+          or vim.fn.fnamemodify(node:get_id(), ':h')
+        require('telescope.builtin').live_grep {
+          cwd          = dir,
+          prompt_title = 'Live grep in ' .. vim.fn.fnamemodify(dir, ':~:.'),
+        }
+      end,
+    },
+  },
 
   filesystem = {
-    -- Keep neo-tree's root in sync with Neovim's global cwd
     bind_to_cwd = true,
     cwd_target   = { sidebar = 'global', current = 'global' },
 
-    -- Automatically scroll the tree to show the file in the active buffer
     follow_current_file = {
       enabled         = true,
-      leave_dirs_open = true,  -- don't collapse parent dirs when switching files
+      leave_dirs_open = true,
     },
 
-    -- Use libuv filesystem watchers for real-time updates (no manual refresh needed)
     use_libuv_file_watcher = true,
+    hijack_netrw_behavior  = 'open_current',
 
-    -- Prevent netrw from opening instead of neo-tree when you open a directory
-    hijack_netrw_behavior = 'open_current',
-
-    -- Show hidden files and gitignored files (toggle with H inside the tree)
     filtered_items = {
       visible         = true,
       hide_dotfiles   = false,
       hide_gitignored = false,
     },
+  },
 
-    window = {
-      width = 35,
-      mappings = {
-        -- Toggle the tree closed with the same key that opens it
-        ['\\']            = 'close_window',
-        -- Open / expand
-        ['<CR>']          = 'open',
-        ['<2-LeftMouse>'] = 'open',
-        ['o']             = 'open',
-        ['s']             = 'open_split',
-        ['v']             = 'open_vsplit',
-        -- Navigation
-        ['<bs>']          = 'navigate_up',    -- go up one directory
-        ['.']             = 'set_root',       -- make this dir the tree root
-        -- File operations
-        ['a']             = { 'add', config = { show_path = 'relative' } },
-        ['d']             = 'delete',
-        ['r']             = 'rename',
-        ['c']             = 'copy',
-        ['m']             = 'move',
-        ['y']             = 'copy_to_clipboard',
-        ['x']             = 'cut_to_clipboard',
-        ['p']             = 'paste_from_clipboard',
-        -- Visibility
-        ['H']             = 'toggle_hidden',  -- show/hide dotfiles
-        ['R']             = 'refresh',
-        ['?']             = 'show_help',
-
-        -- Telescope search scoped to neo-tree's current root directory.
-        -- '/' launches fuzzy file finder; 'g/' launches live grep.
-        -- Both are scoped to the directory neo-tree is currently showing
-        -- so you only search within the tree you are browsing.
-        ['/'] = function(state)
-          -- get_node() returns the node under the cursor; walk up to find
-          -- its parent directory so search is rooted at a meaningful path
-          local node = state.tree:get_node()
-          local dir  = node.type == 'directory'
-            and node:get_id()
-            or vim.fn.fnamemodify(node:get_id(), ':h')
-
-          require('telescope.builtin').find_files {
-            cwd        = dir,
-            hidden     = true,
-            no_ignore  = true,
-            prompt_title = 'Find files in ' .. vim.fn.fnamemodify(dir, ':~:.'),
-          }
-        end,
-
-        ['g/'] = function(state)
-          local node = state.tree:get_node()
-          local dir  = node.type == 'directory'
-            and node:get_id()
-            or vim.fn.fnamemodify(node:get_id(), ':h')
-
-          require('telescope.builtin').live_grep {
-            cwd          = dir,
-            prompt_title = 'Live grep in ' .. vim.fn.fnamemodify(dir, ':~:.'),
-          }
-        end,
-      },
+  -- Custom renderer for the virtual "← .." navigate-up node injected below.
+  renderers = {
+    nav_up = {
+      { 'indent', with_markers = false },
+      { 'name' },
     },
-
-    -- Custom command: cd into the node's directory with .
-    -- (overrides set_root to also change Neovim's global cwd)
   },
 
   enable_git_status  = true,
   enable_diagnostics = true,
 
-  -- Git status source keymaps
   git_status = {
     window = {
       mappings = {
@@ -167,7 +155,6 @@ require('neo-tree').setup {
     },
   },
 
-  -- Buffer source: shows open buffers like a buffer list
   buffers = {
     follow_current_file = { enabled = true },
     window = {
@@ -175,7 +162,6 @@ require('neo-tree').setup {
     },
   },
 
-  -- Icon and indent styling
   default_component_configs = {
     indent = {
       indent_size        = 2,
@@ -214,32 +200,49 @@ require('neo-tree').setup {
   },
 }
 
+-- ── "← .." navigate-up node ──────────────────────────────────
+-- Neo-tree has no built-in parent-navigation entry. We inject one by
+-- wrapping renderer.show_nodes: on every full filesystem tree render
+-- (parentId == nil) a virtual nav_up item is prepended to sourceItems.
+-- The open_or_up mapping above handles clicks/Enter on that node.
+do
+  local renderer = require('neo-tree.ui.renderer')
+  local orig = renderer.show_nodes
+  renderer.show_nodes = function(sourceItems, state, parentId, callback)
+    if state.name == 'filesystem' and parentId == nil
+        and sourceItems and #sourceItems > 0 then
+      local patched = { {
+        id    = '__nav_up__',
+        name  = '← ..',
+        type  = 'nav_up',
+        level = 0,
+        extra = {},
+        is_last_child = false,
+      } }
+      for _, v in ipairs(sourceItems) do
+        table.insert(patched, v)
+      end
+      sourceItems = patched
+    end
+    return orig(sourceItems, state, parentId, callback)
+  end
+end
+
 -- ── Startup behaviour ─────────────────────────────────────────
--- Open neo-tree on startup depending on how Neovim was launched:
---   nvim          → open tree at cwd, no file buffer
---   nvim .        → cd into the dir, open tree, wipe the dir buffer
---   nvim file.lua → open tree alongside the file
---
--- The vim.defer_fn delay lets neo-tree finish its own initialisation
--- before we try to open it.
 vim.defer_fn(function()
-  local argc = vim.fn.argc()
-  local arg0 = argc > 0 and vim.fn.argv(0) or ''
-  local is_dir = vim.fn.isdirectory(arg0) == 1
+  local argc    = vim.fn.argc()
+  local arg0    = argc > 0 and vim.fn.argv(0) or ''
+  local is_dir  = vim.fn.isdirectory(arg0) == 1
 
   if argc == 0 or is_dir then
-    -- Record the buffer Neovim opened for the directory (or the empty
-    -- scratch buffer) so we can wipe it after opening a clean one.
     local original_buf = vim.api.nvim_get_current_buf()
     if is_dir then
       vim.cmd('cd ' .. vim.fn.fnameescape(vim.fn.fnamemodify(arg0, ':p')))
     end
     vim.cmd('enew')
-    -- Wipe the directory/scratch buffer so it doesn't clutter the buffer list
     pcall(vim.api.nvim_buf_delete, original_buf, { force = true })
     vim.cmd('Neotree show filesystem left')
   else
-    -- A real file was given: open neo-tree alongside it
     vim.cmd('Neotree show filesystem left')
   end
 end, 50)
