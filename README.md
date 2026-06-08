@@ -275,6 +275,14 @@ Inside neo-tree:
 | `g/` | Telescope live grep scoped to directory under cursor |
 | `?` | Show help |
 
+### Python — run file
+
+| Key | Action |
+|-----|--------|
+| `<leader>pr` | Run current file in bottom terminal (reuses toggleterm #1) |
+
+Activates after the first Python file is opened. Uses the same Python binary resolution order as the LSP: project venv → `$VIRTUAL_ENV` → `.venv` in project root → system `python3`.
+
 ### Formatting
 
 | Key | Action |

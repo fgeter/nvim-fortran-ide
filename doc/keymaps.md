@@ -99,6 +99,16 @@ Inside neo-tree:
 
 ---
 
+## Python — run file
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<leader>pr` | Run current file in bottom terminal (reuses toggleterm #1) | `plugins/python.lua` |
+
+> Activates after the first Python file is opened. Uses the same Python binary resolution as the LSP and DAP (project venv → `$VIRTUAL_ENV` → system `python3`).
+
+---
+
 ## Formatting
 
 | Key | Action | Plugin |

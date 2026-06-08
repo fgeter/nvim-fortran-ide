@@ -260,6 +260,32 @@ local function activate()
     end,
   })
 
+  ---------------------------------------------------------------------------
+  -- Run current file
+  ---------------------------------------------------------------------------
+  -- <leader>pr — run the current Python file in the bottom toggleterm (#1).
+  -- Reuses the terminal if it exists; opens a new one otherwise.
+  -- A 200ms defer is used for brand-new terminals so the shell finishes
+  -- initialising before the command is sent.
+  vim.keymap.set('n', '<leader>pr', function()
+    local file = vim.fn.expand('%:p')
+    if file == '' then
+      vim.notify('No file in current buffer', vim.log.levels.WARN)
+      return
+    end
+    local python = get_python_bin()
+    local cmd    = python .. ' ' .. vim.fn.shellescape(file)
+    local terms  = require('toggleterm.terminal')
+    local term, is_new = terms.get_or_create_term(1, vim.fn.expand('%:p:h'), 'horizontal')
+    if is_new then
+      term:open(15)
+      vim.defer_fn(function() term:send(cmd) end, 200)
+    else
+      if not term:is_open() then term:open(15) end
+      term:send(cmd)
+    end
+  end, { desc = 'Python: run current file' })
+
   vim.notify('✅ Python tools loaded (LSP + DAP + ruff)', vim.log.levels.INFO)
 end
 
