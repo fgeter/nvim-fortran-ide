@@ -44,6 +44,7 @@
 |-----|--------|--------|
 | `<C-\>` | Toggle terminal (normal and terminal mode) | `plugins/toggleterm.lua` |
 | `<Esc><Esc>` | Exit terminal insert mode | `core/keymaps.lua` |
+| `<C-g>f` | Go to file:line under cursor (usable directly in terminal insert mode) | `core/keymaps.lua` |
 
 ---
 
@@ -96,6 +97,8 @@ Inside neo-tree:
 | `p` | Paste from clipboard | `plugins/neo-tree.lua` |
 | `H` | Toggle hidden files | `plugins/neo-tree.lua` |
 | `R` | Refresh tree | `plugins/neo-tree.lua` |
+| `/` | Telescope find files scoped to directory under cursor | `plugins/neo-tree.lua` |
+| `g/` | Telescope live grep scoped to directory under cursor | `plugins/neo-tree.lua` |
 | `?` | Show help | `plugins/neo-tree.lua` |
 
 ---
@@ -107,6 +110,16 @@ Inside neo-tree:
 | `<leader>pr` | Run current file in bottom terminal (reuses toggleterm #1) | `plugins/python.lua` |
 
 > Activates after the first Python file is opened. Uses the same Python binary resolution as the LSP and DAP (project venv → `$VIRTUAL_ENV` → system `python3`).
+
+---
+
+## Markdown (`<leader>m`) — markdown buffers only
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<leader>mr` | Toggle rendering on/off | `plugins/markdown.lua` |
+| `<leader>me` | Expand all sections | `plugins/markdown.lua` |
+| `<leader>mc` | Collapse all sections | `plugins/markdown.lua` |
 
 ---
 

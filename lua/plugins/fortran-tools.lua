@@ -4,55 +4,38 @@
 -- Configures:
 --   fortls    — Fortran language server (LSP hover, go-to-def, etc.)
 --   gdb       — Debug adapter via nvim-dap
---   nvim-dap-ui — Debug UI panels (scopes, breakpoints, watches, REPL)
+--
+-- dapui.setup(), auto open/close listeners, and all language-
+-- agnostic <leader>d* keymaps live in plugins/dap.lua.
+-- This file only adds what is Fortran-specific:
+--   • fortls LSP config + buffer-local keymaps
+--   • gdb DAP adapter + configurations
+--   • <leader>ds — custom executable/workdata picker for launching
+--   • K override — DAP eval during session, LSP hover otherwise
 --
 -- LAZY: Yes — everything inside activate() runs only on the first
---       FileType fortran event. This means:
---         • fortls is not started until a Fortran file is opened
---         • dapui.setup() runs exactly once (no race with dap.lua)
---         • require('dap') and require('dapui') are safe because
---           dap.lua (which installs both plugins) loads first
---
--- Project paths (repo_root, src_dir, work_root) are defined once
--- at the top of activate() and referenced throughout.
+--       FileType fortran event.
 -- ============================================================
 
 if vim.g.loaded_fortran_tools then return end
 vim.g.loaded_fortran_tools = true
 
 -- ── Paths ────────────────────────────────────────────────────
--- Read from vim.g variables set by the project's .nvim.lua file.
--- Falls back to cwd-relative defaults so fortran-tools works for
--- any Fortran project even without a .nvim.lua config.
 local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
 local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
 local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
 local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 
--- ── activate() ───────────────────────────────────────────────
--- All setup is deferred into this function and run once on
--- FileType fortran. Nothing executes at require() time.
 local function activate()
   if vim.g.fortran_tools_active then return end
   vim.g.fortran_tools_active = true
 
-  -- DAP and DAP-UI are installed by plugins/dap.lua which loads
-  -- before this file (alphabetical order). Safe to require here.
   local dap   = require('dap')
   local dapui = require('dapui')
 
   ---------------------------------------------------------------------------
   -- LSP: fortls
   ---------------------------------------------------------------------------
-  -- fortls is the Fortran Language Server. It provides:
-  --   • Hover documentation (K)
-  --   • Go-to-definition (grd via telescope)
-  --   • Find references (grr via telescope)
-  --   • Symbol rename (grn)
-  --   • Diagnostics (syntax errors, undefined variables)
-  --
-  -- root_markers tells Neovim where the project root is. It walks up
-  -- from the current file until it finds one of these files/dirs.
   vim.lsp.config('fortls', {
     cmd          = { 'fortls', '--lowercase_intrinsics' },
     filetypes    = { 'fortran' },
@@ -63,12 +46,11 @@ local function activate()
   })
   vim.lsp.enable('fortls')
 
-  -- Buffer-local LSP keymaps for Fortran files.
-  -- NOTE: gd/gr are intentionally omitted — grd/grr from telescope.lua
-  --       provide the same functionality with a better picker UI.
-  --       K is overridden below in the hover section to support DAP eval.
+  -- Buffer-local LSP + K keymaps for Fortran files.
+  -- K is overridden to show DAP eval during a session, LSP hover otherwise.
   vim.api.nvim_create_autocmd('LspAttach', {
     pattern  = { '*.f90', '*.f95', '*.f03', '*.f08', '*.for', '*.f' },
+    group    = vim.api.nvim_create_augroup('fortran-lsp-attach', { clear = true }),
     callback = function(ev)
       local opts = { buffer = ev.buf }
       vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename,
@@ -82,11 +64,8 @@ local function activate()
       vim.keymap.set('n', ']d', function() vim.diagnostic.jump({ count =  1 }) end,
         vim.tbl_extend('force', opts, { desc = 'Diagnostics: next' }))
 
-      -- K: context-aware hover.
-      --   • During a DAP session → show variable value in a float
-      --   • Otherwise           → show LSP hover documentation
-      -- CursorMoved closes the DAP eval float immediately on move
-      -- so it never gets stuck open like a CursorHold-based approach.
+      -- K: DAP eval during session, LSP hover otherwise.
+      -- CursorMoved closes the eval float immediately so it never gets stuck.
       vim.keymap.set('n', 'K', function()
         if dap.session() then
           dapui.eval(nil, { enter = false })
@@ -107,9 +86,6 @@ local function activate()
   ---------------------------------------------------------------------------
   -- DAP: gdb adapter
   ---------------------------------------------------------------------------
-  -- The gdb DAP adapter launches gdb with the --interpreter=dap flag so
-  -- gdb speaks the Debug Adapter Protocol that nvim-dap understands.
-  -- set print pretty on makes struct/derived-type output readable.
   dap.adapters.gdb = {
     type    = 'executable',
     command = 'gdb',
@@ -148,7 +124,6 @@ local function activate()
     return execs
   end
 
-  -- Collect workdata directories (each is a self-contained model run)
   local function get_workdirs()
     local dirs = {}
     for _, path in ipairs(vim.fn.globpath(WORK_ROOT, '*', false, true)) do
@@ -159,11 +134,6 @@ local function activate()
     return dirs
   end
 
-  -- Start a DAP session with the chosen executable and working directory.
-  -- initCommands tells gdb where to find Fortran source files for
-  -- source-level stepping.
-  -- stopAtBeginningOfMainSubprogram is intentionally omitted so the
-  -- debugger runs straight to the first breakpoint you set.
   local function launch(program, cwd)
     dap.run({
       name         = 'Launch swatplus',
@@ -175,7 +145,6 @@ local function activate()
     })
   end
 
-  -- Pick a workdata directory then launch
   local function pick_cwd_and_launch(program)
     local dirs = get_workdirs()
     if #dirs == 0 then
@@ -194,10 +163,9 @@ local function activate()
     end)
   end
 
-  -- Pick a debug executable, then pick a workdata directory, then launch
   local function pick_and_launch()
     local execs = get_executables()
-    if #execs == 0 then return end  -- get_executables already notified
+    if #execs == 0 then return end
     if #execs == 1 then
       pick_cwd_and_launch(execs[1])
       return
@@ -205,7 +173,7 @@ local function activate()
     vim.ui.select(execs, {
       prompt      = 'Select debug executable:',
       format_item = function(item)
-        return item:gsub(BUILD_ROOT .. '/', '')  -- show relative path
+        return item:gsub(BUILD_ROOT .. '/', '')
       end,
     }, function(choice)
       if choice then pick_cwd_and_launch(choice) end
@@ -213,139 +181,18 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- DAP-UI layout
+  -- <leader>ds — Fortran-specific start/continue
   ---------------------------------------------------------------------------
-  -- dapui.setup() is called exactly once here (not in dap.lua) so the
-  -- layout is deterministic. The old kickstart debug.lua called setup()
-  -- with a different icon set, causing a race — that file is replaced
-  -- by the minimal plugins/dap.lua which does not call setup().
-  dapui.setup {
-    controls = {
-      element = 'repl',
-      enabled = true,
-      icons = {
-        disconnect = '',
-        pause      = '',
-        play       = '',
-        run_last   = '',
-        step_back  = '',
-        step_into  = '',
-        step_out   = '',
-        step_over  = '',
-        terminate  = '',
-      },
-    },
-    element_mappings = {},
-    expand_lines     = true,
-    floating = {
-      border   = 'single',
-      mappings = { close = { 'q', '<Esc>' } },
-    },
-    force_buffers = true,
-    icons = {
-      collapsed     = '',
-      current_frame = '',
-      expanded      = '',
-    },
-    layouts = {
-      {
-        -- Left panel: variable scopes, breakpoints, call stack, watches
-        elements = {
-          { id = 'scopes',      size = 0.35 },
-          { id = 'breakpoints', size = 0.20 },
-          { id = 'stacks',      size = 0.25 },
-          { id = 'watches',     size = 0.20 },
-        },
-        size     = 50,
-        position = 'left',
-      },
-      {
-        -- Bottom panel: REPL for evaluating expressions + console output
-        elements = {
-          { id = 'repl',    size = 0.5 },
-          { id = 'console', size = 0.5 },
-        },
-        size     = 12,
-        position = 'bottom',
-      },
-    },
-    mappings = {
-      edit   = 'e',
-      expand = { '<CR>', '<2-LeftMouse>' },
-      open   = 'o',
-      remove = 'd',
-      repl   = 'r',
-      toggle = 't',
-    },
-    render = {
-      indent          = 1,
-      max_type_length = 50,
-      max_value_lines = 200,
-    },
-  }
-
-  -- Auto open/close the UI panels with the debug session
-  dap.listeners.after.event_initialized['dapui_config']  = function() dapui.open()  end
-  dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close() end
-  dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
-
-  ---------------------------------------------------------------------------
-  -- DAP keymaps
-  ---------------------------------------------------------------------------
-  -- All DAP keymaps use the <leader>d prefix so they form a logical group
-  -- visible in which-key. F1-F5/F7 aliases are in plugins/dap.lua.
-
-  -- Start/continue: launch picker if no session, continue to next
-  -- breakpoint if a session is already running
+  -- Shows an executable + workdata picker when no session is active.
+  -- Common DAP keymaps (<leader>dq, <leader>dn, etc.) are in dap.lua.
   vim.keymap.set('n', '<leader>ds', function()
     if dap.session() then dap.continue() else pick_and_launch() end
   end, { desc = 'DAP: start / continue' })
-
-  vim.keymap.set('n', '<leader>dq', function() dap.terminate() end, { desc = 'DAP: terminate' })
-  vim.keymap.set('n', '<leader>dr', function() dap.restart()   end, { desc = 'DAP: restart' })
-
-  -- Stepping
-  vim.keymap.set('n', '<leader>dn', function() dap.step_over()     end, { desc = 'DAP: step over' })
-  vim.keymap.set('n', '<leader>di', function() dap.step_into()     end, { desc = 'DAP: step into' })
-  vim.keymap.set('n', '<leader>do', function() dap.step_out()      end, { desc = 'DAP: step out' })
-  vim.keymap.set('n', '<leader>dc', function() dap.run_to_cursor() end, { desc = 'DAP: run to cursor' })
-
-  -- Breakpoints
-  vim.keymap.set('n', '<leader>db', function() dap.toggle_breakpoint() end,
-    { desc = 'DAP: toggle breakpoint' })
-  vim.keymap.set('n', '<leader>dB', function()
-    dap.set_breakpoint(vim.fn.input('Breakpoint condition: '))
-  end, { desc = 'DAP: conditional breakpoint' })
-  vim.keymap.set('n', '<leader>dL', function()
-    dap.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))
-  end, { desc = 'DAP: log point' })
-  vim.keymap.set('n', '<leader>dx', function() dap.clear_breakpoints() end,
-    { desc = 'DAP: clear all breakpoints' })
-
-  -- Watches: add the word under the cursor to the watches panel
-  vim.keymap.set('n', '<leader>dw', function()
-    local word = vim.fn.expand('<cword>')
-    vim.ui.input({ prompt = 'Add to watches: ', default = word }, function(input)
-      if input and input ~= '' then
-        require('dapui').elements['watches'].add(input)
-        vim.notify('Watching: ' .. input, vim.log.levels.INFO)
-      end
-    end)
-  end, { desc = 'DAP: add to watches' })
-
-  -- UI controls
-  vim.keymap.set('n', '<leader>dU', function() dapui.toggle() end, { desc = 'DAP: toggle UI' })
-  vim.keymap.set('n', '<leader>de', function() dapui.eval()   end, { desc = 'DAP: eval expression' })
-  vim.keymap.set('v', '<leader>de', function() dapui.eval()   end, { desc = 'DAP: eval selection' })
-  vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP: open REPL' })
 
   vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
 
 -- ── Trigger ──────────────────────────────────────────────────
--- activate() runs once on the first FileType fortran event.
--- `once = true` removes the autocmd after the first fire so it
--- never runs again even if another Fortran buffer is opened.
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'fortran',
   once     = true,

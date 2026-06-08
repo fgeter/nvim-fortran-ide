@@ -42,7 +42,7 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 
 **Always-loaded plugins** (load at startup):
 - `completion.lua` — blink.cmp + LuaSnip
-- `dap.lua` — nvim-dap + nvim-dap-ui install only; F-key aliases
+- `dap.lua` — nvim-dap + nvim-dap-ui install + dapui.setup + listeners + all language-agnostic `<leader>d*` keymaps
 - `git.lua` — gitsigns + lazygit wrappers
 - `lsp.lua` — Mason + nvim-lspconfig + fidget
 - `neo-tree.lua` — file explorer, opens at startup
@@ -58,20 +58,20 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 
 ### Fortran / SWAT+ project integration
 
-The config is tightly coupled to a specific project at `/home/fgeter/code/swatplus_repos/swatplus_fg_fork`. Both `cmake-tools.lua` and `fortran-tools.lua` hardcode these paths at the top of their files:
+Both `cmake-tools.lua` and `fortran-tools.lua` read project paths from `vim.g` variables set by the project's `.nvim.lua` file. They do **not** hardcode any paths. Each variable falls back to a cwd-relative default so the tools work for any Fortran/CMake project even without a `.nvim.lua`:
 
 ```lua
-local REPO_ROOT  = '/home/fgeter/code/swatplus_repos/swatplus_fg_fork'
-local SRC_DIR    = REPO_ROOT .. '/src'
-local WORK_ROOT  = REPO_ROOT .. '/workdata'
-local BUILD_ROOT = REPO_ROOT .. '/build'
+local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
+local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
+local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
+local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 ```
 
-If the project moves, update `REPO_ROOT` in both files.
+Set these in your project's `.nvim.lua` (see `doc/swatplus.nvim.lua.template`).
 
 **Fortran LSP** (`fortls`) is configured in `fortran-tools.lua`, not `lsp.lua`, because it is lazy-loaded. It requires `fortls` to be installed separately (not via Mason).
 
-**DAP** for Fortran uses `gdb --interpreter=dap`. `dapui.setup()` is called exactly once in `fortran-tools.lua`'s `activate()` — do not add another `dapui.setup()` call elsewhere.
+**DAP** for Fortran uses `gdb --interpreter=dap`. `dapui.setup()` is called exactly once in `dap.lua` at startup. Do not add another `dapui.setup()` call in language files.
 
 ### Timing-sensitive defers in `cmake-tools.lua`
 
@@ -95,7 +95,7 @@ Servers are configured with `vim.lsp.config(name, opts)` and enabled with `vim.l
 |--------|-------|-----------|
 | `<leader>b` | Buffer operations | `core/keymaps.lua` |
 | `<leader>c` | CMake | `plugins/cmake-tools.lua` |
-| `<leader>d` | DAP / Debug | `plugins/fortran-tools.lua`, `plugins/dap.lua` |
+| `<leader>d` | DAP / Debug | `plugins/dap.lua` (common); `<leader>ds` in language files |
 | `<leader>g` | Git (repo-level) | `plugins/git.lua` |
 | `<leader>h` | Git hunks (gitsigns) | `plugins/git.lua` |
 | `<leader>s` | Search (Telescope) | `plugins/telescope.lua` |

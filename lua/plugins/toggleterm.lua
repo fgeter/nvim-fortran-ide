@@ -20,26 +20,7 @@ local function gh(repo) return 'https://github.com/' .. repo end
 
 vim.pack.add { gh 'akinsho/toggleterm.nvim' }
 
--- Helper: find the first real editor window, skipping neo-tree,
--- other terminal windows, and all dap-ui panels.
--- Returns the window handle or nil if none is found.
-local function find_editor_win()
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    local buf = vim.api.nvim_win_get_buf(win)
-    local ft  = vim.bo[buf].filetype
-    if vim.bo[buf].buftype == ''
-      and ft ~= 'neo-tree'
-      and ft ~= 'toggleterm'
-      and ft ~= 'dapui_watches'
-      and ft ~= 'dapui_scopes'
-      and ft ~= 'dapui_breakpoints'
-      and ft ~= 'dapui_stacks'
-      and ft ~= 'dap-repl' then
-      return win
-    end
-  end
-  return nil
-end
+local find_editor_win = require('core.utils').find_editor_win
 
 require('toggleterm').setup {
   size            = 15,

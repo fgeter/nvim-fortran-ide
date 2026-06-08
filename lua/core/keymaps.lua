@@ -104,25 +104,10 @@ local function open_file_at_cursor()
   end
 
   -- Find an existing editor window to reuse, or create one above the terminal.
-  -- Priority: any window showing a normal file buffer (not terminal/neo-tree/dap-ui).
-  -- This replaces the file in that window rather than opening a new split.
   local current_win = vim.api.nvim_get_current_win()
-  local target_win  = nil
-
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if win ~= current_win then
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft  = vim.bo[buf].filetype
-      local bt  = vim.bo[buf].buftype
-      if bt == '' and ft ~= 'neo-tree' and ft ~= 'toggleterm'
-        and ft ~= 'dapui_watches' and ft ~= 'dapui_scopes'
-        and ft ~= 'dapui_breakpoints' and ft ~= 'dapui_stacks'
-        and ft ~= 'dap-repl' then
-        target_win = win
-        break
-      end
-    end
-  end
+  local target_win  = require('core.utils').find_editor_win()
+  -- Exclude the terminal window itself from consideration
+  if target_win == current_win then target_win = nil end
 
   if not target_win then
     -- No editor window exists — create a split above the current window

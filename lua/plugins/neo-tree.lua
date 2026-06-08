@@ -37,7 +37,9 @@ vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>',
 -- <leader>\ opens the buffers view and moves focus into the neo-tree window
 vim.keymap.set('n', '<leader>\\', function()
   vim.cmd('Neotree show buffers left')
-  vim.defer_fn(function()
+  -- vim.schedule waits for the event loop to process the Neotree command
+  -- (window creation is synchronous but queued) before we scan for the window.
+  vim.schedule(function()
     for _, win in ipairs(vim.api.nvim_list_wins()) do
       local buf = vim.api.nvim_win_get_buf(win)
       if vim.bo[buf].filetype == 'neo-tree' then
@@ -45,7 +47,7 @@ vim.keymap.set('n', '<leader>\\', function()
         break
       end
     end
-  end, 50)
+  end)
 end, { desc = 'Neo-tree: focus buffer list', silent = true })
 
 -- ── Helpers ───────────────────────────────────────────────────

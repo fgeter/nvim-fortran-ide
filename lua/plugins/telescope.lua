@@ -35,8 +35,18 @@ require('telescope').setup {
   },
 }
 
--- Load extensions (pcall so a missing build doesn't stop startup)
-pcall(require('telescope').load_extension, 'fzf')
+-- Load extensions. fzf is optional (requires compiled C); warn if the build
+-- is missing so the user knows they are on the slower Lua matcher.
+if vim.fn.executable('make') == 1 then
+  local ok = pcall(require('telescope').load_extension, 'fzf')
+  if not ok then
+    vim.notify(
+      'telescope-fzf-native: native sorter failed to load.\n' ..
+      'Falling back to Lua matcher (slower on large projects).\n' ..
+      'Try deleting ~/.local/share/nvim/site/pack/core/opt/telescope-fzf-native.nvim and restarting.',
+      vim.log.levels.WARN)
+  end
+end
 pcall(require('telescope').load_extension, 'ui-select')
 
 -- ── Keymaps ──────────────────────────────────────────────────
