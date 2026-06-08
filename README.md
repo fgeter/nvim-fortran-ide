@@ -1,26 +1,41 @@
 # Neovim Configuration
 
-A Neovim configuration focused on Fortran development, built around the SWAT+ hydrological model project. Provides a full IDE experience with LSP, debugging (GDB), CMake integration, and git tooling.
+A general-purpose Neovim configuration with first-class support for Fortran
+and Python development. Provides a full IDE experience — LSP, debugging,
+CMake integration, git tooling, and fuzzy search — with a project-local
+config system that keeps language-specific paths out of the shared config.
 
-## Purpose
+## Features
 
-- **Fortran LSP** via `fortls` — hover docs, go-to-definition, find references, diagnostics
-- **GDB debugging** via `nvim-dap` with a full UI (scopes, breakpoints, watches, call stack, REPL)
-- **CMake integration** — preset selection, configure, build (`-j 32`), run with workdata picker
-- **Git** — inline hunk signs, lazygit UI, async push/pull, branch management
+- **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`)
+- **Debugging** — GDB adapter for Fortran, debugpy for Python, full DAP UI
+- **CMake** — preset selection, configure, parallel build, run with workdata picker
+- **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management
 - **File navigation** — neo-tree sidebar, Telescope fuzzy finder, recent files
 - **Completion** — `blink.cmp` with LSP, path, snippet, and buffer sources
+- **Formatting** — `conform.nvim` with `ruff` for Python, LSP fallback for others
+- **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
+- **Project-local config** — per-project `.nvim.lua` sets paths; shared language
+  configs in `lua/projects/` are inherited so plugin files have no hardcoded paths
 
 ## Requirements
 
-- **Neovim ≥ 0.11** (uses built-in `vim.pack` package manager and `vim.lsp.config`/`vim.lsp.enable`)
-- **[Nerd Font](https://www.nerdfonts.com/)** in your terminal (icons throughout the UI). I use mononike nerd font 11 pt.
-- **`fortls`** — Fortran language server: `pip install fortls`,  If on Arch, must be loaded via pacman.
-- **`gdb`** — GNU debugger for DAP: install via your system package manager
-- **`lazygit`** — terminal git UI: see [lazygit releases](https://github.com/jesseduffield/lazygit)
+- **Neovim ≥ 0.11** — uses `vim.pack`, `vim.lsp.config`, and `vim.lsp.enable`
+- **[Nerd Font](https://www.nerdfonts.com/)** — icons throughout the UI (Mononoki Nerd Font 11pt recommended)
+- **`git`** — version control
 - **`make`** — for compiling the Telescope fzf native sorter (optional but recommended)
-- **`CMake`** - must install for using cmake with swatplus
-- **`git`** - must install if you wish to submit pull requests 
+- **`ripgrep`** — for Telescope live grep (`rg`)
+
+**Fortran development:**
+- **`fortls`** — `pip install fortls` (Arch: `pacman -S fortls`)
+- **`gdb`** — GNU debugger: install via system package manager
+- **`cmake`** — for CMake integration
+- **`gfortran`** — for linting
+
+**Python development (installed via Mason on first use):**
+- `basedpyright` — Python language server
+- `debugpy` — Python debug adapter
+- `ruff` — Python formatter and linter
 
 Mason auto-installs `lua_ls` and `stylua` on first launch.
 
@@ -37,16 +52,101 @@ git clone <your-repo-url> ~/.config/nvim
 nvim
 ```
 
-On first launch Neovim will download all plugins via `vim.pack`. Mason will then install `lua_ls` and `stylua`. Treesitter parsers install automatically when you first open a file of each language.
+On first launch Neovim downloads all plugins via `vim.pack`. Mason installs
+`lua_ls` and `stylua`. Treesitter parsers install automatically when you
+first open a file of each language.
 
-If your terminal does not have a Nerd Font, set `vim.g.have_nerd_font = false` in `init.lua`.
+If your terminal does not have a Nerd Font, set `vim.g.have_nerd_font = false`
+in `init.lua`.
 
-## Project paths (Fortran / SWAT+)
+**Python tools** — install once after first launch:
+```
+:MasonInstall basedpyright debugpy ruff
+```
 
-The CMake and Fortran tool configs hardcode paths to the SWAT+ project. Update these at the top of both files if your project location differs:
+## Project-local configuration
 
-- `lua/plugins/cmake-tools.lua` — `REPO_ROOT`, `WORK_ROOT`, `BUILD_ROOT`
-- `lua/plugins/fortran-tools.lua` — `REPO_ROOT`, `SRC_DIR`, `WORK_ROOT`, `BUILD_ROOT`
+Each project has a `.nvim.lua` file in its root that sets project-specific
+paths and loads the appropriate shared language config. This means the plugin
+files contain no hardcoded paths and work for any project of that language.
+
+### Setting up a project
+
+**Step 1 — copy a template from `doc/`:**
+```bash
+# Fortran / CMake project
+cp ~/.config/nvim/doc/swatplus.nvim.lua.template ~/myproject/.nvim.lua
+
+# Python project
+cp ~/.config/nvim/doc/python-project.nvim.lua.template ~/myproject/.nvim.lua
+```
+
+**Step 2 — edit the template** to set `vim.g.project_name` and any paths.
+
+**Step 3 — trust the file** (required once per project):
+```bash
+nvim ~/myproject/.nvim.lua
+# inside Neovim:
+:trust
+:q
+```
+
+**Step 4 — open the project:**
+```bash
+cd ~/myproject && nvim
+```
+
+**Step 5 — verify:**
+```
+:lua print(vim.g.project_name)
+```
+
+### Path variables set in `.nvim.lua`
+
+| Variable | Description |
+|----------|-------------|
+| `vim.g.project_name` | Display name shown in notifications |
+| `vim.g.project_repo_root` | Absolute project root path |
+| `vim.g.project_src_dir` | Source files directory (Fortran) |
+| `vim.g.project_work_root` | Workdata / model run directory (Fortran) |
+| `vim.g.project_build_root` | CMake build output directory |
+| `vim.g.project_venv` | Virtualenv path (Python, optional) |
+| `vim.g.project_python_bin` | Explicit Python binary (Python, optional) |
+
+## Configuration structure
+
+```
+~/.config/nvim/
+├── init.lua                    — entry point; auto-loads lua/plugins/
+├── doc/
+│   ├── README.md               — this file
+│   ├── keymaps.md              — full keymap reference with plugin sources
+│   ├── swatplus.nvim.lua.template        — Fortran/CMake project template
+│   └── python-project.nvim.lua.template  — Python project template
+└── lua/
+    ├── core/
+    │   ├── options.lua         — editor settings
+    │   ├── keymaps.lua         — global keymaps
+    │   └── autocmds.lua        — global autocommands
+    ├── plugins/                — one file per plugin; all auto-loaded
+    │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments
+    │   ├── telescope.lua       — fuzzy finder
+    │   ├── lsp.lua             — mason, lspconfig, fidget
+    │   ├── completion.lua      — blink.cmp + luasnip    [lazy: InsertEnter]
+    │   ├── formatting.lua      — conform.nvim            [lazy: <leader>f]
+    │   ├── treesitter.lua      — syntax highlighting     [lazy: FileType]
+    │   ├── git.lua             — gitsigns + lazygit
+    │   ├── neo-tree.lua        — file explorer
+    │   ├── toggleterm.lua      — persistent terminal
+    │   ├── dap.lua             — DAP core + F-key aliases
+    │   ├── markdown.lua        — render-markdown.nvim
+    │   ├── cmake-tools.lua     — CMake integration       [lazy: DirChanged]
+    │   ├── fortran-tools.lua   — Fortran LSP + DAP       [lazy: FileType fortran]
+    │   └── python.lua          — Python LSP + DAP        [lazy: FileType python]
+    └── projects/               — shared language configs
+        ├── fortran.lua         — sourced by Fortran project .nvim.lua files
+        └── python.lua          — sourced by Python project .nvim.lua files
+```
 
 ## Keymaps
 
@@ -60,7 +160,8 @@ Leader key: `<Space>`
 | `<C-s>` | Save file |
 | `<C-h/j/k/l>` | Move between splits |
 | `<leader>q` | Open diagnostics in location list |
-| `gF` | Go to file:line under cursor in a split |
+| `gF` | Open file:line under cursor in editor window (from compiler errors) |
+| `<C-g>f` | Same as gF but usable directly in terminal insert mode |
 | `<Esc><Esc>` | Exit terminal insert mode |
 
 ### Buffers (`<leader>b`)
@@ -83,18 +184,20 @@ Leader key: `<Space>`
 
 | Key | Action |
 |-----|--------|
-| `<C-\>` | Toggle terminal |
+| `<C-\>` | Toggle terminal (normal and terminal mode) |
+| `<Esc><Esc>` | Exit terminal insert mode |
 
 ### Search (`<leader>s`)
 
 | Key | Action |
 |-----|--------|
-| `<leader>sf` | Find files (including hidden/gitignored) |
+| `<leader>sf` | Find files (all, including hidden/gitignored) |
 | `<leader>sg` | Live grep |
 | `<leader>sw` | Grep word under cursor |
 | `<leader>s/` | Grep in open buffers |
 | `<leader>sh` | Search help tags |
 | `<leader>sk` | Search keymaps |
+| `<leader>ss` | Search Telescope pickers |
 | `<leader>sd` | Search diagnostics |
 | `<leader>sr` | Resume last picker |
 | `<leader>sc` | Search commands |
@@ -102,7 +205,7 @@ Leader key: `<Space>`
 | `<leader>/` | Fuzzy search current buffer |
 | `<leader>rf` | Recent files |
 
-### File Tree (neo-tree)
+### File tree (neo-tree)
 
 | Key | Action |
 |-----|--------|
@@ -113,14 +216,18 @@ Inside neo-tree:
 
 | Key | Action |
 |-----|--------|
-| `<CR>` on line 1 | Navigate to parent directory (`← ..`) |
 | `<CR>` / `o` | Open file or expand directory |
 | `s` / `v` | Open in horizontal / vertical split |
 | `<BS>` | Navigate up one directory |
+| `.` | Set as tree root |
 | `a` / `d` / `r` | Add / delete / rename |
 | `c` / `m` | Copy / move |
+| `y` / `x` / `p` | Copy / cut / paste |
 | `H` | Toggle hidden files |
 | `R` | Refresh |
+| `/` | Telescope find files scoped to directory under cursor |
+| `g/` | Telescope live grep scoped to directory under cursor |
+| `?` | Show help |
 
 ### Formatting
 
@@ -132,7 +239,7 @@ Inside neo-tree:
 
 | Key | Action |
 |-----|--------|
-| `<leader>mr` | Toggle rendering |
+| `<leader>mr` | Toggle rendering on/off |
 | `<leader>me` | Expand all sections |
 | `<leader>mc` | Collapse all sections |
 
@@ -142,17 +249,17 @@ Inside neo-tree:
 |-----|--------|
 | `<leader>cp` | Select preset + auto-run Generate |
 | `<leader>cg` | CMake Generate (configure) |
-| `<leader>cb` | Build with max threads (`-j <max>`) |
-| `<leader>cB` | Build with one thread (`-j 1`) |
-| `<leader>cx` | Clean |
+| `<leader>cb` | Build using all CPU cores (detected via `nproc`) |
+| `<leader>cB` | Build single-threaded (`-j 1`) — cleaner error output |
+| `<leader>cx` | Clean active preset |
 | `<leader>cd` | Delete build directory (prompts confirmation) |
-| `<leader>cr` | Run swatplus (pick executable + workdata) |
+| `<leader>cr` | Run executable — pick exe + workdata, cleans output files first |
 
-### Debug / DAP (`<leader>d`) — activates on first Fortran file
+### Debug / DAP (`<leader>d`) — activates on first Fortran or Python file
 
 | Key | Alt | Action |
 |-----|-----|--------|
-| `<leader>ds` | | Start / continue (launches picker if no session) |
+| `<leader>ds` | | Start / continue |
 | `<leader>dq` | | Terminate session |
 | `<leader>dr` | | Restart session |
 | `<leader>dn` | `<F2>` | Step over |
@@ -167,11 +274,12 @@ Inside neo-tree:
 | `<leader>dU` | `<F7>` | Toggle DAP UI |
 | `<leader>de` | | Eval expression / selection |
 | `<leader>dR` | | Open REPL |
-| | `<F5>` | Continue |
+| | `<F5>` | Continue (global alias) |
 
-Press `K` over any variable during a debug session to inspect its value.
+Press `K` over any variable during a debug session to inspect its current
+value. Move the cursor to close the popup.
 
-### Git (`<leader>g`)
+### Git operations (`<leader>g`)
 
 | Key | Action |
 |-----|--------|
@@ -184,7 +292,7 @@ Press `K` over any variable during a debug session to inspect its value.
 | `<leader>gd` | Delete branch |
 | `<leader>gm` | Merge branch |
 
-### Git Hunks (`<leader>h`) — gitsigns
+### Git hunks (`<leader>h`) — gitsigns
 
 | Key | Mode | Action |
 |-----|------|--------|
@@ -194,10 +302,13 @@ Press `K` over any variable during a debug session to inspect its value.
 | `<leader>hS` | n | Stage buffer |
 | `<leader>hR` | n | Reset buffer |
 | `<leader>hp` | n | Preview hunk |
+| `<leader>hi` | n | Preview hunk inline |
 | `<leader>hb` | n | Blame line |
 | `<leader>hd` | n | Diff against index |
 | `<leader>hD` | n | Diff against last commit |
-| `ih` | o/x | Select inside hunk |
+| `<leader>hq` | n | Quickfix hunks (this file) |
+| `<leader>hQ` | n | Quickfix hunks (all files) |
+| `ih` | o/x | Select inside hunk (text object) |
 
 ### LSP — all languages
 
@@ -207,14 +318,17 @@ Press `K` over any variable during a debug session to inspect its value.
 | `gra` | n/x | Code action |
 | `grD` | n | Go to declaration |
 | `grr` | n | References (Telescope) |
-| `gri` | n | Implementations |
+| `gri` | n | Implementations (Telescope) |
 | `grd` | n | Definition (Telescope) |
 | `gO` | n | Document symbols |
 | `gW` | n | Workspace symbols |
-| `K` | n | Hover docs (or DAP eval during debug) |
+| `grt` | n | Type definition |
+| `K` | n | Hover docs (or DAP eval during debug session) |
 | `<leader>th` | n | Toggle inlay hints |
 | `[d` / `]d` | n | Previous / next diagnostic |
 | `<leader>e` | n | Show diagnostic float |
+| `<leader>rn` | n | Rename symbol (language-specific buffers) |
+| `<leader>ca` | n | Code action (language-specific buffers) |
 
 ### Toggles (`<leader>t`)
 
