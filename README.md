@@ -260,9 +260,11 @@ Inside neo-tree:
 
 | Key | Action |
 |-----|--------|
-| `<CR>` / `o` | Open file or expand directory |
+| `← ..` | Click to navigate up (visual entry always shown at top of tree) |
+| `<CR>` / `o` | Open file or expand directory; on `← ..` navigates up |
 | `s` / `v` | Open in horizontal / vertical split |
 | `<BS>` | Navigate up one directory |
+| `t` | Open bottom terminal at directory under cursor (reuses toggleterm #1) |
 | `.` | Set as tree root |
 | `a` / `d` / `r` | Add / delete / rename |
 | `c` / `m` | Copy / move |

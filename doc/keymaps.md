@@ -78,10 +78,12 @@ Inside neo-tree:
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<CR>` / `o` | Open file | `plugins/neo-tree.lua` |
+| `← ..` | Click to navigate up one directory (visual entry at top of tree) | `plugins/neo-tree.lua` |
+| `<CR>` / `o` | Open file or expand directory; on `← ..` navigates up | `plugins/neo-tree.lua` |
 | `s` | Open in horizontal split | `plugins/neo-tree.lua` |
 | `v` | Open in vertical split | `plugins/neo-tree.lua` |
 | `<BS>` | Navigate up one directory | `plugins/neo-tree.lua` |
+| `t` | Open bottom terminal at directory under cursor (reuses toggleterm #1) | `plugins/neo-tree.lua` |
 | `.` | Set as tree root | `plugins/neo-tree.lua` |
 | `a` | Add file/directory | `plugins/neo-tree.lua` |
 | `d` | Delete | `plugins/neo-tree.lua` |

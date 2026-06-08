@@ -13,6 +13,7 @@
 -- Keymaps:
 --   \         — reveal current file in neo-tree (or open tree)
 --   <leader>\ — show and focus open buffers in neo-tree
+--   t         — open bottom terminal here (reuses toggleterm #1)
 --
 -- LAZY: No — neo-tree opens at startup and must be ready immediately.
 -- ============================================================
@@ -83,6 +84,29 @@ require('neo-tree').setup {
       ['H']             = 'toggle_hidden',
       ['R']             = 'refresh',
       ['?']             = 'show_help',
+
+      -- Open (or reuse) the bottom toggleterm terminal, cd-ing into the
+      -- directory of the node under the cursor.
+      ['t'] = function(state)
+        local node = state.tree:get_node()
+        local dir
+        if node.id == '__nav_up__' then
+          dir = vim.fn.fnamemodify(state.path, ':h')
+        elseif node.type == 'directory' then
+          dir = node:get_id()
+        else
+          dir = vim.fn.fnamemodify(node:get_id(), ':h')
+        end
+
+        local terms = require('toggleterm.terminal')
+        local term, is_new = terms.get_or_create_term(1, dir, 'horizontal')
+        if is_new then
+          term:open(15)
+        else
+          if not term:is_open() then term:open(15) end
+          term:change_dir(dir)
+        end
+      end,
 
       -- Telescope search scoped to the directory under the cursor
       ['/'] = function(state)
