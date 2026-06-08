@@ -5,6 +5,13 @@ and Python development. Provides a full IDE experience — LSP, debugging,
 CMake integration, git tooling, and fuzzy search — with a project-local
 config system that keeps language-specific paths out of the shared config.
 
+> **Platform:** This configuration has been developed and tested on **Linux
+> only** (Arch Linux with Wayland). It should work on macOS with minor
+> adjustments (notably `nproc` → `sysctl -n hw.logicalcpu` for CPU core
+> detection, and system package manager differences), but this has not been
+> verified. **Pull requests adding macOS instructions or compatibility fixes
+> are very welcome.**
+
 ## Features
 
 - **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`)
