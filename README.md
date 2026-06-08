@@ -171,7 +171,8 @@ cd ~/myproject && nvim
     ├── core/
     │   ├── options.lua         — editor settings
     │   ├── keymaps.lua         — global keymaps
-    │   └── autocmds.lua        — global autocommands
+    │   ├── autocmds.lua        — global autocommands
+    │   └── utils.lua           — shared helpers (find_editor_win)
     ├── plugins/                — one file per plugin; all auto-loaded
     │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments
     │   ├── telescope.lua       — fuzzy finder
@@ -182,7 +183,7 @@ cd ~/myproject && nvim
     │   ├── git.lua             — gitsigns + lazygit
     │   ├── neo-tree.lua        — file explorer
     │   ├── toggleterm.lua      — persistent terminal
-    │   ├── dap.lua             — DAP core + F-key aliases
+    │   ├── dap.lua             — DAP core, dapui setup + listeners, all <leader>d* keymaps
     │   ├── markdown.lua        — render-markdown.nvim
     │   ├── cmake-tools.lua     — CMake integration       [lazy: DirChanged]
     │   ├── fortran-tools.lua   — Fortran LSP + DAP       [lazy: FileType fortran]
@@ -310,7 +311,7 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>cd` | Delete build directory (prompts confirmation) |
 | `<leader>cr` | Run executable — pick exe + workdata, cleans output files first |
 
-### Debug / DAP (`<leader>d`) — activates on first Fortran or Python file
+### Debug / DAP (`<leader>d`) — `<leader>ds` activates on first Fortran or Python file; all other keys available from startup
 
 | Key | Alt | Action |
 |-----|-----|--------|
