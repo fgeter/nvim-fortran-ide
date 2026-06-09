@@ -198,3 +198,8 @@ vim.api.nvim_create_autocmd('FileType', {
   once     = true,
   callback = activate,
 })
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern  = 'fortran',
+  callback = function() vim.opt_local.textwidth = 80 end,
+})
