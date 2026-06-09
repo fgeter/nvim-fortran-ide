@@ -2,6 +2,19 @@
 -- core/autocmds.lua — Global autocommands not tied to any plugin
 -- ============================================================
 
+-- Show the active git branch on startup if the cwd is inside a repo.
+vim.api.nvim_create_autocmd('VimEnter', {
+  desc  = 'Notify active git branch on startup',
+  group = vim.api.nvim_create_augroup('core-git-branch-notify', { clear = true }),
+  callback = function()
+    local branch = vim.fn.system('git -C ' .. vim.fn.shellescape(vim.fn.getcwd()) .. ' rev-parse --abbrev-ref HEAD 2>/dev/null')
+    branch = branch:gsub('%s+$', '')
+    if vim.v.shell_error == 0 and branch ~= '' then
+      vim.notify('git branch: ' .. branch, vim.log.levels.INFO)
+    end
+  end,
+})
+
 -- Flash the yanked region briefly so you can see what was copied.
 -- Fires on every yank (y, Y, dd treated as yank-then-delete, etc.)
 vim.api.nvim_create_autocmd('TextYankPost', {
