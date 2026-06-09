@@ -181,6 +181,7 @@ local function git_create_branch()
     if not name or name == '' then return end
     vim.fn.system('git checkout -b ' .. vim.fn.shellescape(name))
     if vim.v.shell_error == 0 then
+      vim.g.git_branch = name
       vim.notify('✅ Created and switched to: ' .. name, vim.log.levels.INFO)
       vim.cmd('bufdo e')
     else
@@ -200,13 +201,17 @@ local function switch_branch()
   vim.ui.select(branches, { prompt = 'Switch to branch (current: ' .. current .. '):' },
     function(choice)
       if not choice or choice == current then return end
-      vim.fn.system('git checkout ' .. vim.fn.shellescape(choice))
-      if vim.v.shell_error == 0 then
-        vim.notify('Switched to: ' .. choice, vim.log.levels.INFO)
-        vim.cmd('bufdo e')
-      else
-        vim.notify('Failed to switch branch', vim.log.levels.ERROR)
-      end
+      vim.system({ 'git', 'checkout', choice }, {}, function(result)
+        vim.schedule(function()
+          if result.code == 0 then
+            vim.g.git_branch = choice
+            vim.notify('Switched to: ' .. choice, vim.log.levels.INFO)
+            vim.cmd('bufdo e')
+          else
+            vim.notify('Failed to switch branch:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
+          end
+        end)
+      end)
     end)
 end
 

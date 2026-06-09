@@ -116,3 +116,13 @@ statusline.setup { use_icons = vim.g.have_nerd_font }
 -- Override cursor location to show LINE:COL instead of the default
 ---@diagnostic disable-next-line: duplicate-set-field
 statusline.section_location = function() return '%2l:%-2v' end
+
+-- Fall back to the startup-cached branch when gitsigns hasn't attached yet.
+---@diagnostic disable-next-line: duplicate-set-field
+statusline.section_git = function(args)
+  if statusline.is_truncated(args.trunc_width) then return '' end
+  local summary = vim.b.minigit_summary_string or vim.b.gitsigns_head or vim.g.git_branch
+  if not summary or summary == '' then return '' end
+  local icon = args.icon or (vim.g.have_nerd_font and '' or 'Git')
+  return icon .. ' ' .. summary
+end

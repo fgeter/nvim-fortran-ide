@@ -2,15 +2,16 @@
 -- core/autocmds.lua — Global autocommands not tied to any plugin
 -- ============================================================
 
--- Show the active git branch on startup if the cwd is inside a repo.
+-- Cache the active git branch in a global so mini.statusline can show it
+-- before gitsigns has attached to any buffer.
 vim.api.nvim_create_autocmd('VimEnter', {
-  desc  = 'Notify active git branch on startup',
-  group = vim.api.nvim_create_augroup('core-git-branch-notify', { clear = true }),
+  desc  = 'Cache git branch for statusline',
+  group = vim.api.nvim_create_augroup('core-git-branch-cache', { clear = true }),
   callback = function()
     local branch = vim.fn.system('git -C ' .. vim.fn.shellescape(vim.fn.getcwd()) .. ' rev-parse --abbrev-ref HEAD 2>/dev/null')
     branch = branch:gsub('%s+$', '')
     if vim.v.shell_error == 0 and branch ~= '' then
-      vim.notify('git branch: ' .. branch, vim.log.levels.INFO)
+      vim.g.git_branch = branch
     end
   end,
 })
