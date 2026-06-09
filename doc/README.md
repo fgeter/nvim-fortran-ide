@@ -39,11 +39,13 @@
 
 ## Project-local configuration
 
-Each project can have a `.nvim.lua` file in its root directory. Neovim
-sources it automatically on startup (when `vim.o.exrc = true`) after you
-have trusted it once.
+Each project can have a configuration file called `.nvim.lua` file 
+When the language/project specific .nvim.lua file is copied to your project
+directory, open it in the project directory and do ":trust" to trust
+the file. Neovim will source file it automatically on startup 
+(when `vim.o.exrc = true`) after you have trusted it once. 
 
-The file sets `vim.g.project_*` path variables and then calls
+The .nvim.lua file sets `vim.g.project_*` path variables and then calls
 `require('projects.fortran')` or `require('projects.python')` to inherit
 the shared language configuration. This keeps project-specific paths out
 of the plugin files so the same plugin config works for any project.
