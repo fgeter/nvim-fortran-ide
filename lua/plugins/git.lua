@@ -136,7 +136,7 @@ local function git_commit()
       vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg))
       if vim.v.shell_error == 0 then
         vim.notify('✅ Committed successfully', vim.log.levels.INFO)
-        vim.cmd('bufdo e')
+        vim.cmd('checktime')
       else
         vim.notify('Commit failed', vim.log.levels.ERROR)
       end
@@ -152,7 +152,7 @@ local function git_pull()
     vim.schedule(function()
       if result.code == 0 then
         vim.notify('✅ Git pull successful', vim.log.levels.INFO)
-        vim.cmd('bufdo e')
+        vim.cmd('checktime')
       else
         vim.notify('Git pull failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
       end
@@ -183,7 +183,7 @@ local function git_create_branch()
     if vim.v.shell_error == 0 then
       vim.g.git_branch = name
       vim.notify('✅ Created and switched to: ' .. name, vim.log.levels.INFO)
-      vim.cmd('bufdo e')
+      vim.cmd('checktime')
     else
       vim.notify('Failed to create branch', vim.log.levels.ERROR)
     end
@@ -206,7 +206,7 @@ local function switch_branch()
           if result.code == 0 then
             vim.g.git_branch = choice
             vim.notify('Switched to: ' .. choice, vim.log.levels.INFO)
-            vim.cmd('bufdo e')
+            vim.cmd('checktime')
           else
             vim.notify('Failed to switch branch:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
           end
@@ -265,7 +265,7 @@ local function merge_branch()
       vim.fn.system('git merge ' .. vim.fn.shellescape(choice))
       if vim.v.shell_error == 0 then
         vim.notify('Merged ' .. choice, vim.log.levels.INFO)
-        vim.cmd('bufdo e')
+        vim.cmd('checktime')
       else
         vim.notify('Merge failed', vim.log.levels.ERROR)
       end
