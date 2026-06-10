@@ -159,19 +159,24 @@ require('bufferline').setup {
         separator  = true,
       },
     },
-    -- When closing the currently visible buffer, switch to another listed
-    -- buffer first so the editor window never falls back to showing neo-tree
-    -- or an empty scratch buffer.
+    -- When closing a buffer, switch every window that is currently showing it
+    -- to another listed regular-file buffer before deleting.  Checking only
+    -- the focused window (get_current_buf) misses the case where focus is in
+    -- neo-tree, leaving the editor window orphaned and causing Neovim to
+    -- close it and show only neo-tree.
     close_command = function(bufnr)
-      if vim.api.nvim_get_current_buf() == bufnr then
-        local others = vim.tbl_filter(
-          function(b) return b.bufnr ~= bufnr end,
-          vim.fn.getbufinfo({ buflisted = 1 })
-        )
-        if #others > 0 then
-          vim.api.nvim_win_set_buf(0, others[1].bufnr)
+      local others = vim.tbl_filter(function(b)
+        return b.bufnr ~= bufnr and vim.bo[b.bufnr].buftype == ''
+      end, vim.fn.getbufinfo({ buflisted = 1 }))
+
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if vim.api.nvim_win_is_valid(win)
+            and vim.api.nvim_win_get_buf(win) == bufnr
+            and #others > 0 then
+          vim.api.nvim_win_set_buf(win, others[1].bufnr)
         end
       end
+
       vim.api.nvim_buf_delete(bufnr, { force = false })
     end,
   },
