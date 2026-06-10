@@ -44,7 +44,7 @@ a project specific configuration file that specifies the programing language
 and path variables your project may need.
 
 When the .nvim.lua file is copied to your project or created in your project
-directory, it first must be "trusted".  To do that open it in the project 
+directory, it first must be "trusted".  To do that open it in the project
 directory and execute the nvim command ":trust". 
 
 After you have trusted this file it once, neovim will source this file 

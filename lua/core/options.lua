@@ -19,11 +19,23 @@ vim.o.mouse = 'a'
 -- because mini.statusline already shows the mode
 vim.o.showmode = false
 
--- Sync the unnamed register with the system clipboard.
--- Scheduled after UiEnter to avoid slowing down startup.
-vim.schedule(function()
-  vim.o.clipboard = 'unnamedplus'
-end)
+-- Use OSC 52 only in Kitty (where it works reliably without xclip/wl-clipboard).
+-- In other terminals (Konsole, etc.) let Neovim auto-detect the system clipboard
+-- provider (wl-clipboard on Wayland, xclip/xsel on X11).
+if vim.env.KITTY_WINDOW_ID then
+  vim.g.clipboard = {
+    name  = 'OSC 52',
+    copy  = {
+      ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
+      ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
+    },
+    paste = {
+      ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
+      ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
+    },
+  }
+end
+vim.o.clipboard = 'unnamedplus'
 
 -- Wrapped lines continue visually indented (makes long lines readable)
 vim.o.breakindent = true

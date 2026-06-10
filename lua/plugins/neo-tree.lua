@@ -13,7 +13,7 @@
 -- Keymaps:
 --   \         — reveal current file in neo-tree (or open tree)
 --   <leader>\ — show and focus open buffers in neo-tree
---   t         — open bottom terminal here (reuses toggleterm #1)
+--   t         — toggle bottom terminal (open → close → open); cd on open
 --
 -- LAZY: No — neo-tree opens at startup and must be ready immediately.
 -- ============================================================
@@ -113,10 +113,12 @@ require('neo-tree').setup {
         end
       end,
 
-      -- Open (or reuse) the bottom toggleterm terminal, cd-ing into the
-      -- directory of the node under the cursor.
+      -- Toggle the bottom toggleterm terminal.
+      -- Open: cd into the node's directory and focus the terminal.
+      -- Close: hide the terminal (process keeps running) and return focus.
       ['t'] = function(state)
         local node = state.tree:get_node()
+        if not node then return end
         local dir
         if node.id == '__nav_up__' then
           dir = vim.fn.fnamemodify(state.path, ':h')
@@ -126,12 +128,18 @@ require('neo-tree').setup {
           dir = vim.fn.fnamemodify(node:get_id(), ':h')
         end
 
+        -- Don't cd into .git internals; use the repo root instead.
+        dir = dir:gsub('/%.git$', ''):gsub('/%.git/', '/')
+        if dir == '' then dir = '/' end
+
         local terms = require('toggleterm.terminal')
         local term, is_new = terms.get_or_create_term(1, dir, 'horizontal')
         if is_new then
           term:open(15)
+        elseif term:is_open() then
+          term:close()
         else
-          if not term:is_open() then term:open(15) end
+          term:open(15)
           term:change_dir(dir)
         end
       end,
