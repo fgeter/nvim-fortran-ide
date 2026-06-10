@@ -15,6 +15,7 @@
 | `<leader>q` | Open diagnostics in location list | `core/keymaps.lua` |
 | `gF` | Go to file:line under cursor in split | `core/keymaps.lua` |
 | `<Esc><Esc>` | Exit terminal insert mode | `core/keymaps.lua` |
+| `:q` | Close buffer and show next (if others exist); quit Neovim when last buffer | `plugins/neo-tree.lua` |
 
 ---
 
