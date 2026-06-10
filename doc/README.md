@@ -16,7 +16,8 @@
     │   ├── keymaps.lua         — global keymaps (non-plugin)
     │   └── autocmds.lua        — global autocommands
     ├── plugins/                — one file per plugin, auto-loaded by init.lua
-    │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments
+    │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments, indent-blankline, bufferline
+    │   ├── autopairs.lua       — nvim-autopairs (auto-close brackets/quotes)
     │   ├── telescope.lua       — fuzzy finder + LSP pickers
     │   ├── lsp.lua             — mason, lspconfig, fidget
     │   ├── completion.lua      — blink.cmp + luasnip  [lazy: InsertEnter]

@@ -74,6 +74,11 @@
 |-----|--------|--------|
 | `\` | Reveal current file in neo-tree | `plugins/neo-tree.lua` |
 | `<leader>\` | Show and focus buffer list in neo-tree | `plugins/neo-tree.lua` |
+
+## Jupyter (`<leader>j`)
+
+| Key | Action | Plugin |
+|-----|--------|--------|
 | `<leader>jq` | Stop all running JupyterLab servers | `plugins/neo-tree.lua` |
 
 Inside neo-tree:

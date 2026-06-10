@@ -2,7 +2,8 @@
 -- plugins/ui.lua — Visual / UX plugins
 --
 -- Covers: colorscheme (catppuccin), which-key, mini.nvim modules,
---         todo-comments, guess-indent, and web-devicons.
+--         todo-comments, guess-indent, web-devicons, indent-blankline,
+--         and bufferline.
 --
 -- LAZY: No — UI plugins must be loaded at startup so the editor
 --       looks correct on the first frame.
@@ -76,6 +77,7 @@ require('which-key').setup {
     { '<leader>d', group = 'Debug (DAP)' },
     { '<leader>g', group = 'Git' },
     { '<leader>h', group = 'Git hunks' },
+    { '<leader>j', group = 'Jupyter' },
     { '<leader>r', group = 'Recent / Rename' },
     { '<leader>s', group = 'Search',  mode = { 'n', 'v' } },
     { '<leader>t', group = 'Toggle' },
@@ -91,8 +93,8 @@ require('todo-comments').setup { signs = false }
 
 -- ── mini.nvim ────────────────────────────────────────────────
 -- A collection of small independent modules. We use three:
---   mini.ai       — improved text objects (va), yi', etc.)
---   mini.surround — add/change/delete surrounding brackets/quotes
+--   mini.ai        — improved text objects (va), yi', etc.)
+--   mini.surround  — add/change/delete surrounding brackets/quotes
 --   mini.statusline — lightweight statusline (no external config needed)
 vim.pack.add { gh 'nvim-mini/mini.nvim' }
 
@@ -126,3 +128,51 @@ statusline.section_git = function(args)
   local icon = args.icon or (vim.g.have_nerd_font and '' or 'Git')
   return icon .. ' ' .. summary
 end
+
+-- ── indent-blankline ─────────────────────────────────────────
+-- Draws a vertical guide line at each indentation level.
+-- scope highlights the current indentation block under the cursor,
+-- which is especially useful in Python and nested Fortran loops.
+vim.pack.add { gh 'lukas-reineke/indent-blankline.nvim' }
+require('ibl').setup {
+  indent = { char = '│' },
+  scope  = { enabled = true },
+}
+
+-- ── bufferline ───────────────────────────────────────────────
+-- Shows open buffers as tabs at the top of the screen.
+-- Uses catppuccin highlights natively so colours match the theme.
+-- nvim-web-devicons provides file-type icons in each tab.
+vim.pack.add { { src = gh 'akinsho/bufferline.nvim', version = vim.version.range '*' } }
+require('bufferline').setup {
+  options = {
+    mode            = 'buffers',
+    numbers         = 'none',
+    diagnostics     = 'nvim_lsp',
+    show_close_icon = false,
+    separator_style = 'thin',
+    offsets = {
+      {
+        filetype   = 'neo-tree',
+        text       = 'File Explorer',
+        highlight  = 'Directory',
+        separator  = true,
+      },
+    },
+    -- When closing the currently visible buffer, switch to another listed
+    -- buffer first so the editor window never falls back to showing neo-tree
+    -- or an empty scratch buffer.
+    close_command = function(bufnr)
+      if vim.api.nvim_get_current_buf() == bufnr then
+        local others = vim.tbl_filter(
+          function(b) return b.bufnr ~= bufnr end,
+          vim.fn.getbufinfo({ buflisted = 1 })
+        )
+        if #others > 0 then
+          vim.api.nvim_win_set_buf(0, others[1].bufnr)
+        end
+      end
+      vim.api.nvim_buf_delete(bufnr, { force = false })
+    end,
+  },
+}

@@ -4,7 +4,7 @@
 -- Neo-tree provides a sidebar file tree, buffer list, and git
 -- status view. Configured to:
 --   • Follow the current file automatically
---   • Show hidden and gitignored files
+--   • Hide dotfiles and gitignored files by default; H toggles them
 --   • Open alongside a file when Neovim starts
 --   • NOT steal focus when toggleterm closes (handled in toggleterm.lua)
 --   • Show "← .." at top of tree for navigating to parent directory
@@ -108,7 +108,6 @@ require('neo-tree').setup {
       ['y']             = 'copy_to_clipboard',
       ['x']             = 'cut_to_clipboard',
       ['p']             = 'paste_from_clipboard',
-      ['H']             = 'toggle_hidden',
       ['R']             = 'refresh',
       ['?']             = 'show_help',
 
@@ -197,6 +196,11 @@ require('neo-tree').setup {
   },
 
   filesystem = {
+    window = {
+      mappings = {
+        ['H'] = 'toggle_hidden',
+      },
+    },
     bind_to_cwd = true,
     cwd_target   = { sidebar = 'global', current = 'global' },
 
@@ -209,9 +213,9 @@ require('neo-tree').setup {
     hijack_netrw_behavior  = 'open_current',
 
     filtered_items = {
-      visible         = true,
-      hide_dotfiles   = false,
-      hide_gitignored = false,
+      visible         = false,  -- truly hide filtered items; H toggles them back
+      hide_dotfiles   = true,
+      hide_gitignored = true,
     },
   },
 
@@ -317,9 +321,14 @@ end
 -- When cwd changes (e.g. :cd ~/project) switch the sidebar back to the
 -- filesystem source so the user sees the new directory, not a stale
 -- buffers/git panel left open from a previous <leader>\ invocation.
+--
+-- Registered inside VimEnter so it is never active during plugin
+-- installation: vim.pack.add fires DirChanged while cloning packages
+-- (before VimEnter), which would otherwise trigger this callback before
+-- the Neotree command is registered.
 vim.api.nvim_create_autocmd('DirChanged', {
   callback = function()
-    vim.cmd('Neotree show filesystem left')
+    pcall(vim.cmd, 'Neotree show filesystem left')
   end,
 })
 
@@ -336,8 +345,8 @@ vim.defer_fn(function()
     end
     vim.cmd('enew')
     pcall(vim.api.nvim_buf_delete, original_buf, { force = true })
-    vim.cmd('Neotree show filesystem left')
+    pcall(vim.cmd, 'Neotree show filesystem left')
   else
-    vim.cmd('Neotree show filesystem left')
+    pcall(vim.cmd, 'Neotree show filesystem left')
   end
 end, 50)

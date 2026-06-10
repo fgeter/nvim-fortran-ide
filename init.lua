@@ -36,14 +36,23 @@ require('core.autocmds')  -- global autocommands
 -- Each file is responsible for its own vim.pack.add() + setup().
 -- Files are skipped silently if they error (pcall), which prevents
 -- one broken plugin from stopping the rest from loading.
+-- vim.fs.dir does not guarantee alphabetical order; sort explicitly so the
+-- documented load order (alphabetical) is always honoured. This matters
+-- because dap.lua must precede fortran-tools.lua, and neo-tree.lua must
+-- precede ui.lua (which installs new packages that fire VimEnter/DirChanged).
 local plugins_dir = vim.fn.stdpath('config') .. '/lua/plugins'
+local plugin_files = {}
 for name, ftype in vim.fs.dir(plugins_dir) do
   if ftype == 'file' and name:match('%.lua$') then
-    local mod = name:gsub('%.lua$', '')
-    local ok, err = pcall(require, 'plugins.' .. mod)
-    if not ok then
-      vim.notify('Error loading plugins/' .. name .. ':\n' .. err, vim.log.levels.ERROR)
-    end
+    table.insert(plugin_files, name)
+  end
+end
+table.sort(plugin_files)
+for _, name in ipairs(plugin_files) do
+  local mod = name:gsub('%.lua$', '')
+  local ok, err = pcall(require, 'plugins.' .. mod)
+  if not ok then
+    vim.notify('Error loading plugins/' .. name .. ':\n' .. err, vim.log.levels.ERROR)
   end
 end
 
