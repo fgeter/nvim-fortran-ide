@@ -76,7 +76,10 @@ local function open_or_up(state)
   if node and node.id == '__nav_up__' then
     require('neo-tree.sources.filesystem.commands').navigate_up(state)
   elseif node and node.type == 'file' and node.name:match('%.ipynb$') then
-    vim.fn.jobstart({ 'jupyter-lab', node:get_id() }, { detach = true })
+    -- BROWSER=xdg-open forces Python's webbrowser module to delegate to
+    -- xdg-open, which respects the XDG default browser (same as html files).
+    -- Without this, jupyter-lab picks its own browser, ignoring the XDG default.
+    vim.fn.jobstart({ 'jupyter-lab', node:get_id() }, { detach = true, env = { BROWSER = 'xdg-open' } })
     vim.notify('Opening ' .. node.name .. ' in JupyterLab', vim.log.levels.INFO)
   elseif node and node.type == 'file' and node.name:match('%.html$') then
     vim.fn.jobstart({ 'xdg-open', node:get_id() }, { detach = true })
