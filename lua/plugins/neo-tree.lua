@@ -9,6 +9,8 @@
 --   • NOT steal focus when toggleterm closes (handled in toggleterm.lua)
 --   • Show "← .." at top of tree for navigating to parent directory
 --     (injected via renderer.show_nodes monkey-patch; see bottom of file)
+--   • Switch to filesystem source automatically on :cd (DirChanged autocmd)
+--     so a stale buffers/git panel is never left open after changing project
 --
 -- Keymaps:
 --   \         — reveal current file in neo-tree (or open tree)

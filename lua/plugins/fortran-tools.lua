@@ -20,15 +20,16 @@
 if vim.g.loaded_fortran_tools then return end
 vim.g.loaded_fortran_tools = true
 
--- ── Paths ────────────────────────────────────────────────────
-local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
-local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
-local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
-local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
-
 local function activate()
   if vim.g.fortran_tools_active then return end
   vim.g.fortran_tools_active = true
+
+  -- Read paths at activation time so :cd before opening a Fortran file
+  -- gives the right root. vim.g overrides let a .nvim.lua pin these.
+  local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
+  local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
+  local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
+  local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 
   local dap   = require('dap')
   local dapui = require('dapui')

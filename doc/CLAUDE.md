@@ -30,7 +30,7 @@ This config uses **`vim.pack`** (Neovim's built-in plugin manager, available sin
 
 | File | Purpose |
 |------|---------|
-| `options.lua` | All `vim.o.*` / `vim.opt.*` settings |
+| `options.lua` | All `vim.o.*` / `vim.opt.*` settings; OSC 52 clipboard enabled only when `$KITTY_WINDOW_ID` is set — other terminals (Konsole) use wl-clipboard via auto-detect |
 | `keymaps.lua` | Global keymaps not tied to any plugin |
 | `autocmds.lua` | Global autocommands + `vim.diagnostic.config()` |
 
@@ -45,7 +45,7 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 - `dap.lua` — nvim-dap + nvim-dap-ui install + dapui.setup + listeners + all language-agnostic `<leader>d*` keymaps
 - `git.lua` — gitsigns + lazygit wrappers
 - `lsp.lua` — Mason + nvim-lspconfig + fidget
-- `neo-tree.lua` — file explorer, opens at startup
+- `neo-tree.lua` — file explorer, opens at startup; `DirChanged` autocmd switches the panel to the filesystem source on `:cd`
 - `telescope.lua` — fuzzy finder, also overrides `vim.ui.select()`
 - `toggleterm.lua` — persistent terminal, used by cmake-tools
 - `treesitter.lua` — parsers auto-installed on FileType
@@ -58,11 +58,14 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 
 ### Fortran / SWAT+ project integration
 
-Both `cmake-tools.lua` and `fortran-tools.lua` read project paths from `vim.g` variables set by the project's `.nvim.lua` file. They do **not** hardcode any paths. Each variable falls back to a cwd-relative default so the tools work for any Fortran/CMake project even without a `.nvim.lua`:
+Both `cmake-tools.lua` and `fortran-tools.lua` read project paths from `vim.g` variables set by the project's `.nvim.lua` file. They do **not** hardcode any paths. Each variable falls back to a cwd-relative default so the tools work for any Fortran/CMake project even without a `.nvim.lua`.
+
+**Important:** these locals are resolved inside `activate()`, not at module load time. This ensures `:cd ~/project` before activation (cmake-tools via `DirChanged`, fortran-tools via `FileType fortran`) picks up the correct cwd rather than the cwd at Neovim startup.
 
 ```lua
+-- inside activate() in both cmake-tools.lua and fortran-tools.lua
 local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
-local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
+local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')   -- fortran-tools only
 local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
 local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 ```
