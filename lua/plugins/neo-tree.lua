@@ -78,6 +78,9 @@ local function open_or_up(state)
   elseif node and node.type == 'file' and node.name:match('%.ipynb$') then
     vim.fn.jobstart({ 'jupyter-lab', node:get_id() }, { detach = true })
     vim.notify('Opening ' .. node.name .. ' in JupyterLab', vim.log.levels.INFO)
+  elseif node and node.type == 'file' and node.name:match('%.html$') then
+    vim.fn.jobstart({ 'xdg-open', node:get_id() }, { detach = true })
+    vim.notify('Opening ' .. node.name .. ' in browser', vim.log.levels.INFO)
   else
     state.commands['open'](state)
   end
