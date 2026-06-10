@@ -13,9 +13,10 @@
 --     so a stale buffers/git panel is never left open after changing project
 --
 -- Keymaps:
---   \         — reveal current file in neo-tree (or open tree)
---   <leader>\ — show and focus open buffers in neo-tree
---   t         — toggle bottom terminal (open → close → open); cd on open
+--   \          — reveal current file in neo-tree (or open tree)
+--   <leader>\  — show and focus open buffers in neo-tree
+--   t          — toggle bottom terminal (open → close → open); cd on open
+--   <leader>jq — stop all running JupyterLab servers (global)
 --
 -- LAZY: No — neo-tree opens at startup and must be ready immediately.
 -- ============================================================
@@ -52,12 +53,31 @@ vim.keymap.set('n', '<leader>\\', function()
   end)
 end, { desc = 'Neo-tree: focus buffer list', silent = true })
 
+-- Stop all running JupyterLab servers (mirrors File > Shutdown in the browser).
+-- Use after closing notebook tabs to prevent the server lingering in the background.
+vim.keymap.set('n', '<leader>jq', function()
+  vim.fn.jobstart({ 'jupyter', 'lab', 'stop' }, {
+    on_exit = function(_, code)
+      if code == 0 then
+        vim.notify('JupyterLab server stopped', vim.log.levels.INFO)
+      else
+        vim.notify('No running JupyterLab server found', vim.log.levels.WARN)
+      end
+    end,
+  })
+end, { desc = 'Jupyter: stop server' })
+
 -- ── Helpers ───────────────────────────────────────────────────
--- On the "← .." nav node call navigate_up; everywhere else call open.
+-- On the "← .." nav node call navigate_up.
+-- On a .ipynb file spawn jupyter-lab in the browser (detached).
+-- Everywhere else call the standard open command.
 local function open_or_up(state)
   local node = state.tree:get_node()
   if node and node.id == '__nav_up__' then
     require('neo-tree.sources.filesystem.commands').navigate_up(state)
+  elseif node and node.type == 'file' and node.name:match('%.ipynb$') then
+    vim.fn.jobstart({ 'jupyter-lab', node:get_id() }, { detach = true })
+    vim.notify('Opening ' .. node.name .. ' in JupyterLab', vim.log.levels.INFO)
   else
     state.commands['open'](state)
   end
