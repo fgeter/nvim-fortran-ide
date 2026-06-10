@@ -24,6 +24,8 @@ Grok, and Gemini in that order.
 - **CMake** — preset selection, configure, parallel build, run with workdata picker
 - **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management
 - **File navigation** — neo-tree sidebar, Telescope fuzzy finder, recent files
+- **Jupyter notebooks** — double-click `.ipynb` in neo-tree opens in JupyterLab (browser); `<leader>jq` stops the server when done
+- **HTML preview** — double-click `.html` in neo-tree opens in the default browser via `xdg-open`
 - **Completion** — `blink.cmp` with LSP, path, snippet, and buffer sources
 - **Formatting** — `conform.nvim` with `ruff` for Python, LSP fallback for others
 - **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
@@ -80,6 +82,9 @@ you build with.
    # Or create an alias to source + open nvim in one step
    alias nvim-intel='source ~/intel/oneapi/setvars.sh && nvim'
    ```
+
+**Jupyter notebooks (optional — required for `.ipynb` double-click in neo-tree):**
+- **`jupyter-lab`** — `pip install jupyterlab` or `conda install -c conda-forge jupyterlab`
 
 **Python development (installed via Mason on first use):**
 - `basedpyright` — Python language server
@@ -261,13 +266,15 @@ Leader key: `<Space>`
 |-----|--------|
 | `\` | Reveal current file in neo-tree |
 | `<leader>\` | Show and focus buffer list in neo-tree |
+| `<leader>jq` | Stop all running JupyterLab servers |
 
 Inside neo-tree:
 
 | Key | Action |
 |-----|--------|
 | `← ..` | Click to navigate up (visual entry always shown at top of tree) |
-| `<CR>` / `o` | Open file or expand directory; on `← ..` navigates up |
+| `<CR>` / `o` | Open file or expand directory in Neovim; on `← ..` navigates up |
+| `<2-LeftMouse>` | Open file — `.ipynb` opens in JupyterLab, `.html` opens in browser, all others open in Neovim |
 | `s` / `v` | Open in horizontal / vertical split |
 | `<BS>` | Navigate up one directory |
 | `t` | Open bottom terminal at directory under cursor (reuses toggleterm #1) |

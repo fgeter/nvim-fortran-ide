@@ -114,6 +114,40 @@ These are set in `.nvim.lua` and read by `cmake-tools.lua`,
 
 ---
 
+## Jupyter notebooks and HTML preview
+
+Neo-tree handles `.ipynb` and `.html` files specially on double-click:
+
+| File type | Double-click action |
+|-----------|-------------------|
+| `.ipynb` | Opens in JupyterLab in the browser |
+| `.html` | Opens in the default browser via `xdg-open` |
+| All others | Opens in a Neovim buffer (normal behaviour) |
+
+`<CR>` always opens the raw file in Neovim regardless of type.
+
+### Requirement: JupyterLab CLI
+
+The `.ipynb` double-click requires the `jupyter-lab` command to be available in `PATH`:
+
+```bash
+# pip
+pip install jupyterlab
+
+# or conda
+conda install -c conda-forge jupyterlab
+
+# verify
+jupyter-lab --version
+```
+
+### Stopping the JupyterLab server
+
+Closing the browser tab does **not** stop the server. Use `<leader>jq` in Neovim
+to stop it cleanly (equivalent to File → Shutdown in the JupyterLab browser UI).
+
+---
+
 ## Lazy loading summary
 
 Most plugins load at startup. The following are deferred:

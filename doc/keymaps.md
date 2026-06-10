@@ -74,13 +74,15 @@
 |-----|--------|--------|
 | `\` | Reveal current file in neo-tree | `plugins/neo-tree.lua` |
 | `<leader>\` | Show and focus buffer list in neo-tree | `plugins/neo-tree.lua` |
+| `<leader>jq` | Stop all running JupyterLab servers | `plugins/neo-tree.lua` |
 
 Inside neo-tree:
 
 | Key | Action | Plugin |
 |-----|--------|--------|
 | `← ..` | Click to navigate up one directory (visual entry at top of tree) | `plugins/neo-tree.lua` |
-| `<CR>` / `o` | Open file or expand directory; on `← ..` navigates up | `plugins/neo-tree.lua` |
+| `<CR>` / `o` | Open file in Neovim or expand directory; on `← ..` navigates up | `plugins/neo-tree.lua` |
+| `<2-LeftMouse>` | Open file — `.ipynb` → JupyterLab in browser (requires `jupyter-lab` in PATH); `.html` → default browser via `xdg-open`; all others open in Neovim | `plugins/neo-tree.lua` |
 | `s` | Open in horizontal split | `plugins/neo-tree.lua` |
 | `v` | Open in vertical split | `plugins/neo-tree.lua` |
 | `<BS>` | Navigate up one directory | `plugins/neo-tree.lua` |
@@ -137,7 +139,8 @@ Inside neo-tree:
 |-----|--------|--------|
 | `<leader>cp` | Select preset + auto-run Generate | `plugins/cmake-tools.lua` |
 | `<leader>cg` | CMake Generate (configure) | `plugins/cmake-tools.lua` |
-| `<leader>cb` | Build active preset (`-j 32`) | `plugins/cmake-tools.lua` |
+| `<leader>cb` | Build using all CPU cores (detected via `nproc`) | `plugins/cmake-tools.lua` |
+| `<leader>cB` | Build single-threaded (`-j 1`) — clean error output | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
 | `<leader>cr` | Run swatplus (pick exe + workdata, cleans output first) | `plugins/cmake-tools.lua` |
