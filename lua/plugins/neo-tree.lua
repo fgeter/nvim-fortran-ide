@@ -288,6 +288,16 @@ do
   end
 end
 
+-- ── Switch to filesystem on :cd ──────────────────────────────
+-- When cwd changes (e.g. :cd ~/project) switch the sidebar back to the
+-- filesystem source so the user sees the new directory, not a stale
+-- buffers/git panel left open from a previous <leader>\ invocation.
+vim.api.nvim_create_autocmd('DirChanged', {
+  callback = function()
+    vim.cmd('Neotree show filesystem left')
+  end,
+})
+
 -- ── Startup behaviour ─────────────────────────────────────────
 vim.defer_fn(function()
   local argc    = vim.fn.argc()
