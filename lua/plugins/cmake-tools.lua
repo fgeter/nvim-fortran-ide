@@ -366,12 +366,48 @@ local function activate()
   -- jobs=1 is useful when debugging compile errors: the build stops at the
   -- first error with clean output rather than interleaving errors from
   -- multiple threads, making it much easier to read the error message.
+  -- On success the terminal pauses with a prompt; pressing <CR> closes it and
+  -- returns focus to the originating window. On failure the terminal stays open
+  -- so the error output remains visible.
   local function do_build(jobs)
     local build = get_active_build_dir()
     if not build then return end
     local j = jobs or get_cpu_count()
     vim.notify('Building: ' .. build.label .. ' (-j ' .. j .. ')', vim.log.levels.INFO)
-    run_in_terminal('cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j ' .. j)
+
+    local cmake_cmd = 'cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j ' .. j
+    local shell_cmd = cmake_cmd
+      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }'
+
+    local origin_win = get_editor_win()
+    vim.cmd('botright split')
+    vim.cmd('terminal bash')
+    local build_buf  = vim.api.nvim_get_current_buf()
+    local build_chan = vim.bo[build_buf].channel
+
+    vim.api.nvim_create_autocmd('TermClose', {
+      buffer   = build_buf,
+      once     = true,
+      callback = function()
+        vim.schedule(function()
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_get_buf(win) == build_buf then
+              vim.api.nvim_win_close(win, true)
+              break
+            end
+          end
+          if vim.api.nvim_buf_is_valid(build_buf) then
+            vim.api.nvim_buf_delete(build_buf, { force = true })
+          end
+          local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
+            and origin_win or get_editor_win()
+          if target then vim.api.nvim_set_current_win(target) end
+        end)
+      end,
+    })
+
+    pcall(vim.fn.chansend, build_chan, shell_cmd .. '\n')
+    vim.cmd('startinsert')
   end
 
   ---------------------------------------------------------------------------
