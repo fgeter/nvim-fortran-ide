@@ -317,6 +317,44 @@ do
   end
 end
 
+-- ── Smart :q behaviour with neo-tree ────────────────────────
+-- Bare :q on the last editor window switches to the next listed buffer
+-- instead of closing the window (which would leave only neo-tree visible).
+-- :q! / :qa / :qa! are unaffected — only bare :q is intercepted.
+-- If no other listed buffers exist, :q quits Neovim as normal.
+vim.api.nvim_create_user_command('SmartQ', function()
+  local editor_wins = 0
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) then
+      if vim.bo[vim.api.nvim_win_get_buf(win)].filetype ~= 'neo-tree' then
+        editor_wins = editor_wins + 1
+      end
+    end
+  end
+
+  if editor_wins > 1 then
+    -- Multiple editor splits: close just this window normally
+    vim.cmd('quit')
+    return
+  end
+
+  -- Last editor window: switch to another listed buffer rather than
+  -- closing the window and leaving only neo-tree visible.
+  local cur    = vim.api.nvim_get_current_buf()
+  local others = vim.tbl_filter(
+    function(b) return b.bufnr ~= cur end,
+    vim.fn.getbufinfo({ buflisted = 1 })
+  )
+  if #others > 0 then
+    vim.api.nvim_win_set_buf(0, others[1].bufnr)
+    pcall(vim.api.nvim_buf_delete, cur, { force = false })
+  else
+    vim.cmd('quit')
+  end
+end, {})
+
+vim.cmd([[cnoreabbrev <expr> q getcmdtype() ==# ':' && getcmdline() ==# 'q' ? 'SmartQ' : 'q']])
+
 -- ── Switch to filesystem on :cd ──────────────────────────────
 -- When cwd changes (e.g. :cd ~/project) switch the sidebar back to the
 -- filesystem source so the user sees the new directory, not a stale
