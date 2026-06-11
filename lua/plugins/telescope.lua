@@ -28,6 +28,7 @@ end
 vim.pack.add(telescope_plugins)
 
 require('telescope').setup {
+  defaults = require('telescope.themes').get_ivy(),
   extensions = {
     -- Use the dropdown theme for vim.ui.select() so pickers like
     -- cmake preset selection and workdata selection look clean

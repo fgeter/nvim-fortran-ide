@@ -160,20 +160,20 @@ Inside neo-tree:
 | `<leader>ds` | | Start / continue | `plugins/fortran-tools.lua` |
 | `<leader>dq` | | Terminate session | `plugins/fortran-tools.lua` |
 | `<leader>dr` | | Restart session | `plugins/fortran-tools.lua` |
-| `<leader>dn` | `<F2>` | Step over | `plugins/fortran-tools.lua` / `plugins/dap.lua` |
-| `<leader>di` | `<F1>` | Step into | `plugins/fortran-tools.lua` / `plugins/dap.lua` |
-| `<leader>do` | `<F3>` | Step out | `plugins/fortran-tools.lua` / `plugins/dap.lua` |
-| `<leader>dc` | | Run to cursor | `plugins/fortran-tools.lua` |
-| `<leader>db` | | Toggle breakpoint | `plugins/fortran-tools.lua` |
-| `<leader>dB` | | Conditional breakpoint | `plugins/fortran-tools.lua` |
-| `<leader>dL` | | Log point | `plugins/fortran-tools.lua` |
-| `<leader>dx` | | Clear all breakpoints | `plugins/fortran-tools.lua` |
-| `<leader>dw` | | Add word under cursor to watches | `plugins/fortran-tools.lua` |
-| `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/fortran-tools.lua` / `plugins/dap.lua` |
-| `<leader>de` | | Eval expression / selection | `plugins/fortran-tools.lua` |
-| `<leader>dR` | | Open REPL | `plugins/fortran-tools.lua` |
+| `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
+| `<leader>di` | `<F1>` | Step into | `plugins/dap.lua` |
+| `<leader>do` | `<F3>` | Step out | `plugins/dap.lua` |
+| `<leader>dc` | `<F6>` | Run to cursor | `plugins/dap.lua` |
+| `<leader>db` | `<F4>` | Toggle breakpoint | `plugins/dap.lua` |
+| `<leader>dB` | | Conditional breakpoint | `plugins/dap.lua` |
+| `<leader>dL` | | Log point | `plugins/dap.lua` |
+| `<leader>dx` | | Clear all breakpoints | `plugins/dap.lua` |
+| `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |
+| `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/dap.lua` |
+| `<leader>de` | | Eval expression / selection | `plugins/dap.lua` |
+| `<leader>dR` | | Open REPL | `plugins/dap.lua` |
 | `<leader>dF` | | Show F-key reference popup | `plugins/dap.lua` |
-| | `<F5>` | Continue (global alias) | `plugins/dap.lua` |
+| | `<F5>` | Continue | `plugins/dap.lua` |
 
 While debugging, press `K` over any variable to see its current value. Move the cursor to close the popup.
 

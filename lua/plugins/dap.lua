@@ -25,6 +25,13 @@ vim.pack.add {
 local dap   = require('dap')
 local dapui = require('dapui')
 
+-- ── Gutter signs ─────────────────────────────────────────────
+vim.fn.sign_define('DapBreakpoint',         { text = '●', texthl = 'DiagnosticError',   linehl = '', numhl = '' })
+vim.fn.sign_define('DapBreakpointCondition',{ text = '◆', texthl = 'DiagnosticWarn',    linehl = '', numhl = '' })
+vim.fn.sign_define('DapLogPoint',           { text = '◉', texthl = 'DiagnosticInfo',    linehl = '', numhl = '' })
+vim.fn.sign_define('DapStopped',            { text = '▶', texthl = 'DiagnosticOk',      linehl = 'CursorLine', numhl = '' })
+vim.fn.sign_define('DapBreakpointRejected', { text = '●', texthl = 'DiagnosticHint',    linehl = '', numhl = '' })
+
 -- ── DAP UI layout ────────────────────────────────────────────
 -- Called once here so the layout is consistent across all languages
 -- and listeners register exactly once, regardless of which language
@@ -108,11 +115,13 @@ dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close(
 dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
 
 -- ── F-key aliases ────────────────────────────────────────────
-vim.keymap.set('n', '<F5>', function() dap.continue()   end, { desc = 'DAP: continue' })
-vim.keymap.set('n', '<F1>', function() dap.step_into()  end, { desc = 'DAP: step into' })
-vim.keymap.set('n', '<F2>', function() dap.step_over()  end, { desc = 'DAP: step over' })
-vim.keymap.set('n', '<F3>', function() dap.step_out()   end, { desc = 'DAP: step out' })
-vim.keymap.set('n', '<F7>', function() dapui.toggle()   end, { desc = 'DAP: toggle UI' })
+vim.keymap.set('n', '<F1>', function() dap.step_into()        end, { desc = 'DAP: step into' })
+vim.keymap.set('n', '<F2>', function() dap.step_over()        end, { desc = 'DAP: step over' })
+vim.keymap.set('n', '<F3>', function() dap.step_out()         end, { desc = 'DAP: step out' })
+vim.keymap.set('n', '<F4>', function() dap.toggle_breakpoint() end, { desc = 'DAP: toggle breakpoint' })
+vim.keymap.set('n', '<F5>', function() dap.continue()         end, { desc = 'DAP: continue' })
+vim.keymap.set('n', '<F6>', function() dap.run_to_cursor()    end, { desc = 'DAP: run to cursor' })
+vim.keymap.set('n', '<F7>', function() dapui.toggle()         end, { desc = 'DAP: toggle UI' })
 
 -- ── Language-agnostic DAP keymaps ────────────────────────────
 -- <leader>ds (start) is intentionally absent here — the launch logic
@@ -155,13 +164,15 @@ vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP:
 
 vim.keymap.set('n', '<leader>dF', function()
   local lines = {
-    '  F1    Step into   ',
-    '  F2    Step over   ',
-    '  F3    Step out    ',
-    '  F5    Continue    ',
-    '  F7    Toggle UI   ',
+    '  F1    Step into         ',
+    '  F2    Step over         ',
+    '  F3    Step out          ',
+    '  F4    Toggle breakpoint ',
+    '  F5    Continue          ',
+    '  F6    Run to cursor     ',
+    '  F7    Toggle UI         ',
     '',
-    '  q / <Esc>  close  ',
+    '  q / <Esc>  close        ',
   }
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)

@@ -333,8 +333,8 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>dn` | `<F2>` | Step over |
 | `<leader>di` | `<F1>` | Step into |
 | `<leader>do` | `<F3>` | Step out |
-| `<leader>dc` | | Run to cursor |
-| `<leader>db` | | Toggle breakpoint |
+| `<leader>dc` | `<F6>` | Run to cursor |
+| `<leader>db` | `<F4>` | Toggle breakpoint |
 | `<leader>dB` | | Conditional breakpoint |
 | `<leader>dL` | | Log point |
 | `<leader>dx` | | Clear all breakpoints |
@@ -343,7 +343,7 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>dF` | | Show F-key reference popup |
 | `<leader>de` | | Eval expression / selection |
 | `<leader>dR` | | Open REPL |
-| | `<F5>` | Continue (global alias) |
+| | `<F5>` | Continue |
 
 Press `K` over any variable during a debug session to inspect its current
 value. Move the cursor to close the popup.

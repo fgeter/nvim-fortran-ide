@@ -34,7 +34,8 @@ end
 vim.pack.add { gh 'catppuccin/nvim' }
 
 require('catppuccin').setup {
-  flavour = 'mocha',
+  flavour              = 'mocha',
+  transparent_background = true,
   highlight_overrides = {
     mocha = function(colors)
       return {
