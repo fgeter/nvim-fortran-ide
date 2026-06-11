@@ -19,6 +19,22 @@
 
 ---
 
+## Horizontal scrolling
+
+> `nowrap` is enabled globally. A floating `▁` bar appears at the bottom of
+> buffer windows when content is wider than the window width.
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<A-h>` | Scroll left ~1 word (hold to repeat) | `core/keymaps.lua` |
+| `<A-l>` | Scroll right ~1 word (hold to repeat) | `core/keymaps.lua` |
+| `zl` | Scroll right ~1 word | `core/keymaps.lua` |
+| `zh` | Scroll left ~1 word | `core/keymaps.lua` |
+| `ze` | Scroll cursor to right edge | `core/keymaps.lua` |
+| `zs` | Scroll cursor to left edge | `core/keymaps.lua` |
+
+---
+
 ## Buffers (`<leader>b`)
 
 | Key | Action | Plugin |

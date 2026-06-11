@@ -481,10 +481,13 @@ local function activate()
 
   ---------------------------------------------------------------------------
   -- cmake-tools setup + keymaps
-  -- Deferred 200ms to let vim.pack.add make cmake-tools available before
-  -- require('cmake-tools') is called. This is the minimum safe delay.
+  -- Deferred to VimEnter so that:
+  --   1. cmake-tools.nvim is fully available (vim.pack.add already ran above)
+  --   2. This callback never fires inside a vim.fn.confirm() modal that other
+  --      plugins trigger during their first-time install (which spins the event
+  --      loop and would execute a vim.defer_fn prematurely).
   ---------------------------------------------------------------------------
-  vim.defer_fn(function()
+  vim.api.nvim_create_autocmd('VimEnter', { once = true, callback = function()
     local ok, cmake = pcall(require, 'cmake-tools')
     if not ok then
       vim.notify('cmake-tools.nvim failed to load. Try restarting Neovim.',
@@ -568,7 +571,7 @@ local function activate()
     vim.keymap.set('n', '<leader>cr', pick_and_run,
       { desc = 'CMake: run swatplus', nowait = true })
 
-  end, 200)
+  end })
 end
 
 -- ── Entry point ───────────────────────────────────────────────

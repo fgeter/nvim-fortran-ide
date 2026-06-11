@@ -195,6 +195,7 @@ cd ~/myproject && nvim
     │   ├── toggleterm.lua      — persistent terminal
     │   ├── dap.lua             — DAP core, dapui setup + listeners, all <leader>d* keymaps
     │   ├── markdown.lua        — render-markdown.nvim
+    │   ├── scrollview.lua      — horizontal scrollbar (custom floating bar)
     │   ├── cmake-tools.lua     — CMake integration       [lazy: DirChanged]
     │   ├── fortran-tools.lua   — Fortran LSP + DAP       [lazy: FileType fortran]
     │   └── python.lua          — Python LSP + DAP        [lazy: FileType python]
@@ -218,6 +219,20 @@ Leader key: `<Space>`
 | `gF` | Open file:line under cursor in editor window (from compiler errors) |
 | `<C-g>f` | Same as gF but usable directly in terminal insert mode |
 | `<Esc><Esc>` | Exit terminal insert mode |
+
+### Horizontal scrolling
+
+Requires `nowrap` mode (enabled globally). A floating `▁` bar appears at the
+bottom of buffer windows when content is wider than the window.
+
+| Key | Action |
+|-----|--------|
+| `<A-h>` | Scroll left ~1 word (hold to repeat) |
+| `<A-l>` | Scroll right ~1 word (hold to repeat) |
+| `zl` | Scroll right ~1 word |
+| `zh` | Scroll left ~1 word |
+| `ze` | Scroll cursor to right edge |
+| `zs` | Scroll cursor to left edge |
 
 ### Buffers (`<leader>b`)
 

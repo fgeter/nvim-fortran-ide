@@ -50,6 +50,18 @@ end, { silent = true, desc = 'Buffer: delete (keep layout)' })
 -- hard to discover and awkward to type.
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Terminal: exit insert mode' })
 
+-- ── Horizontal scrolling ─────────────────────────────────────
+-- Only meaningful when wrap=false. The z-prefix commands are built-in
+-- but undiscoverable; explicit mappings surface them in which-key.
+vim.keymap.set('n', 'zl', '5zl', { desc = 'Scroll right ~1 word' })
+vim.keymap.set('n', 'zh', '5zh', { desc = 'Scroll left ~1 word' })
+
+vim.keymap.set('n', 'ze', 'ze', { desc = 'Scroll cursor to right edge' })
+vim.keymap.set('n', 'zs', 'zs', { desc = 'Scroll cursor to left edge' })
+-- Alt+l/h: single-key variants that repeat properly when held down
+vim.keymap.set('n', '<A-l>', '5zl', { desc = 'Scroll right ~1 word (hold to repeat)' })
+vim.keymap.set('n', '<A-h>', '5zh', { desc = 'Scroll left ~1 word (hold to repeat)' })
+
 -- ── Diagnostics ──────────────────────────────────────────────
 -- Open all diagnostics for the current buffer in the quickfix list
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: quickfix list' })
