@@ -170,7 +170,8 @@ local function activate()
         -- Move focus into the output window so the user can read it.
         -- G jumps to the last line so the most recent output is visible.
         vim.api.nvim_set_current_win(output_win)
-        vim.cmd('normal! G')
+        local line_count = vim.api.nvim_buf_line_count(output_buf)
+        vim.api.nvim_win_set_cursor(output_win, { line_count, 0 })
 
         -- <CR> closes the output window, wipes the buffer, and returns focus
         -- to the editor window captured before the cmake command ran.
