@@ -5,9 +5,9 @@
 -- CMakeLists.txt (cmake-tools.lua takes priority when both exist).
 --
 -- Keymaps mirror cmake-tools so muscle memory transfers:
---   <leader>cb  parallel build (all CPU cores via nproc)
---   <leader>cB  single-threaded build (-j 1, cleaner error output)
---   <leader>cx  make clean
+--   <leader>cb  pick debug/release → parallel build (all CPU cores via nproc)
+--   <leader>cB  pick debug/release → single-threaded build (-j 1, cleaner errors)
+--   <leader>cx  pick debug/release/both → make clean
 --   <leader>cr  run executable (vim.g.project_executable or auto-detect)
 --
 -- LAZY: Yes — activate() runs only when a Makefile project is detected,
@@ -118,11 +118,13 @@ local function activate()
   ---------------------------------------------------------------------------
   -- Build: make [-jN] in a dedicated terminal (same UX as cmake-tools)
   ---------------------------------------------------------------------------
-  local function do_build(jobs)
+  local function run_build(build_type, jobs)
     local j = jobs or get_cpu_count()
-    vim.notify('Building with make -j' .. j, vim.log.levels.INFO)
+    vim.notify('Building ' .. build_type .. ' with make -j' .. j, vim.log.levels.INFO)
 
-    local make_cmd = 'make -j' .. j .. ' -C ' .. vim.fn.shellescape(REPO_ROOT)
+    local make_cmd = 'make -j' .. j
+      .. ' BUILD_TYPE=' .. build_type
+      .. ' -C ' .. vim.fn.shellescape(REPO_ROOT)
     local shell_cmd = make_cmd
       .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }'
 
@@ -156,41 +158,35 @@ local function activate()
     vim.cmd('startinsert')
   end
 
-  ---------------------------------------------------------------------------
-  -- Executable discovery
-  -- Priority: vim.g.project_executable → REPO_ROOT/bin/* → REPO_ROOT/*
-  ---------------------------------------------------------------------------
-  local function get_executables()
-    -- Explicit override from .nvim.lua
-    if vim.g.project_executable then
-      local path = vim.g.project_executable
-      if not vim.startswith(path, '/') then
-        path = REPO_ROOT .. '/' .. path
-      end
-      if vim.fn.executable(path) == 1 then return { path } end
-    end
-
-    local execs = {}
-    local scan_dirs = {
-      REPO_ROOT .. '/bin',
-      REPO_ROOT,
-    }
-    for _, dir in ipairs(scan_dirs) do
-      if vim.fn.isdirectory(dir) == 1 then
-        for _, path in ipairs(vim.fn.glob(dir .. '/*', false, true)) do
-          if vim.fn.executable(path) == 1
-              and vim.fn.isdirectory(path) == 0 then
-            table.insert(execs, path)
-          end
-        end
-      end
-      if #execs > 0 then break end  -- prefer bin/ if it has results
-    end
-    return execs
+  local function do_build(jobs)
+    vim.ui.select({ 'debug', 'release' }, {
+      prompt = 'Build type:',
+      format_item = function(item) return item:sub(1, 1):upper() .. item:sub(2) end,
+    }, function(choice)
+      if not choice then return end
+      run_build(choice, jobs)
+    end)
   end
 
   ---------------------------------------------------------------------------
-  -- Run: pick executable → optionally pick workdata → launch
+  -- Executable discovery: check build/debug and build/release explicitly
+  ---------------------------------------------------------------------------
+  local function get_executables()
+    local candidates = {
+      { label = 'Debug',   path = REPO_ROOT .. '/build/debug/swatplus' },
+      { label = 'Release', path = REPO_ROOT .. '/build/release/swatplus' },
+    }
+    local found = {}
+    for _, c in ipairs(candidates) do
+      if vim.fn.executable(c.path) == 1 then
+        table.insert(found, c)
+      end
+    end
+    return found
+  end
+
+  ---------------------------------------------------------------------------
+  -- Run: pick debug/release → optionally pick workdata → launch
   ---------------------------------------------------------------------------
   local function get_workdirs()
     local dirs = {}
@@ -208,7 +204,6 @@ local function activate()
   local function pick_workdata_and_launch(program)
     local dirs = get_workdirs()
     if #dirs == 0 then
-      -- No workdata dir — run from REPO_ROOT
       launch(program, REPO_ROOT)
       return
     end
@@ -223,16 +218,16 @@ local function activate()
     local execs = get_executables()
     if #execs == 0 then
       vim.notify(
-        'No executable found.\n' ..
-        'Set vim.g.project_executable in .nvim.lua, or build first with <leader>cb.',
+        'No executable found in build/debug/ or build/release/.\n' ..
+        'Build first with <leader>cb.',
         vim.log.levels.WARN)
       return
     end
-    if #execs == 1 then pick_workdata_and_launch(execs[1]); return end
+    if #execs == 1 then pick_workdata_and_launch(execs[1].path); return end
     vim.ui.select(execs, {
-      prompt      = 'Select executable:',
-      format_item = function(item) return item:gsub(REPO_ROOT .. '/', '') end,
-    }, function(choice) if choice then pick_workdata_and_launch(choice) end end)
+      prompt      = 'Run build:',
+      format_item = function(item) return item.label end,
+    }, function(choice) if choice then pick_workdata_and_launch(choice.path) end end)
   end
 
   ---------------------------------------------------------------------------
@@ -245,7 +240,18 @@ local function activate()
     { desc = 'Make: build single-threaded (debug compile errors)', nowait = true })
 
   vim.keymap.set('n', '<leader>cx', function()
-    run_in_terminal('make -C ' .. vim.fn.shellescape(REPO_ROOT) .. ' clean')
+    vim.ui.select({ 'debug', 'release', 'both' }, {
+      prompt = 'Clean build type:',
+      format_item = function(item) return item:sub(1, 1):upper() .. item:sub(2) end,
+    }, function(choice)
+      if not choice then return end
+      local base = 'make -C ' .. vim.fn.shellescape(REPO_ROOT) .. ' BUILD_TYPE='
+      if choice == 'both' then
+        run_in_terminal(base .. 'debug clean && ' .. base .. 'release clean')
+      else
+        run_in_terminal(base .. choice .. ' clean')
+      end
+    end)
   end, { desc = 'Make: clean' })
 
   vim.keymap.set('n', '<leader>cr', pick_and_run,

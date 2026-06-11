@@ -93,34 +93,31 @@ local function activate()
     args    = { '--interpreter=dap', '--eval-command', 'set print pretty on' },
   }
 
-  -- Scan build/debug/ for swatplus executables.
   -- Only debug builds are offered — release builds strip debug symbols
   -- so gdb cannot map instructions back to source lines meaningfully.
   local function get_executables()
-    local execs      = {}
-    local debug_dirs = {}
+    local debug_dir = BUILD_ROOT .. '/debug'
 
-    for _, subdir in ipairs(vim.fn.glob(BUILD_ROOT .. '/*', false, true)) do
-      local dirname = vim.fn.fnamemodify(subdir, ':t'):lower()
-      if vim.fn.isdirectory(subdir) == 1 and dirname == 'debug' then
-        table.insert(debug_dirs, subdir)
-      end
-    end
-
-    if #debug_dirs == 0 then
+    if vim.fn.isdirectory(debug_dir) == 0 then
       vim.notify(
-        'No debug build directories found under ' .. BUILD_ROOT ..
-        '\nRun <leader>cp (select preset) then <leader>cb (build).',
+        'No debug build found — ' .. debug_dir .. ' does not exist.\n' ..
+        'Build a debug version first: <leader>cb → select Debug.',
         vim.log.levels.WARN)
       return {}
     end
 
-    for _, dir in ipairs(debug_dirs) do
-      for _, path in ipairs(vim.fn.glob(dir .. '/swatplus*', false, true)) do
-        if vim.fn.executable(path) == 1 then
-          table.insert(execs, path)
-        end
+    local execs = {}
+    for _, path in ipairs(vim.fn.glob(debug_dir .. '/swatplus*', false, true)) do
+      if vim.fn.executable(path) == 1 then
+        table.insert(execs, path)
       end
+    end
+
+    if #execs == 0 then
+      vim.notify(
+        'Debug directory exists but no executable found in ' .. debug_dir .. '.\n' ..
+        'Build a debug version first: <leader>cb → select Debug.',
+        vim.log.levels.WARN)
     end
     return execs
   end
