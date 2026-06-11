@@ -327,15 +327,15 @@ Activates after the first Python file is opened. Uses the same Python binary res
 
 | Key | Alt | Action |
 |-----|-----|--------|
-| `<leader>ds` | | Start / continue |
-| `<leader>dq` | | Terminate session |
+| `<leader>ds` | `<F9>` | Start / continue |
+| `<leader>dq` | `<F10>` | Terminate session |
 | `<leader>dr` | | Restart session |
 | `<leader>dn` | `<F2>` | Step over |
 | `<leader>di` | `<F1>` | Step into |
 | `<leader>do` | `<F3>` | Step out |
 | `<leader>dc` | `<F6>` | Run to cursor |
 | `<leader>db` | `<F4>` | Toggle breakpoint |
-| `<leader>dB` | | Conditional breakpoint |
+| `<leader>dB` | `<F8>` | Conditional breakpoint |
 | `<leader>dL` | | Log point |
 | `<leader>dx` | | Clear all breakpoints |
 | `<leader>dw` | | Add word under cursor to watches |
@@ -344,6 +344,9 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>de` | | Eval expression / selection |
 | `<leader>dR` | | Open REPL |
 | | `<F5>` | Continue |
+| | `<F8>` | Conditional breakpoint |
+| | `<F9>` | Start / continue |
+| | `<F10>` | Terminate session |
 
 Press `K` over any variable during a debug session to inspect its current
 value. Move the cursor to close the popup.

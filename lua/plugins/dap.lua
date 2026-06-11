@@ -106,22 +106,26 @@ dapui.setup {
 -- duplication in each language file.
 dap.listeners.after.event_initialized['dapui_config']  = function()
   dapui.open()
+  vim.cmd('Neotree close')
   vim.notify(
-    'DAP active — F1: step into  F2: step over  F3: step out  F5: continue  F7: toggle UI',
+    'DAP active — F1: step into  F2: step over  F3: step out  F4: bp  F8: cond bp  F5: continue  F9: start  F7: toggle UI  F10: quit',
     vim.log.levels.INFO,
     { title = 'Debugger' })
 end
 dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close() end
 dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
 
--- ── F-key aliases ────────────────────────────────────────────
-vim.keymap.set('n', '<F1>', function() dap.step_into()        end, { desc = 'DAP: step into' })
-vim.keymap.set('n', '<F2>', function() dap.step_over()        end, { desc = 'DAP: step over' })
-vim.keymap.set('n', '<F3>', function() dap.step_out()         end, { desc = 'DAP: step out' })
-vim.keymap.set('n', '<F4>', function() dap.toggle_breakpoint() end, { desc = 'DAP: toggle breakpoint' })
-vim.keymap.set('n', '<F5>', function() dap.continue()         end, { desc = 'DAP: continue' })
-vim.keymap.set('n', '<F6>', function() dap.run_to_cursor()    end, { desc = 'DAP: run to cursor' })
-vim.keymap.set('n', '<F7>', function() dapui.toggle()         end, { desc = 'DAP: toggle UI' })
+vim.keymap.set('n', '<F1>',  function() dap.step_into()         end, { desc = 'DAP: step into' })
+vim.keymap.set('n', '<F2>',  function() dap.step_over()         end, { desc = 'DAP: step over' })
+vim.keymap.set('n', '<F3>',  function() dap.step_out()          end, { desc = 'DAP: step out' })
+vim.keymap.set('n', '<F4>',  function() dap.toggle_breakpoint() end, { desc = 'DAP: toggle breakpoint' })
+vim.keymap.set('n', '<F5>',  function() dap.continue()          end, { desc = 'DAP: continue' })
+vim.keymap.set('n', '<F6>',  function() dap.run_to_cursor()     end, { desc = 'DAP: run to cursor' })
+vim.keymap.set('n', '<F7>',  function() dapui.toggle()          end, { desc = 'DAP: toggle UI' })
+vim.keymap.set('n', '<F8>',  function() dap.set_breakpoint(vim.fn.input('Breakpoint condition: ')) end,
+                                                                  { desc = 'DAP: conditional breakpoint' })
+-- <F9> start/continue is defined in fortran-tools.lua (needs the workdata picker)
+vim.keymap.set('n', '<F10>', function() dap.terminate()         end, { desc = 'DAP: terminate session' })
 
 -- ── Language-agnostic DAP keymaps ────────────────────────────
 -- <leader>ds (start) is intentionally absent here — the launch logic
@@ -164,13 +168,16 @@ vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP:
 
 vim.keymap.set('n', '<leader>dF', function()
   local lines = {
-    '  F1    Step into         ',
-    '  F2    Step over         ',
-    '  F3    Step out          ',
-    '  F4    Toggle breakpoint ',
-    '  F5    Continue          ',
-    '  F6    Run to cursor     ',
-    '  F7    Toggle UI         ',
+    '  F1   Step into         ',
+    '  F2   Step over         ',
+    '  F3   Step out          ',
+    '  F4   Toggle breakpoint ',
+    '  F5   Continue          ',
+    '  F6   Run to cursor     ',
+    '  F7   Toggle UI         ',
+    '  F8   Conditional bp    ',
+    '  F9   Start debugger    ',
+    '  F10  Terminate session ',
     '',
     '  q / <Esc>  close        ',
   }

@@ -168,10 +168,17 @@ local function activate()
       -- not be redirected or they dismiss immediately.
       if focus then
         -- Move focus into the output window so the user can read it.
-        -- G jumps to the last line so the most recent output is visible.
         vim.api.nvim_set_current_win(output_win)
-        local line_count = vim.api.nvim_buf_line_count(output_buf)
-        vim.api.nvim_win_set_cursor(output_win, { line_count, 0 })
+        -- Skip nvim_win_set_cursor for terminal buffers: switching to a live
+        -- terminal re-enters terminal mode, and cursor ops then call nvim_exec2
+        -- with a :normal command which errors ("Can't re-enter normal mode from
+        -- terminal mode"). toggleterm auto_scroll=true already keeps the view
+        -- at the bottom, so positioning the cursor is unnecessary.
+        local buftype = vim.api.nvim_get_option_value('buftype', { buf = output_buf })
+        if buftype ~= 'terminal' then
+          local line_count = vim.api.nvim_buf_line_count(output_buf)
+          vim.api.nvim_win_set_cursor(output_win, { line_count, 0 })
+        end
 
         -- <CR> closes the output window, wipes the buffer, and returns focus
         -- to the editor window captured before the cmake command ran.

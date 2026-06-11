@@ -157,15 +157,15 @@ Inside neo-tree:
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | | Start / continue | `plugins/fortran-tools.lua` |
-| `<leader>dq` | | Terminate session | `plugins/fortran-tools.lua` |
-| `<leader>dr` | | Restart session | `plugins/fortran-tools.lua` |
+| `<leader>ds` | `<F9>` | Start / continue | `plugins/fortran-tools.lua` |
+| `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
+| `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
 | `<leader>di` | `<F1>` | Step into | `plugins/dap.lua` |
 | `<leader>do` | `<F3>` | Step out | `plugins/dap.lua` |
 | `<leader>dc` | `<F6>` | Run to cursor | `plugins/dap.lua` |
 | `<leader>db` | `<F4>` | Toggle breakpoint | `plugins/dap.lua` |
-| `<leader>dB` | | Conditional breakpoint | `plugins/dap.lua` |
+| `<leader>dB` | `<F8>` | Conditional breakpoint | `plugins/dap.lua` |
 | `<leader>dL` | | Log point | `plugins/dap.lua` |
 | `<leader>dx` | | Clear all breakpoints | `plugins/dap.lua` |
 | `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |

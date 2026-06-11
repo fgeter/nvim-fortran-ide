@@ -183,9 +183,11 @@ local function activate()
   ---------------------------------------------------------------------------
   -- Shows an executable + workdata picker when no session is active.
   -- Common DAP keymaps (<leader>dq, <leader>dn, etc.) are in dap.lua.
-  vim.keymap.set('n', '<leader>ds', function()
+  local _start = function()
     if dap.session() then dap.continue() else pick_and_launch() end
-  end, { desc = 'DAP: start / continue' })
+  end
+  vim.keymap.set('n', '<leader>ds', _start, { desc = 'DAP: start / continue' })
+  vim.keymap.set('n', '<F9>',       _start, { desc = 'DAP: start / continue' })
 
   vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
