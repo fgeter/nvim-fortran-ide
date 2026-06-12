@@ -73,7 +73,7 @@ dapui.setup {
         { id = 'stacks',      size = 0.25 },
         { id = 'watches',     size = 0.20 },
       },
-      size     = 50,
+      size     = 35,
       position = 'left',
     },
     {
