@@ -77,10 +77,9 @@ dapui.setup {
       position = 'left',
     },
     {
-      -- Bottom panel: REPL for evaluating expressions + console output
+      -- Bottom panel: REPL only — console opens on demand via <leader>dC
       elements = {
-        { id = 'repl',    size = 0.5 },
-        { id = 'console', size = 0.5 },
+        { id = 'repl', size = 1.0 },
       },
       size     = 12,
       position = 'bottom',
@@ -162,6 +161,24 @@ vim.keymap.set('n', '<leader>dw', function()
 end, { desc = 'DAP: add to watches' })
 
 vim.keymap.set('n', '<leader>dU', function() dapui.toggle()  end, { desc = 'DAP: toggle UI' })
+vim.keymap.set('n', '<leader>dC', function()
+  dapui.float_element('console', { enter = true })
+  -- dap-ui opens the float asynchronously via nio; defer so the window
+  -- exists before we raise its zindex above the scrollbar (zindex 150).
+  vim.defer_fn(function()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local cfg = vim.api.nvim_win_get_config(win)
+      if cfg.relative ~= '' then
+        local buf = vim.api.nvim_win_get_buf(win)
+        if vim.bo[buf].filetype == 'dapui_console' then
+          cfg.zindex = 200
+          vim.api.nvim_win_set_config(win, cfg)
+          break
+        end
+      end
+    end
+  end, 50)
+end, { desc = 'DAP: open console float' })
 vim.keymap.set('n', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval expression' })
 vim.keymap.set('v', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval selection' })
 vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP: open REPL' })

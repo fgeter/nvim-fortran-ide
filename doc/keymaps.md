@@ -199,6 +199,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dx` | | Clear all breakpoints | `plugins/dap.lua` |
 | `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |
 | `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/dap.lua` |
+| `<leader>dC` | | Open console in floating window | `plugins/dap.lua` |
 | `<leader>de` | | Eval expression / selection | `plugins/dap.lua` |
 | `<leader>dR` | | Open REPL | `plugins/dap.lua` |
 | `<leader>dF` | | Show F-key reference popup | `plugins/dap.lua` |
