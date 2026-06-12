@@ -8,10 +8,9 @@
 -- dapui.setup(), auto open/close listeners, and all language-
 -- agnostic <leader>d* keymaps live in plugins/dap.lua.
 -- This file only adds what is Fortran-specific:
---   • fortls LSP config + buffer-local keymaps
---   • gdb DAP adapter + configurations
---   • <leader>ds — custom executable/workdata picker for launching
+--   • fortls LSP config
 --   • K override — DAP eval during session, LSP hover otherwise
+--   • <leader>ds — custom executable/workdata picker
 --
 -- LAZY: Yes — everything inside activate() runs only on the first
 --       FileType fortran event.
@@ -47,23 +46,13 @@ local function activate()
   })
   vim.lsp.enable('fortls')
 
-  -- Buffer-local LSP + K keymaps for Fortran files.
-  -- K is overridden to show DAP eval during a session, LSP hover otherwise.
+  -- Buffer-local keymaps for Fortran files.
+  -- Only add Fortran-specific behavior. Global LSP mappings come from lsp.lua.
   vim.api.nvim_create_autocmd('LspAttach', {
     pattern  = { '*.f90', '*.f95', '*.f03', '*.f08', '*.for', '*.f' },
     group    = vim.api.nvim_create_augroup('fortran-lsp-attach', { clear = true }),
     callback = function(ev)
       local opts = { buffer = ev.buf }
-      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename,
-        vim.tbl_extend('force', opts, { desc = 'LSP: rename symbol' }))
-      vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action,
-        vim.tbl_extend('force', opts, { desc = 'LSP: code action' }))
-      vim.keymap.set('n', '<leader>e',  vim.diagnostic.open_float,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: show float' }))
-      vim.keymap.set('n', '[d', function() vim.diagnostic.jump({ count = -1 }) end,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: prev' }))
-      vim.keymap.set('n', ']d', function() vim.diagnostic.jump({ count =  1 }) end,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: next' }))
 
       -- K: DAP eval during session, LSP hover otherwise.
       -- CursorMoved closes the eval float immediately so it never gets stuck.
@@ -85,7 +74,7 @@ local function activate()
   })
 
   ---------------------------------------------------------------------------
-  -- DAP: gdb adapter
+  -- DAP: gdb adapter + custom launchers
   ---------------------------------------------------------------------------
   dap.adapters.gdb = {
     type    = 'executable',
@@ -181,8 +170,6 @@ local function activate()
   ---------------------------------------------------------------------------
   -- <leader>ds — Fortran-specific start/continue
   ---------------------------------------------------------------------------
-  -- Shows an executable + workdata picker when no session is active.
-  -- Common DAP keymaps (<leader>dq, <leader>dn, etc.) are in dap.lua.
   local _start = function()
     if dap.session() then dap.continue() else pick_and_launch() end
   end
