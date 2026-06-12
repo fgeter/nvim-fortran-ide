@@ -155,7 +155,7 @@ Inside neo-tree:
 
 ---
 
-## CMake (`<leader>c`) — active only in CMake projects
+## CMake (`<leader>c`) — active in CMake projects (`CMakeLists.txt` found)
 
 | Key | Action | Plugin |
 |-----|--------|--------|
@@ -169,11 +169,24 @@ Inside neo-tree:
 
 ---
 
-## Debug / DAP (`<leader>d`) — active after opening a Fortran file
+## Make (`<leader>c`) — active in Makefile projects (Makefile found, no CMakeLists.txt)
+
+Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates instead of cmake-tools when only a Makefile is present.
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) | `plugins/make-tools.lua` |
+| `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release | `plugins/make-tools.lua` |
+| `<leader>cx` | Clean (pick debug/release/both) | `plugins/make-tools.lua` |
+| `<leader>cr` | Run executable (pick debug/release, then workdata directory) | `plugins/make-tools.lua` |
+
+---
+
+## Debug / DAP (`<leader>d`) — `<leader>ds` active after opening a Fortran or Python file; all other keys available from startup
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | `<F9>` | Start / continue | `plugins/fortran-tools.lua` |
+| `<leader>ds` | `<F9>` | Start / continue (`<F9>` Fortran only) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
@@ -232,7 +245,6 @@ While debugging, press `K` over any variable to see its current value. Move the 
 ---
 
 ## LSP — all languages
-
 | Key | Mode | Action | Plugin |
 |-----|------|--------|--------|
 | `grn` | n | Rename symbol | `plugins/lsp.lua` |
@@ -244,13 +256,13 @@ While debugging, press `K` over any variable to see its current value. Move the 
 | `gO` | n | Document symbols | `plugins/telescope.lua` |
 | `gW` | n | Workspace symbols | `plugins/telescope.lua` |
 | `grt` | n | Type definition | `plugins/telescope.lua` |
-| `K` | n | Hover docs (or DAP eval in debug session) | `plugins/fortran-tools.lua` |
+| `K` | n | Hover docs (or DAP eval in debug session) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
 | `<leader>th` | n | Toggle inlay hints | `plugins/lsp.lua` |
-| `[d` | n | Previous diagnostic | `plugins/fortran-tools.lua` |
-| `]d` | n | Next diagnostic | `plugins/fortran-tools.lua` |
-| `<leader>e` | n | Show diagnostic float | `plugins/fortran-tools.lua` |
-| `<leader>rn` | n | Rename symbol (Fortran) | `plugins/fortran-tools.lua` |
-| `<leader>ca` | n | Code action (Fortran) | `plugins/fortran-tools.lua` |
+| `[d` | n | Previous diagnostic (Python buffers) | `plugins/python.lua` |
+| `]d` | n | Next diagnostic (Python buffers) | `plugins/python.lua` |
+| `<leader>e` | n | Show diagnostic float (Python buffers) | `plugins/python.lua` |
+| `<leader>rn` | n | Rename symbol (Python buffers) | `plugins/python.lua` |
+| `<leader>ca` | n | Code action (Python buffers) | `plugins/python.lua` |
 
 ---
 

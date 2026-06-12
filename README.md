@@ -197,6 +197,7 @@ cd ~/myproject && nvim
     │   ├── markdown.lua        — render-markdown.nvim
     │   ├── scrollview.lua      — horizontal scrollbar (custom floating bar)
     │   ├── cmake-tools.lua     — CMake integration       [lazy: DirChanged]
+    │   ├── make-tools.lua      — Make integration        [lazy: DirChanged]
     │   ├── fortran-tools.lua   — Fortran LSP + DAP       [lazy: FileType fortran]
     │   └── python.lua          — Python LSP + DAP        [lazy: FileType python]
     └── projects/               — shared language configs
@@ -326,7 +327,7 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>me` | Expand all sections |
 | `<leader>mc` | Collapse all sections |
 
-### CMake (`<leader>c`) — activates in CMake projects
+### CMake (`<leader>c`) — activates in CMake projects (`CMakeLists.txt` found)
 
 | Key | Action |
 |-----|--------|
@@ -337,6 +338,17 @@ Activates after the first Python file is opened. Uses the same Python binary res
 | `<leader>cx` | Clean active preset |
 | `<leader>cd` | Delete build directory (prompts confirmation) |
 | `<leader>cr` | Run executable — pick exe + workdata, cleans output files first |
+
+### Make (`<leader>c`) — activates in Makefile projects (Makefile found, no CMakeLists.txt)
+
+Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually exclusive with cmake-tools.
+
+| Key | Action |
+|-----|--------|
+| `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) |
+| `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release |
+| `<leader>cx` | Clean (pick debug/release/both) |
+| `<leader>cr` | Run executable (pick debug/release, then workdata directory) |
 
 ### Debug / DAP (`<leader>d`) — `<leader>ds` activates on first Fortran or Python file; all other keys available from startup
 
@@ -410,12 +422,12 @@ value. Move the cursor to close the popup.
 | `gO` | n | Document symbols |
 | `gW` | n | Workspace symbols |
 | `grt` | n | Type definition |
-| `K` | n | Hover docs (or DAP eval during debug session) |
+| `K` | n | Hover docs (or DAP eval during debug session) — Fortran and Python buffers |
 | `<leader>th` | n | Toggle inlay hints |
-| `[d` / `]d` | n | Previous / next diagnostic |
-| `<leader>e` | n | Show diagnostic float |
-| `<leader>rn` | n | Rename symbol (language-specific buffers) |
-| `<leader>ca` | n | Code action (language-specific buffers) |
+| `[d` / `]d` | n | Previous / next diagnostic (Python buffers; `plugins/python.lua`) |
+| `<leader>e` | n | Show diagnostic float (Python buffers; `plugins/python.lua`) |
+| `<leader>rn` | n | Rename symbol (Python buffers; `plugins/python.lua`) |
+| `<leader>ca` | n | Code action (Python buffers; `plugins/python.lua`) |
 
 ### Toggles (`<leader>t`)
 

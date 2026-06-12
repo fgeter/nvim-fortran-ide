@@ -29,6 +29,7 @@
     │   ├── dap.lua             — DAP core + F-key aliases
     │   ├── markdown.lua        — render-markdown.nvim
     │   ├── cmake-tools.lua     — CMake integration     [lazy: DirChanged]
+    │   ├── make-tools.lua      — Make integration      [lazy: DirChanged]
     │   ├── fortran-tools.lua   — Fortran LSP + DAP     [lazy: FileType fortran]
     │   └── python.lua          — Python LSP + DAP      [lazy: FileType python]
     └── projects/               — shared language configs, sourced by .nvim.lua
@@ -159,6 +160,7 @@ Most plugins load at startup. The following are deferred:
 | `formatting.lua` | First `<leader>f` press |
 | `treesitter.lua` | Per-language parser on `FileType` |
 | `cmake-tools.lua` | `DirChanged` into a CMake project, or startup inside one |
+| `make-tools.lua` | `DirChanged` into a Makefile project (no CMakeLists.txt), or startup inside one |
 | `fortran-tools.lua` | `FileType fortran` |
 | `python.lua` | `FileType python` |
 
