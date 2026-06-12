@@ -130,6 +130,9 @@ function M.make_terminal()
   return { run = run }
 end
 
+-- Return the filename component of a path (strips all leading directories).
+function M.basename(path) return vim.fn.fnamemodify(path, ':t') end
+
 -- List immediate subdirectories of work_root.
 function M.get_workdirs(work_root)
   local dirs = {}

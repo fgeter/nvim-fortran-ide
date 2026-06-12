@@ -93,8 +93,10 @@ local function activate()
     })
   end
 
+  local utils = require('core.utils')
+
   local function pick_cwd_and_launch(program)
-    local dirs = require('core.utils').get_workdirs(WORK_ROOT)
+    local dirs = utils.get_workdirs(WORK_ROOT)
     if #dirs == 0 then
       vim.notify('No workdata directories found in ' .. WORK_ROOT, vim.log.levels.ERROR)
       return
@@ -105,7 +107,7 @@ local function activate()
     end
     vim.ui.select(dirs, {
       prompt      = 'Select workdata directory:',
-      format_item = function(item) return vim.fn.fnamemodify(item, ':t') end,
+      format_item = utils.basename,
     }, function(choice)
       if choice then launch(program, choice) end
     end)

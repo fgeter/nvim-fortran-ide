@@ -101,7 +101,7 @@ local function activate()
     if #dirs == 1 then launch(program, dirs[1]); return end
     vim.ui.select(dirs, {
       prompt      = 'Select working directory:',
-      format_item = function(item) return vim.fn.fnamemodify(item, ':t') end,
+      format_item = utils.basename,
     }, function(choice) if choice then launch(program, choice) end end)
   end
 
