@@ -9,7 +9,6 @@
 -- agnostic <leader>d* keymaps live in plugins/dap.lua.
 -- This file only adds what is Fortran-specific:
 --   • fortls LSP config
---   • K override — DAP eval during session, LSP hover otherwise
 --   • <leader>ds — custom executable/workdata picker
 --
 -- LAZY: Yes — everything inside activate() runs only on the first
@@ -30,8 +29,7 @@ local function activate()
   local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
   local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 
-  local dap   = require('dap')
-  local dapui = require('dapui')
+  local dap = require('dap')
 
   ---------------------------------------------------------------------------
   -- LSP: fortls
@@ -45,33 +43,6 @@ local function activate()
     },
   })
   vim.lsp.enable('fortls')
-
-  -- Buffer-local keymaps for Fortran files.
-  -- Only add Fortran-specific behavior. Global LSP mappings come from lsp.lua.
-  vim.api.nvim_create_autocmd('LspAttach', {
-    pattern  = { '*.f90', '*.f95', '*.f03', '*.f08', '*.for', '*.f' },
-    group    = vim.api.nvim_create_augroup('fortran-lsp-attach', { clear = true }),
-    callback = function(ev)
-      local opts = { buffer = ev.buf }
-
-      -- K: DAP eval during session, LSP hover otherwise.
-      -- CursorMoved closes the eval float immediately so it never gets stuck.
-      vim.keymap.set('n', 'K', function()
-        if dap.session() then
-          dapui.eval(nil, { enter = false })
-          vim.api.nvim_create_autocmd('CursorMoved', {
-            once     = true,
-            callback = function()
-              vim.api.nvim_feedkeys(
-                vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
-            end,
-          })
-        else
-          vim.lsp.buf.hover()
-        end
-      end, vim.tbl_extend('force', opts, { desc = 'K: DAP eval / LSP hover' }))
-    end,
-  })
 
   ---------------------------------------------------------------------------
   -- DAP: gdb adapter + custom launchers
@@ -111,16 +82,6 @@ local function activate()
     return execs
   end
 
-  local function get_workdirs()
-    local dirs = {}
-    for _, path in ipairs(vim.fn.globpath(WORK_ROOT, '*', false, true)) do
-      if vim.fn.isdirectory(path) == 1 then
-        table.insert(dirs, path)
-      end
-    end
-    return dirs
-  end
-
   local function launch(program, cwd)
     dap.run({
       name         = 'Launch swatplus',
@@ -133,7 +94,7 @@ local function activate()
   end
 
   local function pick_cwd_and_launch(program)
-    local dirs = get_workdirs()
+    local dirs = require('core.utils').get_workdirs(WORK_ROOT)
     if #dirs == 0 then
       vim.notify('No workdata directories found in ' .. WORK_ROOT, vim.log.levels.ERROR)
       return

@@ -58,9 +58,12 @@ vim.keymap.set('n', 'zh', '5zh', { desc = 'Scroll left ~1 word' })
 
 vim.keymap.set('n', 'ze', 'ze', { desc = 'Scroll cursor to right edge' })
 vim.keymap.set('n', 'zs', 'zs', { desc = 'Scroll cursor to left edge' })
--- Alt+l/h: single-key variants that repeat properly when held down
-vim.keymap.set('n', '<A-l>', '5zl', { desc = 'Scroll right ~1 word (hold to repeat)' })
-vim.keymap.set('n', '<A-h>', '5zh', { desc = 'Scroll left ~1 word (hold to repeat)' })
+-- Alt+arrow: move cursor 5 chars; window scrolls naturally when cursor
+-- reaches the edge (standard Neovim sidescroll behaviour).
+vim.keymap.set('n', '<A-Right>', function() vim.cmd('normal! 5l') end,
+  { desc = 'Move cursor right 5 chars (hold to repeat)' })
+vim.keymap.set('n', '<A-Left>', function() vim.cmd('normal! 5h') end,
+  { desc = 'Move cursor left 5 chars (hold to repeat)' })
 
 -- ── Diagnostics ──────────────────────────────────────────────
 -- Open all diagnostics for the current buffer in the quickfix list

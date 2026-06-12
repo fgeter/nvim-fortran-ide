@@ -167,20 +167,29 @@ vim.keymap.set('v', '<leader>de', function() dapui.eval()    end, { desc = 'DAP:
 vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP: open REPL' })
 
 vim.keymap.set('n', '<leader>dF', function()
-  local lines = {
-    '  F1   Step into         ',
-    '  F2   Step over         ',
-    '  F3   Step out          ',
-    '  F4   Toggle breakpoint ',
-    '  F5   Continue          ',
-    '  F6   Run to cursor     ',
-    '  F7   Toggle UI         ',
-    '  F8   Conditional bp    ',
-    '  F9   Start debugger    ',
-    '  F10  Terminate session ',
-    '',
-    '  q / <Esc>  close        ',
+  -- Build popup lines from the actual keymap descriptions so the popup
+  -- stays accurate automatically when F-key bindings change.
+  local fkeys = {
+    { '<F1>',  'F1'  }, { '<F2>',  'F2'  }, { '<F3>',  'F3'  },
+    { '<F4>',  'F4'  }, { '<F5>',  'F5'  }, { '<F6>',  'F6'  },
+    { '<F7>',  'F7'  }, { '<F8>',  'F8'  }, { '<F9>',  'F9'  },
+    { '<F10>', 'F10' },
   }
+  local rows = {}
+  local max_desc = 0
+  for _, e in ipairs(fkeys) do
+    local info = vim.fn.maparg(e[1], 'n', false, true)
+    local desc = (info.desc and info.desc ~= '') and info.desc:gsub('^DAP: ', '') or '—'
+    table.insert(rows, { label = e[2], desc = desc })
+    if #desc > max_desc then max_desc = #desc end
+  end
+  local lines = {}
+  for _, r in ipairs(rows) do
+    table.insert(lines, string.format('  %-3s  %-' .. max_desc .. 's  ', r.label, r.desc))
+  end
+  table.insert(lines, '')
+  local close = '  q / <Esc>  close'
+  table.insert(lines, close .. string.rep(' ', math.max(0, #lines[1] - #close)))
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
@@ -196,6 +205,7 @@ vim.keymap.set('n', '<leader>dF', function()
     border    = 'rounded',
     title     = ' DAP keys ',
     title_pos = 'center',
+    zindex    = 200,  -- above scrollbar (zindex 150)
   })
   for _, key in ipairs({ 'q', '<Esc>' }) do
     vim.keymap.set('n', key, function()

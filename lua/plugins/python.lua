@@ -9,11 +9,10 @@
 -- dapui.setup(), auto open/close listeners, and all language-
 -- agnostic <leader>d* keymaps live in plugins/dap.lua.
 -- This file only adds what is Python-specific:
---   • basedpyright LSP config + buffer-local keymaps
+--   • basedpyright LSP config
 --   • debugpy DAP adapter + configurations
 --   • <leader>ds  — dap.continue() (shows config picker or resumes)
 --   • <leader>pr  — run current file in bottom terminal
---   • K override  — DAP eval during session, LSP hover otherwise
 --
 -- LAZY: Yes — activates on FileType python only.
 --
@@ -87,8 +86,7 @@ local function activate()
   ---------------------------------------------------------------------------
   -- DAP: debugpy
   ---------------------------------------------------------------------------
-  local dap   = require('dap')
-  local dapui = require('dapui')
+  local dap = require('dap')
 
   dap.adapters.python = {
     type    = 'executable',
@@ -150,46 +148,6 @@ local function activate()
       end,
     })
   end
-
-  ---------------------------------------------------------------------------
-  -- Buffer-local keymaps (LSP + K)
-  -- Both handlers merged into one augroup so re-activation (project switch)
-  -- clears the old handlers cleanly instead of stacking them.
-  ---------------------------------------------------------------------------
-  vim.api.nvim_create_autocmd('LspAttach', {
-    pattern  = '*.py',
-    group    = vim.api.nvim_create_augroup('python-lsp-attach', { clear = true }),
-    callback = function(ev)
-      local opts = { buffer = ev.buf }
-      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename,
-        vim.tbl_extend('force', opts, { desc = 'LSP: rename symbol' }))
-      vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action,
-        vim.tbl_extend('force', opts, { desc = 'LSP: code action' }))
-      vim.keymap.set('n', '<leader>e',  vim.diagnostic.open_float,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: show float' }))
-      vim.keymap.set('n', '[d', function() vim.diagnostic.jump({ count = -1 }) end,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: prev' }))
-      vim.keymap.set('n', ']d', function() vim.diagnostic.jump({ count =  1 }) end,
-        vim.tbl_extend('force', opts, { desc = 'Diagnostics: next' }))
-
-      -- K: DAP eval during session, LSP hover otherwise.
-      -- CursorMoved closes the eval float immediately so it never gets stuck.
-      vim.keymap.set('n', 'K', function()
-        if dap.session() then
-          dapui.eval(nil, { enter = false })
-          vim.api.nvim_create_autocmd('CursorMoved', {
-            once     = true,
-            callback = function()
-              vim.api.nvim_feedkeys(
-                vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
-            end,
-          })
-        else
-          vim.lsp.buf.hover()
-        end
-      end, vim.tbl_extend('force', opts, { desc = 'K: DAP eval / LSP hover' }))
-    end,
-  })
 
   ---------------------------------------------------------------------------
   -- <leader>ds — Python-specific start/continue

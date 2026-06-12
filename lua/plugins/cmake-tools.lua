@@ -108,7 +108,9 @@ local function activate()
     cmake_virtual_text_support = true,
   }
 
-  local get_editor_win = require('core.utils').find_editor_win
+  local utils          = require('core.utils')
+  local get_editor_win = utils.find_editor_win
+  local term           = utils.make_terminal()
 
   ---------------------------------------------------------------------------
   -- Helper: run a cmake-tools command and restore focus when done
@@ -266,156 +268,16 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- Helper: list workdata directories
-  ---------------------------------------------------------------------------
-  local function get_workdirs()
-    local dirs = {}
-    for _, path in ipairs(vim.fn.globpath(WORK_ROOT, '*', false, true)) do
-      if vim.fn.isdirectory(path) == 1 then table.insert(dirs, path) end
-    end
-    return dirs
-  end
-
-  ---------------------------------------------------------------------------
-  -- Persistent terminal for builds and runs
-  ---------------------------------------------------------------------------
-  -- A single bash terminal buffer is reused across build and run commands.
-  -- This is separate from the cmake-tools toggleterm so output from cmake
-  -- configure (toggleterm) and cmake build (this terminal) don't mix.
-  local term_buf  = nil
-  local term_chan = nil
-
-  -- Register a BufWipeout autocmd on term_buf so that when the terminal
-  -- window is closed (shell exits or user types exit), focus returns to
-  -- the editor window that was active before the terminal opened.
-  -- Without this, neo-tree grabs focus after the terminal split closes.
-  local function register_focus_restore(origin_win)
-    if not term_buf then return end
-    vim.api.nvim_create_autocmd('BufWipeout', {
-      buffer   = term_buf,
-      once     = true,
-      callback = function()
-        vim.schedule(function()
-          local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
-            and origin_win or get_editor_win()
-          if target then vim.api.nvim_set_current_win(target) end
-        end)
-      end,
-    })
-  end
-
-  local function open_terminal()
-    -- Capture editor window BEFORE opening the terminal split
-    local origin_win = get_editor_win()
-    vim.cmd('botright split')
-    vim.cmd('terminal bash')
-    term_buf  = vim.api.nvim_get_current_buf()
-    term_chan = vim.bo[term_buf].channel
-    register_focus_restore(origin_win)
-  end
-
-  -- Send `cmd` to the persistent terminal, opening it if needed.
-  -- If the terminal buffer is valid but not visible, re-opens its window.
-  local function run_in_terminal(cmd)
-    -- Invalidate handles if the terminal buffer was closed
-    if term_buf and not vim.api.nvim_buf_is_valid(term_buf) then
-      term_buf = nil; term_chan = nil
-    end
-
-    if not term_buf then
-      open_terminal()
-    else
-      -- Find the window showing the terminal buffer, or open a new one
-      local term_win = nil
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_get_buf(win) == term_buf then
-          term_win = win; break
-        end
-      end
-      if not term_win then
-        -- Terminal buffer exists but its window was closed — re-open it
-        -- and re-register focus restore for this new window session.
-        local origin_win = get_editor_win()
-        vim.cmd('botright split')
-        vim.api.nvim_win_set_buf(0, term_buf)
-        register_focus_restore(origin_win)
-      else
-        vim.api.nvim_set_current_win(term_win)
-      end
-    end
-
-    local ok = pcall(vim.fn.chansend, term_chan, cmd .. '\n')
-    if not ok then
-      -- Channel died (e.g. shell exited); open a fresh terminal and retry
-      open_terminal()
-      pcall(vim.fn.chansend, term_chan, cmd .. '\n')
-    end
-
-    vim.cmd('startinsert')
-  end
-
-  ---------------------------------------------------------------------------
   -- Build: cmake --build using the active preset's build directory
   ---------------------------------------------------------------------------
-
-  -- Detect the number of logical CPU cores available on this machine.
-  -- Used as the default thread count for parallel builds.
-  -- nproc is available on Linux; sysctl -n hw.logicalcpu is the macOS equivalent.
-  -- Falls back to 4 if neither command is available.
-  local function get_cpu_count()
-    -- gsub returns (string, count) — wrap in parentheses to discard the count
-    -- before passing to tonumber, otherwise tonumber gets two args and errors.
-    local nproc   = tonumber((vim.fn.system('nproc 2>/dev/null'):gsub('%s+', '')))
-    local sysctl  = tonumber((vim.fn.system('sysctl -n hw.logicalcpu 2>/dev/null'):gsub('%s+', '')))
-    return nproc or sysctl or 4
-  end
-
-  -- Build with `jobs` parallel threads.
-  -- jobs=1 is useful when debugging compile errors: the build stops at the
-  -- first error with clean output rather than interleaving errors from
-  -- multiple threads, making it much easier to read the error message.
-  -- On success the terminal pauses with a prompt; pressing <CR> closes it and
-  -- returns focus to the originating window. On failure the terminal stays open
-  -- so the error output remains visible.
   local function do_build(jobs)
     local build = get_active_build_dir()
     if not build then return end
-    local j = jobs or get_cpu_count()
+    local j = jobs or utils.get_cpu_count()
     vim.notify('Building: ' .. build.label .. ' (-j ' .. j .. ')', vim.log.levels.INFO)
-
     local cmake_cmd = 'cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j ' .. j
-    local shell_cmd = cmake_cmd
-      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }'
-
-    local origin_win = get_editor_win()
-    vim.cmd('botright split')
-    vim.cmd('terminal bash')
-    local build_buf  = vim.api.nvim_get_current_buf()
-    local build_chan = vim.bo[build_buf].channel
-
-    vim.api.nvim_create_autocmd('TermClose', {
-      buffer   = build_buf,
-      once     = true,
-      callback = function()
-        vim.schedule(function()
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_get_buf(win) == build_buf then
-              vim.api.nvim_win_close(win, true)
-              break
-            end
-          end
-          if vim.api.nvim_buf_is_valid(build_buf) then
-            vim.api.nvim_buf_delete(build_buf, { force = true })
-          end
-          local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
-            and origin_win or get_editor_win()
-          if target then vim.api.nvim_set_current_win(target) end
-        end)
-      end,
-    })
-
-    pcall(vim.fn.chansend, build_chan, shell_cmd .. '\n')
-    vim.cmd('startinsert')
+    utils.run_build_cmd(cmake_cmd
+      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }')
   end
 
   ---------------------------------------------------------------------------
@@ -448,12 +310,11 @@ local function activate()
       vim.notify('Removed ' .. removed .. ' previous output file(s) from '
         .. vim.fn.fnamemodify(cwd, ':t'), vim.log.levels.INFO)
     end
-    run_in_terminal('cd ' .. vim.fn.shellescape(cwd) ..
-      ' && ' .. vim.fn.shellescape(program))
+    term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
   end
 
   local function pick_workdata_and_launch(program)
-    local dirs = get_workdirs()
+    local dirs = utils.get_workdirs(WORK_ROOT)
     if #dirs == 0 then
       vim.notify('No workdata directories found in ' .. WORK_ROOT, vim.log.levels.ERROR)
       return

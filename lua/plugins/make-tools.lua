@@ -42,120 +42,20 @@ local function activate()
   local REPO_ROOT = vim.g.project_repo_root or vim.fn.getcwd()
   local WORK_ROOT = vim.g.project_work_root or (REPO_ROOT .. '/workdata')
 
-  local get_editor_win = require('core.utils').find_editor_win
-
-  ---------------------------------------------------------------------------
-  -- CPU count (same logic as cmake-tools)
-  ---------------------------------------------------------------------------
-  local function get_cpu_count()
-    local nproc  = tonumber((vim.fn.system('nproc 2>/dev/null'):gsub('%s+', '')))
-    local sysctl = tonumber((vim.fn.system('sysctl -n hw.logicalcpu 2>/dev/null'):gsub('%s+', '')))
-    return nproc or sysctl or 4
-  end
-
-  ---------------------------------------------------------------------------
-  -- Persistent terminal (same pattern as cmake-tools)
-  ---------------------------------------------------------------------------
-  local term_buf  = nil
-  local term_chan = nil
-
-  local function register_focus_restore(origin_win)
-    if not term_buf then return end
-    vim.api.nvim_create_autocmd('BufWipeout', {
-      buffer   = term_buf,
-      once     = true,
-      callback = function()
-        vim.schedule(function()
-          local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
-            and origin_win or get_editor_win()
-          if target then vim.api.nvim_set_current_win(target) end
-        end)
-      end,
-    })
-  end
-
-  local function open_terminal()
-    local origin_win = get_editor_win()
-    vim.cmd('botright split')
-    vim.cmd('terminal bash')
-    term_buf  = vim.api.nvim_get_current_buf()
-    term_chan = vim.bo[term_buf].channel
-    register_focus_restore(origin_win)
-  end
-
-  local function run_in_terminal(cmd)
-    if term_buf and not vim.api.nvim_buf_is_valid(term_buf) then
-      term_buf = nil; term_chan = nil
-    end
-
-    if not term_buf then
-      open_terminal()
-    else
-      local term_win = nil
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_get_buf(win) == term_buf then
-          term_win = win; break
-        end
-      end
-      if not term_win then
-        local origin_win = get_editor_win()
-        vim.cmd('botright split')
-        vim.api.nvim_win_set_buf(0, term_buf)
-        register_focus_restore(origin_win)
-      else
-        vim.api.nvim_set_current_win(term_win)
-      end
-    end
-
-    local ok = pcall(vim.fn.chansend, term_chan, cmd .. '\n')
-    if not ok then
-      open_terminal()
-      pcall(vim.fn.chansend, term_chan, cmd .. '\n')
-    end
-    vim.cmd('startinsert')
-  end
+  local utils = require('core.utils')
+  local term  = utils.make_terminal()
 
   ---------------------------------------------------------------------------
   -- Build: make [-jN] in a dedicated terminal (same UX as cmake-tools)
   ---------------------------------------------------------------------------
   local function run_build(build_type, jobs)
-    local j = jobs or get_cpu_count()
+    local j = jobs or utils.get_cpu_count()
     vim.notify('Building ' .. build_type .. ' with make -j' .. j, vim.log.levels.INFO)
-
     local make_cmd = 'make -j' .. j
       .. ' BUILD_TYPE=' .. build_type
       .. ' -C ' .. vim.fn.shellescape(REPO_ROOT)
-    local shell_cmd = make_cmd
-      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }'
-
-    local origin_win = get_editor_win()
-    vim.cmd('botright split')
-    vim.cmd('terminal bash')
-    local build_buf  = vim.api.nvim_get_current_buf()
-    local build_chan = vim.bo[build_buf].channel
-
-    vim.api.nvim_create_autocmd('TermClose', {
-      buffer   = build_buf,
-      once     = true,
-      callback = function()
-        vim.schedule(function()
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_get_buf(win) == build_buf then
-              vim.api.nvim_win_close(win, true); break
-            end
-          end
-          if vim.api.nvim_buf_is_valid(build_buf) then
-            vim.api.nvim_buf_delete(build_buf, { force = true })
-          end
-          local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
-            and origin_win or get_editor_win()
-          if target then vim.api.nvim_set_current_win(target) end
-        end)
-      end,
-    })
-
-    pcall(vim.fn.chansend, build_chan, shell_cmd .. '\n')
-    vim.cmd('startinsert')
+    utils.run_build_cmd(make_cmd
+      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }')
   end
 
   local function do_build(jobs)
@@ -169,7 +69,7 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- Executable discovery: check build/debug and build/release explicitly
+  -- Executable discovery
   ---------------------------------------------------------------------------
   local function get_executables()
     local candidates = {
@@ -188,21 +88,12 @@ local function activate()
   ---------------------------------------------------------------------------
   -- Run: pick debug/release → optionally pick workdata → launch
   ---------------------------------------------------------------------------
-  local function get_workdirs()
-    local dirs = {}
-    for _, path in ipairs(vim.fn.globpath(WORK_ROOT, '*', false, true)) do
-      if vim.fn.isdirectory(path) == 1 then table.insert(dirs, path) end
-    end
-    return dirs
-  end
-
   local function launch(program, cwd)
-    run_in_terminal('cd ' .. vim.fn.shellescape(cwd) ..
-      ' && ' .. vim.fn.shellescape(program))
+    term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
   end
 
   local function pick_workdata_and_launch(program)
-    local dirs = get_workdirs()
+    local dirs = utils.get_workdirs(WORK_ROOT)
     if #dirs == 0 then
       launch(program, REPO_ROOT)
       return
@@ -247,9 +138,9 @@ local function activate()
       if not choice then return end
       local base = 'make -C ' .. vim.fn.shellescape(REPO_ROOT) .. ' BUILD_TYPE='
       if choice == 'both' then
-        run_in_terminal(base .. 'debug clean && ' .. base .. 'release clean')
+        term.run(base .. 'debug clean && ' .. base .. 'release clean')
       else
-        run_in_terminal(base .. choice .. ' clean')
+        term.run(base .. choice .. ' clean')
       end
     end)
   end, { desc = 'Make: clean' })

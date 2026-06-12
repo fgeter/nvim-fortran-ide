@@ -105,6 +105,25 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Go to declaration (header / interface, not implementation)
     map('grD', vim.lsp.buf.declaration,  '[G]oto [D]eclaration')
 
+    -- K: DAP eval during a debug session, LSP hover otherwise.
+    -- Uses utils so the implementation is defined once and shared.
+    local ok_dap, dap   = pcall(require, 'dap')
+    local ok_ui,  dapui = pcall(require, 'dapui')
+    if ok_dap and ok_ui then
+      require('core.utils').attach_k_handler(ev.buf, dap, dapui)
+    else
+      map('K', vim.lsp.buf.hover, 'hover docs')
+    end
+
+    -- Diagnostic navigation — globally available on all LSP buffers
+    map('[d',        function() vim.diagnostic.jump({ count = -1 }) end, 'prev diagnostic')
+    map(']d',        function() vim.diagnostic.jump({ count =  1 }) end, 'next diagnostic')
+    map('<leader>e', vim.diagnostic.open_float,                          'show diagnostic float')
+
+    -- VS Code-style aliases (muscle memory for users coming from other editors)
+    map('<leader>rn', vim.lsp.buf.rename,      'rename symbol')
+    map('<leader>ca', vim.lsp.buf.code_action, 'code action')
+
     -- Toggle inlay hints (e.g. parameter names, return types) if supported
     local client = vim.lsp.get_client_by_id(ev.data.client_id)
     if client and client:supports_method('textDocument/inlayHint', ev.buf) then

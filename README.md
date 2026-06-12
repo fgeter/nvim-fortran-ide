@@ -422,12 +422,12 @@ value. Move the cursor to close the popup.
 | `gO` | n | Document symbols |
 | `gW` | n | Workspace symbols |
 | `grt` | n | Type definition |
-| `K` | n | Hover docs (or DAP eval during debug session) — Fortran and Python buffers |
+| `K` | n | Hover docs (or DAP eval during debug session) |
 | `<leader>th` | n | Toggle inlay hints |
-| `[d` / `]d` | n | Previous / next diagnostic (Python buffers; `plugins/python.lua`) |
-| `<leader>e` | n | Show diagnostic float (Python buffers; `plugins/python.lua`) |
-| `<leader>rn` | n | Rename symbol (Python buffers; `plugins/python.lua`) |
-| `<leader>ca` | n | Code action (Python buffers; `plugins/python.lua`) |
+| `[d` / `]d` | n | Previous / next diagnostic |
+| `<leader>e` | n | Show diagnostic float |
+| `<leader>rn` | n | Rename symbol |
+| `<leader>ca` | n | Code action |
 
 ### Toggles (`<leader>t`)
 

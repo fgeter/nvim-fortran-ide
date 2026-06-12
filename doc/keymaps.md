@@ -26,10 +26,10 @@
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<A-h>` | Scroll left ~1 word (hold to repeat) | `core/keymaps.lua` |
-| `<A-l>` | Scroll right ~1 word (hold to repeat) | `core/keymaps.lua` |
-| `zl` | Scroll right ~1 word | `core/keymaps.lua` |
-| `zh` | Scroll left ~1 word | `core/keymaps.lua` |
+| `<A-Right>` | Move cursor right 5 chars; window scrolls when cursor hits edge (hold to repeat) | `core/keymaps.lua` |
+| `<A-Left>` | Move cursor left 5 chars; window scrolls when cursor hits edge (hold to repeat) | `core/keymaps.lua` |
+| `zl` | Scroll window right ~1 word | `core/keymaps.lua` |
+| `zh` | Scroll window left ~1 word | `core/keymaps.lua` |
 | `ze` | Scroll cursor to right edge | `core/keymaps.lua` |
 | `zs` | Scroll cursor to left edge | `core/keymaps.lua` |
 
@@ -256,13 +256,13 @@ While debugging, press `K` over any variable to see its current value. Move the 
 | `gO` | n | Document symbols | `plugins/telescope.lua` |
 | `gW` | n | Workspace symbols | `plugins/telescope.lua` |
 | `grt` | n | Type definition | `plugins/telescope.lua` |
-| `K` | n | Hover docs (or DAP eval in debug session) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
+| `K` | n | Hover docs (or DAP eval in debug session) | `plugins/lsp.lua` via `core/utils.lua` |
 | `<leader>th` | n | Toggle inlay hints | `plugins/lsp.lua` |
-| `[d` | n | Previous diagnostic (Python buffers) | `plugins/python.lua` |
-| `]d` | n | Next diagnostic (Python buffers) | `plugins/python.lua` |
-| `<leader>e` | n | Show diagnostic float (Python buffers) | `plugins/python.lua` |
-| `<leader>rn` | n | Rename symbol (Python buffers) | `plugins/python.lua` |
-| `<leader>ca` | n | Code action (Python buffers) | `plugins/python.lua` |
+| `[d` | n | Previous diagnostic | `plugins/lsp.lua` |
+| `]d` | n | Next diagnostic | `plugins/lsp.lua` |
+| `<leader>e` | n | Show diagnostic float | `plugins/lsp.lua` |
+| `<leader>rn` | n | Rename symbol | `plugins/lsp.lua` |
+| `<leader>ca` | n | Code action | `plugins/lsp.lua` |
 
 ---
 
