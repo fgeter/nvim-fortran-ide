@@ -17,6 +17,10 @@
 
 local function gh(repo) return 'https://github.com/' .. repo end
 
+local function current_branch()
+  return vim.g.git_branch or vim.fn.system('git branch --show-current'):gsub('\n', '')
+end
+
 -- ── gitsigns ─────────────────────────────────────────────────
 -- Shows +/~/_ signs in the gutter for added/changed/deleted lines.
 -- Also provides hunk navigation and staging without leaving Neovim.
@@ -197,7 +201,7 @@ local function switch_branch()
     line = line:match('^%s*(.-)%s*$')
     if line ~= '' then table.insert(branches, line) end
   end
-  local current = vim.fn.system('git branch --show-current'):gsub('\n', '')
+  local current = current_branch()
   vim.ui.select(branches, { prompt = 'Switch to branch (current: ' .. current .. '):' },
     function(choice)
       if not choice or choice == current then return end
@@ -222,7 +226,7 @@ local function delete_branch()
     line = line:match('^%s*(.-)%s*$')
     if line ~= '' then table.insert(branches, line) end
   end
-  local current   = vim.fn.system('git branch --show-current'):gsub('\n', '')
+  local current   = current_branch()
   local deletable = vim.tbl_filter(function(b) return b ~= current end, branches)
   if #deletable == 0 then
     vim.notify('No other branches to delete.', vim.log.levels.WARN)
@@ -257,7 +261,7 @@ local function merge_branch()
     line = line:match('^%s*(.-)%s*$')
     if line ~= '' then table.insert(branches, line) end
   end
-  local current   = vim.fn.system('git branch --show-current'):gsub('\n', '')
+  local current   = current_branch()
   local mergeable = vim.tbl_filter(function(b) return b ~= current end, branches)
   vim.ui.select(mergeable, { prompt = 'Merge into "' .. current .. '":' },
     function(choice)
