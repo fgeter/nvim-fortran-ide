@@ -19,7 +19,8 @@ local function gh(repo) return 'https://github.com/' .. repo end
 vim.pack.add {
   gh 'mfussenegger/nvim-dap',
   gh 'rcarriga/nvim-dap-ui',
-  gh 'nvim-neotest/nvim-nio',  -- required async library for dap-ui
+  gh 'nvim-neotest/nvim-nio',           -- required async library for dap-ui
+  gh 'theHamsta/nvim-dap-virtual-text', -- show variable values inline during debug
 }
 
 local dap   = require('dap')
@@ -113,6 +114,11 @@ dapui.setup {
     max_type_length = 50,
     max_value_lines = 200,
   },
+}
+
+-- Virtual text: show variable values inline next to their declarations while stepping.
+require('nvim-dap-virtual-text').setup {
+  commented = true, -- render as a comment so it is visually distinct
 }
 
 -- Auto open/close the UI panels with the debug session.

@@ -44,9 +44,22 @@ local function setup_conform()
     },
 
     formatters_by_ft = {
-      -- Add formatters here as needed. Examples:
-      -- lua    = { 'stylua' },
-      -- python = { 'isort', 'black' },
+      lua             = { 'stylua' },
+      python          = { 'ruff' },
+      sh              = { 'shfmt' },
+      bash            = { 'shfmt' },
+      c               = { 'clang-format' },
+      cpp             = { 'clang-format' },
+      java            = { 'google-java-format' },
+      javascript      = { 'prettier' },
+      typescript      = { 'prettier' },
+      javascriptreact = { 'prettier' },
+      typescriptreact = { 'prettier' },
+      html            = { 'prettier' },
+      css             = { 'prettier' },
+      json            = { 'prettier' },
+      yaml            = { 'prettier' },
+      markdown        = { 'prettier' },
     },
   }
 end
