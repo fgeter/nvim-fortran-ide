@@ -146,18 +146,23 @@ end
 -- LSP hover otherwise. The eval float closes on the next cursor move.
 function M.attach_k_handler(bufnr, dap, dapui)
   vim.keymap.set('n', 'K', function()
+    local before = vim.api.nvim_list_wins()
     if dap.session() then
-      dapui.eval(nil, { enter = false })
-      vim.api.nvim_create_autocmd('CursorMoved', {
-        once     = true,
-        callback = function()
-          vim.api.nvim_feedkeys(
-            vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
-        end,
-      })
+      dapui.eval(nil, { enter = true })
     else
       vim.lsp.buf.hover()
     end
+    vim.defer_fn(function()
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if not vim.tbl_contains(before, win) then
+          local cfg = vim.api.nvim_win_get_config(win)
+          if cfg.relative ~= '' then
+            cfg.zindex = 200
+            vim.api.nvim_win_set_config(win, cfg)
+          end
+        end
+      end
+    end, 50)
   end, { buffer = bufnr, desc = 'K: DAP eval / LSP hover' })
 end
 

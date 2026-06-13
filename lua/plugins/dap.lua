@@ -25,6 +25,21 @@ vim.pack.add {
 local dap   = require('dap')
 local dapui = require('dapui')
 
+-- Raise zindex of any float that opens asynchronously above the scrollbar.
+local function raise_new_floats(before)
+  vim.defer_fn(function()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if not vim.tbl_contains(before, win) then
+        local cfg = vim.api.nvim_win_get_config(win)
+        if cfg.relative ~= '' then
+          cfg.zindex = 200
+          vim.api.nvim_win_set_config(win, cfg)
+        end
+      end
+    end
+  end, 50)
+end
+
 -- ── Gutter signs ─────────────────────────────────────────────
 vim.fn.sign_define('DapBreakpoint',         { text = '●', texthl = 'DiagnosticError',   linehl = '', numhl = '' })
 vim.fn.sign_define('DapBreakpointCondition',{ text = '◆', texthl = 'DiagnosticWarn',    linehl = '', numhl = '' })
@@ -162,26 +177,48 @@ end, { desc = 'DAP: add to watches' })
 
 vim.keymap.set('n', '<leader>dU', function() dapui.toggle()  end, { desc = 'DAP: toggle UI' })
 vim.keymap.set('n', '<leader>dC', function()
+  local before = vim.api.nvim_list_wins()
   dapui.float_element('console', { enter = true })
-  -- dap-ui opens the float asynchronously via nio; defer so the window
-  -- exists before we raise its zindex above the scrollbar (zindex 150).
-  vim.defer_fn(function()
-    for _, win in ipairs(vim.api.nvim_list_wins()) do
-      local cfg = vim.api.nvim_win_get_config(win)
-      if cfg.relative ~= '' then
-        local buf = vim.api.nvim_win_get_buf(win)
-        if vim.bo[buf].filetype == 'dapui_console' then
-          cfg.zindex = 200
-          vim.api.nvim_win_set_config(win, cfg)
-          break
-        end
-      end
-    end
-  end, 50)
+  raise_new_floats(before)
 end, { desc = 'DAP: open console float' })
-vim.keymap.set('n', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval expression' })
-vim.keymap.set('v', '<leader>de', function() dapui.eval()    end, { desc = 'DAP: eval selection' })
+vim.keymap.set('n', '<leader>de', function()
+  local before = vim.api.nvim_list_wins()
+  dapui.eval(nil, { enter = true })
+  raise_new_floats(before)
+end, { desc = 'DAP: eval expression' })
+vim.keymap.set('v', '<leader>de', function()
+  local before = vim.api.nvim_list_wins()
+  dapui.eval(nil, { enter = true })
+  raise_new_floats(before)
+end, { desc = 'DAP: eval selection' })
 vim.keymap.set('n', '<leader>dR', function() dap.repl.open() end, { desc = 'DAP: open REPL' })
+
+local _hover_view = nil
+local _hover_buf  = nil
+
+local function close_hover()
+  if _hover_view and _hover_view.win and vim.api.nvim_win_is_valid(_hover_view.win) then
+    _hover_view.close()
+  end
+  _hover_view = nil
+  if _hover_buf and vim.api.nvim_buf_is_valid(_hover_buf) then
+    pcall(vim.keymap.del, 'n', '<Esc>', { buffer = _hover_buf })
+  end
+  _hover_buf = nil
+end
+
+vim.keymap.set('n', '<leader>dh', function()
+  if _hover_view and _hover_view.win and vim.api.nvim_win_is_valid(_hover_view.win) then
+    close_hover()
+  else
+    _hover_view = require('dap.ui.widgets').hover()
+    local hcfg = vim.api.nvim_win_get_config(_hover_view.win)
+    hcfg.zindex = 200
+    vim.api.nvim_win_set_config(_hover_view.win, hcfg)
+    _hover_buf  = vim.api.nvim_get_current_buf()
+    vim.keymap.set('n', '<Esc>', close_hover, { buffer = _hover_buf, desc = 'DAP: close hover' })
+  end
+end, { desc = 'DAP: toggle hover' })
 
 vim.keymap.set('n', '<leader>dF', function()
   -- Build popup lines from the actual keymap descriptions so the popup

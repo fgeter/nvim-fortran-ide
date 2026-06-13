@@ -122,7 +122,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 
     -- VS Code-style aliases (muscle memory for users coming from other editors)
     map('<leader>rn', vim.lsp.buf.rename,      'rename symbol')
-    map('<leader>ca', vim.lsp.buf.code_action, 'code action')
+    -- map('<leader>ca', vim.lsp.buf.code_action, 'code action')
 
     -- Toggle inlay hints (e.g. parameter names, return types) if supported
     local client = vim.lsp.get_client_by_id(ev.data.client_id)
