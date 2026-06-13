@@ -1,10 +1,11 @@
 # Neovim Configuration
 
 A general-purpose Neovim configuration with first-class support for Fortran,
-Python, C/C++, Java, TypeScript/JavaScript/React, Rust, and more. Provides a
-full IDE experience — LSP, debugging, CMake integration, git tooling, and
-fuzzy search — with a project-local config system that keeps language-specific
-paths out of the shared config.
+Python, C, C++, Java, JavaScript, TypeScript, React (JSX/TSX), Rust, Bash,
+HTML, CSS, JSON, YAML, TOML, and Lua. Provides a full IDE experience — LSP,
+debugging, CMake integration, git tooling, and fuzzy search — with a
+project-local config system that keeps language-specific paths out of the
+shared config.
 
 > **Platform:** This configuration has been developed and tested on **Linux
 > only** (Arch Linux with Wayland). It should work on macOS with minor
@@ -34,6 +35,33 @@ Grok, and Gemini in that order.
 - **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
 - **Project-local config** — per-project `.nvim.lua` sets paths; shared language
   configs in `lua/projects/` are inherited so plugin files have no hardcoded paths
+
+## Language support status
+
+| Language | LSP | Debug | Format | Status |
+|----------|-----|-------|--------|--------|
+| Fortran | ✅ fortls | ✅ GDB | — | **Tested / production** |
+| Lua | ✅ lua_ls | — | ✅ stylua | **Tested / production** |
+| Python | ✅ basedpyright | ✅ debugpy | ✅ ruff | ⚠️ Preliminary — untested |
+| C | ✅ clangd | ✅ GDB | ✅ clang-format | ⚠️ Preliminary — untested |
+| C++ | ✅ clangd | ✅ GDB | ✅ clang-format | ⚠️ Preliminary — untested |
+| Bash / Shell | ✅ bashls | — | ✅ shfmt | ⚠️ Preliminary — untested |
+| JavaScript | ✅ ts_ls + eslint | ✅ pwa-node | ✅ prettier | ⚠️ Preliminary — untested |
+| TypeScript | ✅ ts_ls + eslint | ✅ pwa-node | ✅ prettier | ⚠️ Preliminary — untested |
+| React (JSX/TSX) | ✅ ts_ls + eslint | ✅ pwa-node | ✅ prettier | ⚠️ Preliminary — untested |
+| Java | ✅ jdtls | ✅ java-debug | ✅ google-java-format | ⚠️ Preliminary — untested |
+| Rust | ✅ rust_analyzer | — | — | ⚠️ Preliminary — untested |
+| HTML | ✅ html | — | ✅ prettier | ⚠️ Preliminary — untested |
+| CSS | ✅ cssls | — | ✅ prettier | ⚠️ Preliminary — untested |
+| JSON | ✅ jsonls + schemas | — | ✅ prettier | ⚠️ Preliminary — untested |
+| YAML | ✅ yamlls + schemas | — | ✅ prettier | ⚠️ Preliminary — untested |
+| TOML | ✅ taplo | — | — | ⚠️ Preliminary — untested |
+
+> ⚠️ **Preliminary languages** — LSP servers, DAP adapters, and formatters are
+> configured and auto-installed via Mason, but these have not been exercised in
+> real projects. They may require additional configuration (e.g. a `tsconfig.json`
+> for TypeScript, a `pom.xml` / `build.gradle` for Java, Cargo.toml for Rust).
+> Bug reports and fixes are welcome.
 
 ## Requirements
 
