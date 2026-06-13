@@ -13,7 +13,8 @@ vim.o.number = true
 -- vim.o.relativenumber = true
 
 -- Enable mouse support in all modes (useful for resizing splits)
-vim.o.mouse = 'a'
+vim.o.mouse          = 'a'
+vim.o.mousemoveevent = true   -- fire <MouseMove> so edge-hover can scroll
 
 -- Hide the "-- INSERT --" / "-- VISUAL --" mode indicator in the cmdline
 -- because mini.statusline already shows the mode

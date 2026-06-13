@@ -65,6 +65,54 @@ vim.keymap.set('n', '<A-Right>', function() vim.cmd('normal! 5l') end,
 vim.keymap.set('n', '<A-Left>', function() vim.cmd('normal! 5h') end,
   { desc = 'Move cursor left 5 chars (hold to repeat)' })
 
+-- Mouse edge scrolling: hover at the right or left edge of a file window to
+-- scroll continuously 5 columns at a time. Timer starts when the mouse enters
+-- the edge column and stops when it moves away. Skips wrapped buffers and
+-- non-file panels (neo-tree, dapui, etc.).
+local _edge_timer = nil
+local _edge_win   = nil
+local _edge_dir   = nil
+
+local function stop_edge_scroll()
+  if _edge_timer then
+    _edge_timer:stop()
+    _edge_timer:close()
+    _edge_timer = nil
+  end
+  _edge_win = nil
+  _edge_dir = nil
+end
+
+local function start_edge_scroll(win, dir)
+  if _edge_timer and _edge_win == win and _edge_dir == dir then return end
+  stop_edge_scroll()
+  _edge_win = win
+  _edge_dir = dir
+  _edge_timer = vim.uv.new_timer()
+  _edge_timer:start(0, 100, vim.schedule_wrap(function()
+    if not vim.api.nvim_win_is_valid(win) then stop_edge_scroll(); return end
+    vim.api.nvim_win_call(win, function() vim.cmd('normal! 5z' .. dir) end)
+  end))
+end
+
+vim.keymap.set('n', '<MouseMove>', function()
+  local mouse = vim.fn.getmousepos()
+  local win   = mouse.winid
+  if win == 0 or not vim.api.nvim_win_is_valid(win)
+      or vim.bo[vim.api.nvim_win_get_buf(win)].buftype ~= ''
+      or vim.wo[win].wrap then
+    stop_edge_scroll()
+    return
+  end
+  local wincol  = mouse.wincol
+  local winwidth = vim.api.nvim_win_get_width(win)
+  local textoff  = (vim.fn.getwininfo(win)[1] or {}).textoff or 0
+  if     wincol >= winwidth    then start_edge_scroll(win, 'l')
+  elseif wincol <= textoff + 1 then start_edge_scroll(win, 'h')
+  else   stop_edge_scroll()
+  end
+end)
+
 -- ── Diagnostics ──────────────────────────────────────────────
 -- Open all diagnostics for the current buffer in the quickfix list
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: quickfix list' })

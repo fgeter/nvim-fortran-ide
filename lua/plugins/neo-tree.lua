@@ -89,11 +89,17 @@ local function open_or_up(state)
   end
 end
 
+-- The global signcolumn=yes bleeds into the neo-tree window; suppress it.
+vim.api.nvim_create_autocmd('FileType', {
+  pattern  = 'neo-tree',
+  callback = function() vim.wo.signcolumn = 'no' end,
+})
+
 -- ── Setup ────────────────────────────────────────────────────
 require('neo-tree').setup {
 
   window = {
-    width = 35,
+    width = 30,
     mappings = {
       ['\\']            = 'close_window',
       ['<CR>']          = open_or_up,
@@ -258,7 +264,7 @@ require('neo-tree').setup {
   default_component_configs = {
     indent = {
       indent_size        = 2,
-      padding            = 1,
+      padding            = 0,
       with_markers       = true,
       indent_marker      = '│',
       last_indent_marker = '└',
