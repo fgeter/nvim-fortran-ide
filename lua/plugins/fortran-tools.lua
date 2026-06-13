@@ -51,6 +51,7 @@ local function activate()
     type    = 'executable',
     command = 'gdb',
     args    = { '--interpreter=dap', '--eval-command', 'set print pretty on' },
+    options = { initialize_timeout_sec = 10 },
   }
 
   -- Only debug builds are offered — release builds strip debug symbols
@@ -83,7 +84,7 @@ local function activate()
   end
 
   local function launch(program, cwd)
-    dap.run({
+    local ok, err = pcall(dap.run, {
       name         = 'Launch swatplus',
       type         = 'gdb',
       request      = 'launch',
@@ -91,6 +92,9 @@ local function activate()
       cwd          = cwd,
       initCommands = { 'set directories ' .. SRC_DIR },
     })
+    if not ok then
+      vim.notify('DAP launch failed: ' .. tostring(err), vim.log.levels.ERROR)
+    end
   end
 
   local utils = require('core.utils')
@@ -137,7 +141,7 @@ local function activate()
     if dap.session() then dap.continue() else pick_and_launch() end
   end
   vim.keymap.set('n', '<leader>ds', _start, { desc = 'DAP: start / continue' })
-  vim.keymap.set('n', '<F9>',       _start, { desc = 'DAP: start / continue' })
+  vim.keymap.set('n', '<F5>',       _start, { desc = 'DAP: start / continue' })
 
   vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end

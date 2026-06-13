@@ -121,10 +121,7 @@ dapui.setup {
 dap.listeners.after.event_initialized['dapui_config']  = function()
   dapui.open()
   vim.cmd('Neotree close')
-  vim.notify(
-    'DAP active — F1: step into  F2: step over  F3: step out  F4: bp  F8: cond bp  F5: continue  F9: start  F7: toggle UI  F10: quit',
-    vim.log.levels.INFO,
-    { title = 'Debugger' })
+  vim.notify('DAP session started — <leader>dF for key reference', vim.log.levels.INFO)
 end
 dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close() end
 dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
@@ -133,12 +130,14 @@ vim.keymap.set('n', '<F1>',  function() dap.step_into()         end, { desc = 'D
 vim.keymap.set('n', '<F2>',  function() dap.step_over()         end, { desc = 'DAP: step over' })
 vim.keymap.set('n', '<F3>',  function() dap.step_out()          end, { desc = 'DAP: step out' })
 vim.keymap.set('n', '<F4>',  function() dap.toggle_breakpoint() end, { desc = 'DAP: toggle breakpoint' })
-vim.keymap.set('n', '<F5>',  function() dap.continue()          end, { desc = 'DAP: continue' })
+-- F5: start if no session, continue if one is active.
+-- For Fortran, fortran-tools.lua overrides this with the exe/workdata picker.
+-- For Python, dap.continue() already shows the config picker when no session is active.
+vim.keymap.set('n', '<F5>',  function() dap.continue()          end, { desc = 'DAP: start / continue' })
 vim.keymap.set('n', '<F6>',  function() dap.run_to_cursor()     end, { desc = 'DAP: run to cursor' })
 vim.keymap.set('n', '<F7>',  function() dapui.toggle()          end, { desc = 'DAP: toggle UI' })
 vim.keymap.set('n', '<F8>',  function() dap.set_breakpoint(vim.fn.input('Breakpoint condition: ')) end,
                                                                   { desc = 'DAP: conditional breakpoint' })
--- <F9> start/continue is defined in fortran-tools.lua (needs the workdata picker)
 vim.keymap.set('n', '<F10>', function() dap.terminate()         end, { desc = 'DAP: terminate session' })
 
 -- ── Language-agnostic DAP keymaps ────────────────────────────
@@ -226,8 +225,7 @@ vim.keymap.set('n', '<leader>dF', function()
   local fkeys = {
     { '<F1>',  'F1'  }, { '<F2>',  'F2'  }, { '<F3>',  'F3'  },
     { '<F4>',  'F4'  }, { '<F5>',  'F5'  }, { '<F6>',  'F6'  },
-    { '<F7>',  'F7'  }, { '<F8>',  'F8'  }, { '<F9>',  'F9'  },
-    { '<F10>', 'F10' },
+    { '<F7>',  'F7'  }, { '<F8>',  'F8'  }, { '<F10>', 'F10' },
   }
   local rows = {}
   local max_desc = 0

@@ -143,17 +143,22 @@ local function git_commit()
   for _, f in ipairs(files) do table.insert(choices, f.status .. '  ' .. f.name) end
   vim.ui.select(choices, { prompt = 'Select files to commit:' }, function(choice)
     if not choice then return end
-    local add_cmd = (choice == 'Commit All Changes')
-      and 'git add -A'
-      or  'git add ' .. vim.fn.shellescape(choice:match('%s%s(.+)$'))
+    local add_cmd
+    if choice == 'Commit All Changes' then
+      add_cmd = 'git add -A'
+    else
+      local filename = choice:match('%s%s(.+)$')
+      if not filename then return end
+      add_cmd = 'git add ' .. vim.fn.shellescape(filename)
+    end
     vim.ui.input({ prompt = 'Commit message: ' }, function(msg)
       if not msg or msg == '' then return end
-      vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg))
+      local out = vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         vim.notify('✅ Committed successfully', vim.log.levels.INFO)
         vim.cmd('checktime')
       else
-        vim.notify('Commit failed', vim.log.levels.ERROR)
+        vim.notify('Commit failed:\n' .. out, vim.log.levels.ERROR)
       end
     end)
   end)
@@ -194,13 +199,13 @@ local function git_create_branch()
   if not is_git_repo() then return end
   vim.ui.input({ prompt = 'New branch name: ' }, function(name)
     if not name or name == '' then return end
-    vim.fn.system('git checkout -b ' .. vim.fn.shellescape(name))
+    local out = vim.fn.system('git checkout -b ' .. vim.fn.shellescape(name) .. ' 2>&1')
     if vim.v.shell_error == 0 then
       vim.g.git_branch = name
       vim.notify('✅ Created and switched to: ' .. name, vim.log.levels.INFO)
       vim.cmd('checktime')
     else
-      vim.notify('Failed to create branch', vim.log.levels.ERROR)
+      vim.notify('Failed to create branch:\n' .. out, vim.log.levels.ERROR)
     end
   end)
 end
@@ -238,18 +243,18 @@ local function delete_branch()
   vim.ui.select(deletable, { prompt = 'Delete branch (current: ' .. current .. '):' },
     function(choice)
       if not choice then return end
-      vim.fn.system('git branch -d ' .. vim.fn.shellescape(choice))
+      vim.fn.system('git branch -d ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         vim.notify('✅ Deleted: ' .. choice, vim.log.levels.INFO)
       else
         vim.ui.input({ prompt = 'Not fully merged. Force delete "' .. choice .. '"? (y/N): ' },
           function(confirm)
             if confirm and confirm:lower() == 'y' then
-              vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice))
+              local out = vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice) .. ' 2>&1')
               if vim.v.shell_error == 0 then
                 vim.notify('✅ Force deleted: ' .. choice, vim.log.levels.INFO)
               else
-                vim.notify('Force delete failed', vim.log.levels.ERROR)
+                vim.notify('Force delete failed:\n' .. out, vim.log.levels.ERROR)
               end
             end
           end)
@@ -265,12 +270,12 @@ local function merge_branch()
   vim.ui.select(mergeable, { prompt = 'Merge into "' .. current .. '":' },
     function(choice)
       if not choice then return end
-      vim.fn.system('git merge ' .. vim.fn.shellescape(choice))
+      local out = vim.fn.system('git merge ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         vim.notify('Merged ' .. choice, vim.log.levels.INFO)
         vim.cmd('checktime')
       else
-        vim.notify('Merge failed', vim.log.levels.ERROR)
+        vim.notify('Merge failed:\n' .. out, vim.log.levels.ERROR)
       end
     end)
 end

@@ -354,7 +354,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 
 | Key | Alt | Action |
 |-----|-----|--------|
-| `<leader>ds` | `<F9>` | Start / continue |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python: config picker) |
 | `<leader>dq` | `<F10>` | Terminate session |
 | `<leader>dr` | | Restart session |
 | `<leader>dn` | `<F2>` | Step over |
@@ -367,16 +367,13 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 | `<leader>dx` | | Clear all breakpoints |
 | `<leader>dw` | | Add word under cursor to watches |
 | `<leader>dU` | `<F7>` | Toggle DAP UI |
-| `<leader>dF` | | Show F-key reference popup |
-| `<leader>de` | | Eval expression / selection |
+| `<leader>dC` | | Open console in floating window |
+| `<leader>de` | | Eval expression / selection — cursor enters float; `q` or jump away to close |
+| `<leader>dh` | | Toggle hover widget for variable under cursor (`<Esc>` or `<leader>dh` again to close) |
 | `<leader>dR` | | Open REPL |
-| | `<F5>` | Continue |
-| | `<F8>` | Conditional breakpoint |
-| | `<F9>` | Start / continue |
-| | `<F10>` | Terminate session |
+| `<leader>dF` | | Show F-key reference popup |
 
-Press `K` over any variable during a debug session to inspect its current
-value. Move the cursor to close the popup.
+Press `K` over any variable during a debug session to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it.
 
 ### Git operations (`<leader>g`)
 
@@ -422,12 +419,11 @@ value. Move the cursor to close the popup.
 | `gO` | n | Document symbols |
 | `gW` | n | Workspace symbols |
 | `grt` | n | Type definition |
-| `K` | n | Hover docs (or DAP eval during debug session) |
+| `K` | n | Hover docs; during debug session evaluates variable — cursor enters float, `q` or jump away to close |
 | `<leader>th` | n | Toggle inlay hints |
 | `[d` / `]d` | n | Previous / next diagnostic |
 | `<leader>e` | n | Show diagnostic float |
 | `<leader>rn` | n | Rename symbol |
-| `<leader>ca` | n | Code action |
 
 ### Toggles (`<leader>t`)
 

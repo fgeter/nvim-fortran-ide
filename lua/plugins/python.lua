@@ -54,7 +54,8 @@ local function activate()
       local bin = vim.g.project_repo_root .. '/.venv/bin/python'
       if vim.fn.executable(bin) == 1 then return bin end
     end
-    return vim.fn.exepath('python3') or 'python3'
+    local py = vim.fn.exepath('python3')
+    return py ~= '' and py or 'python3'
   end
 
   ---------------------------------------------------------------------------

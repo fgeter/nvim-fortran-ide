@@ -186,7 +186,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | `<F9>` | Start / continue (`<F9>` Fortran only) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python: config picker) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
@@ -200,12 +200,12 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |
 | `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/dap.lua` |
 | `<leader>dC` | | Open console in floating window | `plugins/dap.lua` |
-| `<leader>de` | | Eval expression / selection | `plugins/dap.lua` |
+| `<leader>de` | | Eval expression / selection — cursor enters float; `q` or jump to another window to close | `plugins/dap.lua` |
+| `<leader>dh` | | Toggle hover widget for variable under cursor (`<Esc>` or `<leader>dh` again to close) | `plugins/dap.lua` |
 | `<leader>dR` | | Open REPL | `plugins/dap.lua` |
 | `<leader>dF` | | Show F-key reference popup | `plugins/dap.lua` |
-| | `<F5>` | Continue | `plugins/dap.lua` |
 
-While debugging, press `K` over any variable to see its current value. Move the cursor to close the popup.
+While debugging, press `K` over any variable to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it.
 
 ---
 
@@ -257,13 +257,12 @@ While debugging, press `K` over any variable to see its current value. Move the 
 | `gO` | n | Document symbols | `plugins/telescope.lua` |
 | `gW` | n | Workspace symbols | `plugins/telescope.lua` |
 | `grt` | n | Type definition | `plugins/telescope.lua` |
-| `K` | n | Hover docs (or DAP eval in debug session) | `plugins/lsp.lua` via `core/utils.lua` |
+| `K` | n | Hover docs; during debug session evaluates variable — cursor enters float, `q` or jump away to close | `plugins/lsp.lua` via `core/utils.lua` |
 | `<leader>th` | n | Toggle inlay hints | `plugins/lsp.lua` |
 | `[d` | n | Previous diagnostic | `plugins/lsp.lua` |
 | `]d` | n | Next diagnostic | `plugins/lsp.lua` |
 | `<leader>e` | n | Show diagnostic float | `plugins/lsp.lua` |
 | `<leader>rn` | n | Rename symbol | `plugins/lsp.lua` |
-| `<leader>ca` | n | Code action | `plugins/lsp.lua` |
 
 ---
 
