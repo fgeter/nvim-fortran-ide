@@ -26,12 +26,17 @@
     │   ├── git.lua             — gitsigns + lazygit
     │   ├── neo-tree.lua        — file explorer
     │   ├── toggleterm.lua      — persistent terminal
-    │   ├── dap.lua             — DAP core + F-key aliases
+    │   ├── dap.lua             — DAP core + F-key aliases + virtual text
     │   ├── markdown.lua        — render-markdown.nvim
-    │   ├── cmake-tools.lua     — CMake integration     [lazy: DirChanged]
-    │   ├── make-tools.lua      — Make integration      [lazy: DirChanged]
-    │   ├── fortran-tools.lua   — Fortran LSP + DAP     [lazy: FileType fortran]
-    │   └── python.lua          — Python LSP + DAP      [lazy: FileType python]
+    │   ├── surround.lua        — nvim-surround (ys/cs/ds) [lazy: BufReadPost]
+    │   ├── lint.lua            — nvim-lint + shellcheck    [lazy: FileType sh/bash]
+    │   ├── cmake-tools.lua     — CMake integration         [lazy: DirChanged]
+    │   ├── make-tools.lua      — Make integration          [lazy: DirChanged]
+    │   ├── c-tools.lua         — C/C++ DAP (GDB)           [lazy: FileType c/cpp]
+    │   ├── web-tools.lua       — JS/TS/React DAP           [lazy: FileType js/ts/jsx/tsx]
+    │   ├── java-tools.lua      — Java LSP + DAP (jdtls)    [lazy: FileType java]
+    │   ├── fortran-tools.lua   — Fortran LSP + DAP         [lazy: FileType fortran]
+    │   └── python.lua          — Python LSP + DAP          [lazy: FileType python]
     └── projects/               — shared language configs, sourced by .nvim.lua
         ├── fortran.lua         — activates cmake + fortran tools for a project
         └── python.lua          — activates python tools for a project
@@ -159,8 +164,13 @@ Most plugins load at startup. The following are deferred:
 | `completion.lua` | First `InsertEnter` event |
 | `formatting.lua` | First `<leader>f` press |
 | `treesitter.lua` | Per-language parser on `FileType` |
+| `surround.lua` | First `BufReadPost` event |
+| `lint.lua` | `FileType sh` or `FileType bash` |
 | `cmake-tools.lua` | `DirChanged` into a CMake project, or startup inside one |
 | `make-tools.lua` | `DirChanged` into a Makefile project (no CMakeLists.txt), or startup inside one |
+| `c-tools.lua` | `FileType c` or `FileType cpp` |
+| `web-tools.lua` | `FileType javascript`, `typescript`, `javascriptreact`, or `typescriptreact` |
+| `java-tools.lua` | `FileType java` |
 | `fortran-tools.lua` | `FileType fortran` |
 | `python.lua` | `FileType python` |
 
@@ -168,15 +178,19 @@ Most plugins load at startup. The following are deferred:
 
 ## Mason — installing language tools
 
-Run these once after first launch. Mason downloads binaries into
-`~/.local/share/nvim/mason/` and does not require system packages.
+Mason auto-installs all configured LSP servers, formatters, linters, and DAP
+adapters on first launch. No manual `:MasonInstall` commands are needed.
+Binaries go into `~/.local/share/nvim/mason/` and do not require system packages.
 
-```
-:MasonInstall basedpyright debugpy ruff
-```
+Tools installed automatically include: `lua-language-server`, `stylua`,
+`basedpyright`, `debugpy`, `ruff`, `clangd`, `bash-language-server`,
+`json-lsp`, `yaml-language-server`, `taplo`, `rust-analyzer`, `html-lsp`,
+`css-lsp`, `typescript-language-server`, `eslint-lsp`, `jdtls`,
+`java-debug-adapter`, `js-debug-adapter`, `shfmt`, `prettier`,
+`clang-format`, `google-java-format`, `shellcheck`.
 
-Fortran tools (`fortls`, `gfortran`, `gdb`) are installed via your
-system package manager (e.g. `pacman`, `apt`), not Mason.
+Fortran tools (`fortls`, `gfortran`, `gdb`) must be installed via your
+system package manager (e.g. `pacman -S fortls gdb gcc-fortran`), not Mason.
 
 ---
 

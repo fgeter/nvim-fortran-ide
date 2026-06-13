@@ -1,9 +1,10 @@
 # Neovim Configuration
 
-A general-purpose Neovim configuration with first-class support for Fortran
-and Python development. Provides a full IDE experience — LSP, debugging,
-CMake integration, git tooling, and fuzzy search — with a project-local
-config system that keeps language-specific paths out of the shared config.
+A general-purpose Neovim configuration with first-class support for Fortran,
+Python, C/C++, Java, TypeScript/JavaScript/React, Rust, and more. Provides a
+full IDE experience — LSP, debugging, CMake integration, git tooling, and
+fuzzy search — with a project-local config system that keeps language-specific
+paths out of the shared config.
 
 > **Platform:** This configuration has been developed and tested on **Linux
 > only** (Arch Linux with Wayland). It should work on macOS with minor
@@ -19,15 +20,17 @@ Grok, and Gemini in that order.
 
 ## Features
 
-- **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`)
-- **Debugging** — GDB adapter for Fortran, debugpy for Python, full DAP UI
+- **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`), C/C++ (`clangd`), Bash (`bashls`), JSON/YAML with schema validation (`jsonls`/`yamlls` + schemastore), TOML (`taplo`), Rust (`rust_analyzer`), HTML/CSS (`html`/`cssls`), TypeScript/JavaScript/React (`ts_ls`, `eslint`), Java (`jdtls` via nvim-jdtls)
+- **Debugging** — GDB for Fortran and C/C++, debugpy for Python, jdtls DAP for Java, pwa-node for JS/TS/React — all with full DAP UI and inline virtual-text variable values
 - **CMake** — preset selection, configure, parallel build, run with workdata picker
 - **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management
 - **File navigation** — neo-tree sidebar, Telescope fuzzy finder, recent files
 - **Jupyter notebooks** — double-click `.ipynb` in neo-tree opens in JupyterLab (browser); `<leader>jq` stops the server when done
 - **HTML preview** — double-click `.html` in neo-tree opens in the default browser via `xdg-open`
 - **Completion** — `blink.cmp` with LSP, path, snippet, and buffer sources
-- **Formatting** — `conform.nvim` with `ruff` for Python, LSP fallback for others
+- **Formatting** — `conform.nvim`: stylua (Lua), ruff (Python), clang-format (C/C++), google-java-format (Java), shfmt (shell), prettier (JS/TS/JSX/TSX/HTML/CSS/JSON/YAML/Markdown)
+- **Linting** — `nvim-lint` with shellcheck for shell scripts (supplements bashls)
+- **Surround** — `nvim-surround` for adding/changing/deleting surrounding pairs (`ys`, `cs`, `ds`)
 - **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
 - **Project-local config** — per-project `.nvim.lua` sets paths; shared language
   configs in `lua/projects/` are inherited so plugin files have no hardcoded paths
@@ -86,12 +89,7 @@ you build with.
 **Jupyter notebooks (optional — required for `.ipynb` double-click in neo-tree):**
 - **`jupyter-lab`** — `pip install jupyterlab` or `conda install -c conda-forge jupyterlab`
 
-**Python development (installed via Mason on first use):**
-- `basedpyright` — Python language server
-- `debugpy` — Python debug adapter
-- `ruff` — Python formatter and linter
-
-Mason auto-installs `lua_ls` and `stylua` on first launch.
+Mason auto-installs all LSP servers, formatters, linters, and DAP adapters on first launch. No manual `:MasonInstall` commands are needed.
 
 ## Installation
 
@@ -106,17 +104,13 @@ git clone <your-repo-url> ~/.config/nvim
 nvim
 ```
 
-On first launch Neovim downloads all plugins via `vim.pack`. Mason installs
-`lua_ls` and `stylua`. Treesitter parsers install automatically when you
-first open a file of each language.
+On first launch Neovim downloads all plugins via `vim.pack`. Mason then
+auto-installs all LSP servers, formatters, linters, and DAP adapters in the
+background — watch the fidget spinner in the bottom-right corner. Treesitter
+parsers install automatically when you first open a file of each language.
 
 If your terminal does not have a Nerd Font, set `vim.g.have_nerd_font = false`
 in `init.lua`.
-
-**Python tools** — install once after first launch:
-```
-:MasonInstall basedpyright debugpy ruff
-```
 
 ## Project-local configuration
 
@@ -196,10 +190,15 @@ cd ~/myproject && nvim
     │   ├── dap.lua             — DAP core, dapui setup + listeners, all <leader>d* keymaps
     │   ├── markdown.lua        — render-markdown.nvim
     │   ├── scrollview.lua      — horizontal scrollbar (custom floating bar)
-    │   ├── cmake-tools.lua     — CMake integration       [lazy: DirChanged]
-    │   ├── make-tools.lua      — Make integration        [lazy: DirChanged]
-    │   ├── fortran-tools.lua   — Fortran LSP + DAP       [lazy: FileType fortran]
-    │   └── python.lua          — Python LSP + DAP        [lazy: FileType python]
+    │   ├── surround.lua        — nvim-surround (ys/cs/ds) [lazy: BufReadPost]
+    │   ├── lint.lua            — nvim-lint + shellcheck   [lazy: FileType sh/bash]
+    │   ├── cmake-tools.lua     — CMake integration        [lazy: DirChanged]
+    │   ├── make-tools.lua      — Make integration         [lazy: DirChanged]
+    │   ├── c-tools.lua         — C/C++ DAP (GDB)          [lazy: FileType c/cpp]
+    │   ├── web-tools.lua       — JS/TS/React DAP          [lazy: FileType js/ts/jsx/tsx]
+    │   ├── java-tools.lua      — Java LSP + DAP (jdtls)   [lazy: FileType java]
+    │   ├── fortran-tools.lua   — Fortran LSP + DAP        [lazy: FileType fortran]
+    │   └── python.lua          — Python LSP + DAP         [lazy: FileType python]
     └── projects/               — shared language configs
         ├── fortran.lua         — sourced by Fortran project .nvim.lua files
         └── python.lua          — sourced by Python project .nvim.lua files
@@ -319,6 +318,17 @@ Activates after the first Python file is opened. Uses the same Python binary res
 |-----|--------|
 | `<leader>f` | Format buffer or selection |
 
+Formatters: Lua → stylua, Python → ruff, C/C++ → clang-format, Java → google-java-format, Shell → shfmt, JS/TS/JSX/TSX/HTML/CSS/JSON/YAML/Markdown → prettier.
+
+### Surround (nvim-surround) — all buffers
+
+| Key | Mode | Action |
+|-----|------|--------|
+| `ys{motion}{char}` | n | Add surrounding (e.g. `ysiw"` wraps word in `""`) |
+| `cs{old}{new}` | n | Change surrounding (e.g. `cs"'` changes `"` to `'`) |
+| `ds{char}` | n | Delete surrounding (e.g. `ds"` removes quotes) |
+| `S{char}` | v | Surround selection |
+
 ### Markdown (`<leader>m`) — markdown buffers only
 
 | Key | Action |
@@ -350,11 +360,11 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 | `<leader>cx` | Clean (pick debug/release/both) |
 | `<leader>cr` | Run executable (pick debug/release, then workdata directory) |
 
-### Debug / DAP (`<leader>d`) — `<leader>ds` activates on first Fortran or Python file; all other keys available from startup
+### Debug / DAP (`<leader>d`) — `<leader>ds` activates on first Fortran, Python, C/C++, Java, or JS/TS file; all other keys available from startup
 
 | Key | Alt | Action |
 |-----|-----|--------|
-| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python: config picker) |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python/Java/JS/TS: config picker; C/C++: executable prompt) |
 | `<leader>dq` | `<F10>` | Terminate session |
 | `<leader>dr` | | Restart session |
 | `<leader>dn` | `<F2>` | Step over |
@@ -373,7 +383,9 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 | `<leader>dR` | | Open REPL |
 | `<leader>dF` | | Show F-key reference popup |
 
-Press `K` over any variable during a debug session to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it.
+Press `K` over any variable during a debug session to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it. Variable values also appear as virtual text inline in the source while stepping.
+
+Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>di` organize imports, `<leader>dv` extract variable, `<leader>dm` extract method.
 
 ### Git operations (`<leader>g`)
 

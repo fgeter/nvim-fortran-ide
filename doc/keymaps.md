@@ -153,6 +153,19 @@ Inside neo-tree:
 |-----|--------|--------|
 | `<leader>f` | Format buffer or selection | `plugins/formatting.lua` |
 
+Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format, Java → google-java-format, Shell → shfmt, JS/TS/JSX/TSX/HTML/CSS/JSON/YAML/Markdown → prettier.
+
+---
+
+## Surround (nvim-surround) — all buffers
+
+| Key | Mode | Action | Plugin |
+|-----|------|--------|--------|
+| `ys{motion}{char}` | n | Add surrounding (e.g. `ysiw"` wraps word in `""`) | `plugins/surround.lua` |
+| `cs{old}{new}` | n | Change surrounding (e.g. `cs"'` changes `"` to `'`) | `plugins/surround.lua` |
+| `ds{char}` | n | Delete surrounding (e.g. `ds"` removes quotes) | `plugins/surround.lua` |
+| `S{char}` | v | Surround selection | `plugins/surround.lua` |
+
 ---
 
 ## CMake (`<leader>c`) — active in CMake projects (`CMakeLists.txt` found)
@@ -182,11 +195,11 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 
 ---
 
-## Debug / DAP (`<leader>d`) — `<leader>ds` active after opening a Fortran or Python file; all other keys available from startup
+## Debug / DAP (`<leader>d`) — `<leader>ds` active after opening a Fortran, Python, C/C++, Java, or JS/TS file; all other keys available from startup
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python: config picker) | `plugins/fortran-tools.lua`, `plugins/python.lua` |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python/Java/JS/TS: config picker; C/C++: executable prompt) | `plugins/*-tools.lua` |
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
@@ -205,7 +218,15 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dR` | | Open REPL | `plugins/dap.lua` |
 | `<leader>dF` | | Show F-key reference popup | `plugins/dap.lua` |
 
-While debugging, press `K` over any variable to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it.
+While debugging, press `K` over any variable to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it. Variable values also appear as virtual text inline in the source during stepping.
+
+**Java-only buffer-local keymaps** (active after opening a `.java` file):
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<leader>di` | Organize imports | `plugins/java-tools.lua` |
+| `<leader>dv` | Extract variable | `plugins/java-tools.lua` |
+| `<leader>dm` | Extract method | `plugins/java-tools.lua` |
 
 ---
 
