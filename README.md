@@ -1,11 +1,13 @@
 # Neovim Configuration
 
-A general-purpose Neovim configuration with first-class support for Fortran,
-Python, C, C++, Java, JavaScript, TypeScript, React (JSX/TSX), Rust, Bash,
-HTML, CSS, JSON, YAML, TOML, and Lua. Provides a full IDE experience — LSP,
+A Neovim configuration that provides a full IDE experience with first-class 
+support for Fortran in a CMake build environment. It includes
 debugging, CMake integration, git tooling, and fuzzy search — with a
 project-local config system that keeps language-specific paths out of the
-shared config.
+shared config. Support/features for other computer languages have been added
+but have not rigorously tested.  These languages inlude Python, C, C++, Java,
+JavaScript, TypeScript, React (JSX/TSX), Rust, Bash, HTML, CSS, JSON, YAML,
+TOML, and Lua — LSP,
 
 > **Platform:** This configuration has been developed and tested on **Linux
 > only** (Arch Linux with Wayland). It should work on macOS with minor
@@ -16,8 +18,8 @@ shared config.
 
 ## Credits
 The owner/creator of this repository worked extensively with AI to develop this
-NeoVim IDE and to extend its features.  Primary AI tools were Claude, Claude Code,
-Grok, and Gemini in that order.
+NeoVim IDE and to extend its features.  Primary AI tools were Claude Code, 
+Claude, Grok, and Gemini in that order.
 
 ## Features
 
