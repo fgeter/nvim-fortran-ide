@@ -17,3 +17,7 @@ NeoVim
 DAP
 formatters
 toml
+JupyterLab
+Jupyter
+configs
+hardcoded

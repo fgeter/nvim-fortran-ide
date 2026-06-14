@@ -5,7 +5,7 @@ support for Fortran in a CMake build environment. It includes
 debugging, CMake integration, git tooling, and fuzzy search — with a
 project-local config system that keeps language-specific paths out of the
 shared config. Support/features for other computer languages have been added
-but have not rigorously tested.  These languages inlude Python, C, C++, Java,
+but have not rigorously tested.  These languages include Python, C, C++, Java,
 JavaScript, TypeScript, React (JSX/TSX), Rust, Bash, HTML, CSS, JSON, YAML,
 TOML, and Lua — LSP,
 
