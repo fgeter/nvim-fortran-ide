@@ -293,16 +293,19 @@ Spell checking is **off by default** in code files and **auto-enabled** in Markd
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>ts` | Toggle spell check in current buffer | `plugins/spell.lua` |
+| `<leader>ts` | Toggle spell on/off in current buffer | `plugins/spell.lua` |
+| `<leader>tL` | Pick spell language from list (Telescope picker) | `plugins/spell.lua` |
 | `]s` | Jump to next misspelled word | built-in |
 | `[s` | Jump to previous misspelled word | built-in |
 | `z=` | Show correction suggestions for word under cursor | built-in |
-| `zg` | Add word to personal dictionary (`spell/en.utf-8.add`) | built-in |
+| `zg` | Add word to personal dictionary for current language | built-in |
 | `zw` | Mark word as wrong | built-in |
 | `zug` | Undo `zg` (remove from personal dictionary) | built-in |
 | `zuw` | Undo `zw` | built-in |
 
-Personal dictionary is stored in `spell/en.utf-8.add` inside this config directory and is version-controlled so custom words persist across machines.
+**Supported languages in the picker:** English (US), English (UK), French, German, Spanish, Italian, Portuguese, Dutch, Russian. Neovim downloads the spell file for each language automatically on first use.
+
+Personal word lists are kept per language inside this config directory (`spell/en_us.utf-8.add`, `spell/fr.utf-8.add`, etc.) and are version-controlled. The currently active language is marked with `✓` in the picker.
 
 ---
 
@@ -338,4 +341,5 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>tw` | Toggle git word diff | `plugins/git.lua` |
 | `<leader>th` | Toggle LSP inlay hints | `plugins/lsp.lua` |
 | `<leader>ts` | Toggle spell check | `plugins/spell.lua` |
+| `<leader>tL` | Pick spell check language | `plugins/spell.lua` |
 | `<leader>tW` | Toggle hard text wrap at textwidth (default 80) | `core/keymaps.lua` |
