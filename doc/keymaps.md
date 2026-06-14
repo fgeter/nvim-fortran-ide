@@ -306,6 +306,30 @@ Personal dictionary is stored in `spell/en.utf-8.add` inside this config directo
 
 ---
 
+## Hard text wrap — all buffers
+
+> **Hard wrap** inserts real newlines as you type past the column limit.  This
+> is different from `wrap` (which only changes how long lines are *displayed*
+> without touching the file).
+
+| Key | Action | Notes |
+|-----|--------|-------|
+| `<leader>tW` | Toggle hard wrap on/off in current buffer | Defaults to col 80; see below to change |
+| `gq{motion}` | Re-wrap existing text to `textwidth` | e.g. `gqip` re-wraps the current paragraph |
+| `gqq` | Re-wrap current line | |
+
+**To change the column width before toggling on:**
+```
+:set textwidth=72
+```
+Then press `<leader>tW` — the notification confirms the active column.
+
+The toggle adds/removes the `t` flag from `formatoptions` in the current buffer
+only; other buffers are unaffected. Setting `textwidth` via `:set` persists for
+the buffer session; use a `.nvim.lua` or modeline to make it permanent per project.
+
+---
+
 ## Toggles (`<leader>t`)
 
 | Key | Action | Plugin |
@@ -314,3 +338,4 @@ Personal dictionary is stored in `spell/en.utf-8.add` inside this config directo
 | `<leader>tw` | Toggle git word diff | `plugins/git.lua` |
 | `<leader>th` | Toggle LSP inlay hints | `plugins/lsp.lua` |
 | `<leader>ts` | Toggle spell check | `plugins/spell.lua` |
+| `<leader>tW` | Toggle hard text wrap at textwidth (default 80) | `core/keymaps.lua` |

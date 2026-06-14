@@ -476,3 +476,4 @@ Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>
 | `<leader>tw` | Toggle git word diff |
 | `<leader>th` | Toggle LSP inlay hints |
 | `<leader>ts` | Toggle spell check |
+| `<leader>tW` | Toggle hard text wrap at textwidth (default 80 cols) |

@@ -113,6 +113,28 @@ vim.keymap.set('n', '<MouseMove>', function()
   end
 end)
 
+-- ── Hard text wrap ───────────────────────────────────────────
+-- Toggle auto-wrapping of lines at textwidth columns (default 80).
+-- This inserts *real* newlines as you type past the limit — distinct from
+-- vim.o.wrap which only changes how long lines are displayed without modifying
+-- the file. The 't' flag in formatoptions is what triggers insertion-time wrap.
+-- Use :set textwidth=72 (etc.) before toggling on to change the column.
+-- Use gq{motion} to hard-wrap existing text to the current textwidth.
+vim.keymap.set('n', '<leader>tW', function()
+  local has_t = vim.opt_local.formatoptions:get().t
+  if has_t then
+    vim.opt_local.formatoptions:remove('t')
+    vim.notify('Auto-wrap off', vim.log.levels.INFO)
+  else
+    if vim.opt_local.textwidth:get() == 0 then
+      vim.opt_local.textwidth = 80
+    end
+    vim.opt_local.formatoptions:append('t')
+    vim.notify(string.format('Auto-wrap on at col %d', vim.opt_local.textwidth:get()),
+      vim.log.levels.INFO)
+  end
+end, { desc = 'Toggle hard text wrap at textwidth (default 80)' })
+
 -- ── Diagnostics ──────────────────────────────────────────────
 -- Open all diagnostics for the current buffer in the quickfix list
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: quickfix list' })
