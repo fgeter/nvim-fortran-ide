@@ -1,11 +1,11 @@
 # Neovim Configuration
 
-A Neovim configuration that provides a full IDE experience with first-class 
-support for Fortran in a CMake build environment. It includes
+A Neovim configuration that provides a full IDE experience with this is
+first-class support for Fortran in a CMake build environment. It includes
 debugging, CMake integration, git tooling, and fuzzy search — with a
-project-local config system that keeps language-specific paths out of the
-shared config. Support/features for other computer languages have been added
-but have not rigorously tested.  These languages include Python, C, C++, Java,
+project-local config system that keeps language-specific paths out of the shared
+config. Support/features for other computer languages have been added but have
+not rigorously tested.  These languages include Python, C, C++, Java,
 JavaScript, TypeScript, React (JSX/TSX), Rust, Bash, HTML, CSS, JSON, YAML,
 TOML, and Lua — LSP,
 
