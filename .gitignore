@@ -16,6 +16,10 @@ site/pack/packer/
 .lua/
 luac.out
 
+# Spell — track the plain-text word list (.add) but not the compiled binary
+spell/*.spl
+spell/*.spl.bak
+
 # OS
 .DS_Store
 Thumbs.db

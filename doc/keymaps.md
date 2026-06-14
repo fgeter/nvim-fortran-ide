@@ -287,6 +287,25 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 ---
 
+## Spell checking — all buffers
+
+Spell checking is **off by default** in code files and **auto-enabled** in Markdown, plain text, and git commit messages. In code files with syntax or Treesitter active, Neovim automatically limits spell checking to comment and string regions — identifiers and keywords are never flagged.
+
+| Key | Action | Plugin |
+|-----|--------|--------|
+| `<leader>ts` | Toggle spell check in current buffer | `plugins/spell.lua` |
+| `]s` | Jump to next misspelled word | built-in |
+| `[s` | Jump to previous misspelled word | built-in |
+| `z=` | Show correction suggestions for word under cursor | built-in |
+| `zg` | Add word to personal dictionary (`spell/en.utf-8.add`) | built-in |
+| `zw` | Mark word as wrong | built-in |
+| `zug` | Undo `zg` (remove from personal dictionary) | built-in |
+| `zuw` | Undo `zw` | built-in |
+
+Personal dictionary is stored in `spell/en.utf-8.add` inside this config directory and is version-controlled so custom words persist across machines.
+
+---
+
 ## Toggles (`<leader>t`)
 
 | Key | Action | Plugin |
@@ -294,3 +313,4 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 | `<leader>tb` | Toggle git blame line | `plugins/git.lua` |
 | `<leader>tw` | Toggle git word diff | `plugins/git.lua` |
 | `<leader>th` | Toggle LSP inlay hints | `plugins/lsp.lua` |
+| `<leader>ts` | Toggle spell check | `plugins/spell.lua` |

@@ -34,6 +34,7 @@ Claude, Grok, and Gemini in that order.
 - **Formatting** — `conform.nvim`: stylua (Lua), ruff (Python), clang-format (C/C++), google-java-format (Java), shfmt (shell), prettier (JS/TS/JSX/TSX/HTML/CSS/JSON/YAML/Markdown)
 - **Linting** — `nvim-lint` with shellcheck for shell scripts (supplements bashls)
 - **Surround** — `nvim-surround` for adding/changing/deleting surrounding pairs (`ys`, `cs`, `ds`)
+- **Spell checking** — built-in US English spell check; auto-on for Markdown/text/commit messages; `<leader>ts` toggles in any buffer; `zg` adds words to a version-controlled personal dictionary
 - **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
 - **Project-local config** — per-project `.nvim.lua` sets paths; shared language
   configs in `lua/projects/` are inherited so plugin files have no hardcoded paths
@@ -474,3 +475,4 @@ Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>
 | `<leader>tb` | Toggle git blame line |
 | `<leader>tw` | Toggle git word diff |
 | `<leader>th` | Toggle LSP inlay hints |
+| `<leader>ts` | Toggle spell check |
