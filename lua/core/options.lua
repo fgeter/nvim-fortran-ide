@@ -8,9 +8,9 @@
 -- Show absolute line numbers in the gutter
 vim.o.number = true
 
--- Show cursor position in statusline: LINE:COL
--- (relative numbers disabled; enable if you prefer jump-distance hints)
--- vim.o.relativenumber = true
+-- Hybrid line numbers: relative on other lines, absolute on the cursor
+-- line. Toggle with <leader>tr (core/keymaps.lua).
+vim.o.relativenumber = true
 
 -- Enable mouse support in all modes (useful for resizing splits)
 vim.o.mouse          = 'a'

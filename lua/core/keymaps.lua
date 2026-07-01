@@ -136,12 +136,25 @@ vim.keymap.set('n', '<leader>tW', function()
 end, { desc = 'Toggle hard text wrap at textwidth (default 80)' })
 
 -- ── Relative line numbers ────────────────────────────────────
--- Off by default (see core/options.lua) since absolute numbers are the
--- baseline; this toggles relativenumber on top of the always-on `number`.
+-- On by default (see core/options.lua). relativenumber is window-local,
+-- so toggling only `vim.o` leaves it inconsistent across already-open
+-- splits/tabs (each keeps whatever value it had when created) — apply
+-- the change to every real editor window (skipping neo-tree, terminals,
+-- dap panels, etc.) so the toggle is unambiguous regardless of focus.
 vim.keymap.set('n', '<leader>tr', function()
-  vim.o.relativenumber = not vim.o.relativenumber
-  vim.notify('Relative line numbers ' .. (vim.o.relativenumber and 'on' or 'off'),
-    vim.log.levels.INFO)
+  local new_val = not vim.o.relativenumber
+  vim.o.relativenumber = new_val
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+      local buf = vim.api.nvim_win_get_buf(win)
+      local ft  = vim.bo[buf].filetype
+      if vim.bo[buf].buftype == '' and ft ~= 'neo-tree' and ft ~= 'toggleterm'
+          and not ft:match('^dap') then
+        vim.wo[win].relativenumber = new_val
+      end
+    end
+  end
+  vim.notify('Relative line numbers ' .. (new_val and 'on' or 'off'), vim.log.levels.INFO)
 end, { desc = 'Toggle relative line numbers' })
 
 -- ── Diagnostics ──────────────────────────────────────────────
