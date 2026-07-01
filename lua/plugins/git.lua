@@ -151,11 +151,18 @@ end
 -- Uses vim.fn.system (blocking) because the git add + commit is instant.
 local function git_commit()
   if not is_git_repo() then return end
-  local modified  = vim.fn.systemlist('git diff --name-only')
-  local untracked = vim.fn.systemlist('git ls-files --others --exclude-standard')
+  -- `git status --porcelain` covers staged, unstaged, and untracked changes
+  -- in one pass. Using `git diff --name-only` alone (as before) missed
+  -- changes already staged via `git add` or gitsigns' <leader>hs, so a fully
+  -- staged file looked like "nothing to commit" and was silently skipped.
   local files = {}
-  for _, f in ipairs(modified)  do table.insert(files, { name = f, status = 'M' }) end
-  for _, f in ipairs(untracked) do table.insert(files, { name = f, status = 'U' }) end
+  for _, line in ipairs(vim.fn.systemlist('git status --porcelain')) do
+    local status, name = line:match('^(..)%s(.+)$')
+    if status and name then
+      name = name:match('%->%s*(.+)$') or name  -- renames: "old -> new"
+      table.insert(files, { name = name, status = status:gsub('%s', '') })
+    end
+  end
   if #files == 0 then
     vim.notify('No changes to commit', vim.log.levels.INFO)
     return
