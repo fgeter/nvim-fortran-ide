@@ -328,12 +328,16 @@ local function discard_buffer_changes()
     end)
 end
 
--- Open the current file's version on another branch in a side-by-side diff
--- so you can selectively pull changes with do/dp (diffget/diffput) instead
--- of merging the whole file. The comparison buffer is read-only scratch —
--- edits only ever land in your real, saveable buffer on the left/right
--- depending on split direction.
-local function git_diff_file_against_branch()
+-- Open the current file's version at another branch/commit/ref in a
+-- side-by-side diff so you can selectively pull changes with do/dp
+-- (diffget/diffput) instead of merging the whole file. The comparison
+-- buffer is read-only scratch — edits only ever land in your real,
+-- saveable buffer.
+--
+-- Offers a branch picker plus a "type a ref…" option, since post-merge
+-- cleanup needs to diff against HEAD^ (pre-merge state) rather than a
+-- branch name.
+local function git_diff_file_against_ref()
   if not is_git_repo() then return end
   local file = vim.fn.expand('%:p')
   if file == '' then
@@ -345,13 +349,11 @@ local function git_diff_file_against_branch()
     vim.notify('File is not tracked by git', vim.log.levels.WARN)
     return
   end
-  local current  = current_branch(true)
-  local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
-  vim.ui.select(branches, { prompt = 'Diff current file against branch:' }, function(branch)
-    if not branch then return end
-    local content = vim.fn.system('git show ' .. vim.fn.shellescape(branch .. ':' .. relpath) .. ' 2>&1')
+
+  local function open_diff(ref)
+    local content = vim.fn.system('git show ' .. vim.fn.shellescape(ref .. ':' .. relpath) .. ' 2>&1')
     if vim.v.shell_error ~= 0 then
-      vim.notify('Failed to read ' .. relpath .. ' from ' .. branch .. ':\n' .. content, vim.log.levels.ERROR)
+      vim.notify('Failed to read ' .. relpath .. ' from ' .. ref .. ':\n' .. content, vim.log.levels.ERROR)
       return
     end
 
@@ -367,13 +369,13 @@ local function git_diff_file_against_branch()
     vim.bo[scratch].bufhidden  = 'wipe'
     vim.bo[scratch].swapfile   = false
     vim.bo[scratch].modifiable = false
-    pcall(vim.api.nvim_buf_set_name, scratch, branch .. ':' .. relpath)
+    pcall(vim.api.nvim_buf_set_name, scratch, ref .. ':' .. relpath)
 
     vim.cmd('diffthis')
     vim.api.nvim_set_current_win(orig_win)
     vim.cmd('diffthis')
 
-    -- Closing the scratch (branch) window leaves the real buffer's window
+    -- Closing the scratch (ref) window leaves the real buffer's window
     -- stuck showing diff highlighting/foldcolumn; turn that off automatically.
     vim.api.nvim_create_autocmd('BufWipeout', {
       buffer   = scratch,
@@ -387,8 +389,23 @@ local function git_diff_file_against_branch()
       end,
     })
 
-    vim.notify('Diffing against ' .. branch .. ' — do/dp to move hunks, ]c/[c to jump between them',
+    vim.notify('Diffing against ' .. ref .. ' — do/dp to move hunks, ]c/[c to jump between them',
       vim.log.levels.INFO)
+  end
+
+  local current  = current_branch(true)
+  local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
+  local type_ref = 'Type a ref… (e.g. HEAD^, HEAD~2, a commit SHA)'
+  table.insert(branches, type_ref)
+  vim.ui.select(branches, { prompt = 'Diff current file against branch/ref:' }, function(choice)
+    if not choice then return end
+    if choice == type_ref then
+      vim.ui.input({ prompt = 'Git ref: ' }, function(ref)
+        if ref and ref ~= '' then open_diff(ref) end
+      end)
+    else
+      open_diff(choice)
+    end
   end)
 end
 
@@ -401,5 +418,5 @@ vim.keymap.set('n', '<leader>gP', git_push,          { desc = 'Git: push' })
 vim.keymap.set('n', '<leader>gs', switch_branch,     { desc = 'Git: switch branch' })
 vim.keymap.set('n', '<leader>gd', delete_branch,     { desc = 'Git: delete branch' })
 vim.keymap.set('n', '<leader>gm', merge_branch,      { desc = 'Git: merge branch' })
-vim.keymap.set('n', '<leader>gf', git_diff_file_against_branch, { desc = 'Git: diff file against branch (do/dp to pull hunks)' })
+vim.keymap.set('n', '<leader>gf', git_diff_file_against_ref, { desc = 'Git: diff file against branch/ref (do/dp to pull hunks)' })
 vim.keymap.set('n', '<leader>gx', discard_buffer_changes, { desc = 'Git: discard changes in buffer' })
