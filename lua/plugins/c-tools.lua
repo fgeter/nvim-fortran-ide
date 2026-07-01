@@ -57,6 +57,6 @@ vim.api.nvim_create_autocmd('FileType', {
     -- Buffer-local <leader>ds: prompt → launch via the config above
     vim.keymap.set('n', '<leader>ds', function()
       require('dap').continue()
-    end, { buffer = true, desc = 'DAP: start / continue (C/C++)' })
+    end, { buffer = true, desc = 'DAP: start / continue (C/C++) - F5' })
   end,
 })

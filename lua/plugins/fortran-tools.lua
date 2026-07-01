@@ -140,7 +140,7 @@ local function activate()
   local _start = function()
     if dap.session() then dap.continue() else pick_and_launch() end
   end
-  vim.keymap.set('n', '<leader>ds', _start, { desc = 'DAP: start / continue' })
+  vim.keymap.set('n', '<leader>ds', _start, { desc = 'DAP: start / continue - F5' })
   vim.keymap.set('n', '<F5>',       _start, { desc = 'DAP: start / continue' })
 
   vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)

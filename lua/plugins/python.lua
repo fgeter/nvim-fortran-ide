@@ -158,7 +158,7 @@ local function activate()
   -- Common DAP keymaps (<leader>dq, <leader>dn, etc.) are in dap.lua.
   ---------------------------------------------------------------------------
   vim.keymap.set('n', '<leader>ds', function() dap.continue() end,
-    { desc = 'DAP: start / continue' })
+    { desc = 'DAP: start / continue - F5' })
 
   ---------------------------------------------------------------------------
   -- <leader>pr — Run current file in bottom terminal

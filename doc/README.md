@@ -8,6 +8,7 @@
 ├── doc/
 │   ├── README.md               — this file
 │   ├── keymaps.md              — full keymap reference
+│   ├── native_nvim_keymaps.md  — built-in keymaps not defined in this config
 │   ├── swatplus.nvim.lua.template        — copy to SWAT+ project root
 │   └── python-project.nvim.lua.template  — copy to Python project root
 └── lua/

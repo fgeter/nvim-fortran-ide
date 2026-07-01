@@ -117,7 +117,7 @@ vim.api.nvim_create_autocmd('FileType', {
       vim.keymap.set('n', lhs, fn, { buffer = buf, desc = desc })
     end
     map('<leader>ds', function() require('dap').continue() end,
-      'DAP: start / continue (Java)')
+      'DAP: start / continue (Java) - F5')
     map('<leader>di', function() require('jdtls').organize_imports() end,
       'Java: organize imports')
     map('<leader>dv', function() require('jdtls').extract_variable() end,

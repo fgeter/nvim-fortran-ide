@@ -79,6 +79,6 @@ vim.api.nvim_create_autocmd('FileType', {
   callback = function()
     vim.keymap.set('n', '<leader>ds', function()
       require('dap').continue()
-    end, { buffer = true, desc = 'DAP: start / continue (JS/TS)' })
+    end, { buffer = true, desc = 'DAP: start / continue (JS/TS) - F5' })
   end,
 })

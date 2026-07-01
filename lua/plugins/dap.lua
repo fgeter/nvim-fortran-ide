@@ -136,6 +136,10 @@ vim.keymap.set('n', '<F1>',  function() dap.step_into()         end, { desc = 'D
 vim.keymap.set('n', '<F2>',  function() dap.step_over()         end, { desc = 'DAP: step over' })
 vim.keymap.set('n', '<F3>',  function() dap.step_out()          end, { desc = 'DAP: step out' })
 vim.keymap.set('n', '<F4>',  function() dap.toggle_breakpoint() end, { desc = 'DAP: toggle breakpoint' })
+-- Kitty (and most terminals) report Shift+F4 as the legacy vt220 keycode
+-- F16, not a modified F4 — see doc/native_nvim_keymaps.md for the F13-F24
+-- shifted-function-key convention.
+vim.keymap.set('n', '<F16>', function() dap.clear_breakpoints() end, { desc = 'DAP: clear all breakpoints' })
 -- F5: start if no session, continue if one is active.
 -- For Fortran, fortran-tools.lua overrides this with the exe/workdata picker.
 -- For Python, dap.continue() already shows the config picker when no session is active.
@@ -152,23 +156,23 @@ vim.keymap.set('n', '<F10>', function() dap.terminate()         end, { desc = 'D
 -- uses dap.continue() which shows the config picker automatically).
 -- <leader>ds is defined in fortran-tools.lua and python.lua.
 
-vim.keymap.set('n', '<leader>dq', function() dap.terminate()     end, { desc = 'DAP: terminate' })
+vim.keymap.set('n', '<leader>dq', function() dap.terminate()     end, { desc = 'DAP: terminate - F10' })
 vim.keymap.set('n', '<leader>dr', function() dap.restart()       end, { desc = 'DAP: restart' })
-vim.keymap.set('n', '<leader>dn', function() dap.step_over()     end, { desc = 'DAP: step over' })
-vim.keymap.set('n', '<leader>di', function() dap.step_into()     end, { desc = 'DAP: step into' })
-vim.keymap.set('n', '<leader>do', function() dap.step_out()      end, { desc = 'DAP: step out' })
-vim.keymap.set('n', '<leader>dc', function() dap.run_to_cursor() end, { desc = 'DAP: run to cursor' })
+vim.keymap.set('n', '<leader>dn', function() dap.step_over()     end, { desc = 'DAP: step over - F2' })
+vim.keymap.set('n', '<leader>di', function() dap.step_into()     end, { desc = 'DAP: step into - F1' })
+vim.keymap.set('n', '<leader>do', function() dap.step_out()      end, { desc = 'DAP: step out - F3' })
+vim.keymap.set('n', '<leader>dc', function() dap.run_to_cursor() end, { desc = 'DAP: run to cursor - F6' })
 
 vim.keymap.set('n', '<leader>db', function() dap.toggle_breakpoint() end,
-  { desc = 'DAP: toggle breakpoint' })
+  { desc = 'DAP: toggle breakpoint - F4' })
 vim.keymap.set('n', '<leader>dB', function()
   dap.set_breakpoint(vim.fn.input('Breakpoint condition: '))
-end, { desc = 'DAP: conditional breakpoint' })
+end, { desc = 'DAP: conditional breakpoint - F8' })
 vim.keymap.set('n', '<leader>dL', function()
   dap.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))
 end, { desc = 'DAP: log point' })
 vim.keymap.set('n', '<leader>dx', function() dap.clear_breakpoints() end,
-  { desc = 'DAP: clear all breakpoints' })
+  { desc = 'DAP: clear all breakpoints - Shift-F4 (F16)' })
 
 vim.keymap.set('n', '<leader>dw', function()
   local word = vim.fn.expand('<cword>')
@@ -180,7 +184,7 @@ vim.keymap.set('n', '<leader>dw', function()
   end)
 end, { desc = 'DAP: add to watches' })
 
-vim.keymap.set('n', '<leader>dU', function() dapui.toggle()  end, { desc = 'DAP: toggle UI' })
+vim.keymap.set('n', '<leader>dU', function() dapui.toggle()  end, { desc = 'DAP: toggle UI - F7' })
 vim.keymap.set('n', '<leader>dC', function()
   local before = vim.api.nvim_list_wins()
   dapui.float_element('console', { enter = true })
@@ -230,7 +234,7 @@ vim.keymap.set('n', '<leader>dF', function()
   -- stays accurate automatically when F-key bindings change.
   local fkeys = {
     { '<F1>',  'F1'  }, { '<F2>',  'F2'  }, { '<F3>',  'F3'  },
-    { '<F4>',  'F4'  }, { '<F5>',  'F5'  }, { '<F6>',  'F6'  },
+    { '<F4>',  'F4'  }, { '<F16>', 'S-F4' }, { '<F5>',  'F5'  }, { '<F6>',  'F6'  },
     { '<F7>',  'F7'  }, { '<F8>',  'F8'  }, { '<F10>', 'F10' },
   }
   local rows = {}
