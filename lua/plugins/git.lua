@@ -17,8 +17,17 @@
 
 local function gh(repo) return 'https://github.com/' .. repo end
 
-local function current_branch()
-  return vim.g.git_branch or vim.fn.system('git branch --show-current'):gsub('\n', '')
+-- `fresh = true` forces a live git query instead of trusting the cached
+-- vim.g.git_branch. The cache is only updated by switch_branch/git_create_branch
+-- and on VimEnter, so it goes stale after switching branches via lazygit or a
+-- terminal — callers that compare against `current` to decide whether to act
+-- (e.g. switch_branch's "already on this branch" guard) must pass true or they
+-- can silently no-op against the wrong branch name.
+local function current_branch(fresh)
+  if not fresh and vim.g.git_branch then return vim.g.git_branch end
+  local branch = vim.fn.system('git branch --show-current'):gsub('\n', '')
+  vim.g.git_branch = branch
+  return branch
 end
 
 local function list_branches(all)
@@ -213,10 +222,14 @@ end
 local function switch_branch()
   if not is_git_repo() then return end
   local branches = list_branches(true)
-  local current  = current_branch()
+  local current  = current_branch(true)
   vim.ui.select(branches, { prompt = 'Switch to branch (current: ' .. current .. '):' },
     function(choice)
-      if not choice or choice == current then return end
+      if not choice then return end
+      if choice == current then
+        vim.notify('Already on: ' .. choice, vim.log.levels.INFO)
+        return
+      end
       vim.system({ 'git', 'checkout', choice }, {}, function(result)
         vim.schedule(function()
           if result.code == 0 then
@@ -234,7 +247,7 @@ end
 local function delete_branch()
   if not is_git_repo() then return end
   local branches = list_branches(false)
-  local current  = current_branch()
+  local current  = current_branch(true)
   local deletable = vim.tbl_filter(function(b) return b ~= current end, branches)
   if #deletable == 0 then
     vim.notify('No other branches to delete.', vim.log.levels.WARN)
@@ -265,7 +278,7 @@ end
 local function merge_branch()
   if not is_git_repo() then return end
   local branches = list_branches(true)
-  local current  = current_branch()
+  local current  = current_branch(true)
   local mergeable = vim.tbl_filter(function(b) return b ~= current end, branches)
   vim.ui.select(mergeable, { prompt = 'Merge into "' .. current .. '":' },
     function(choice)
@@ -280,6 +293,41 @@ local function merge_branch()
     end)
 end
 
+-- Discards all changes (staged and unstaged) to the file behind the current
+-- buffer, restoring it to HEAD. Destructive, so it requires confirmation and
+-- refuses to run against an untracked file (there is no HEAD copy to restore
+-- to — deleting it would be a different, more destructive operation).
+local function discard_buffer_changes()
+  if not is_git_repo() then return end
+  local file = vim.fn.expand('%:p')
+  if file == '' then
+    vim.notify('No file in current buffer', vim.log.levels.WARN)
+    return
+  end
+  local status = vim.fn.system('git status --porcelain -- ' .. vim.fn.shellescape(file))
+  if status == '' then
+    vim.notify('No changes to discard in this file', vim.log.levels.INFO)
+    return
+  end
+  if status:match('^%?%?') then
+    vim.notify('File is untracked — discard does not apply (delete it manually if intended)',
+      vim.log.levels.WARN)
+    return
+  end
+  local shortname = vim.fn.fnamemodify(file, ':t')
+  vim.ui.input({ prompt = 'Discard ALL changes in ' .. shortname .. '? (y/N): ' },
+    function(confirm)
+      if not confirm or confirm:lower() ~= 'y' then return end
+      local out = vim.fn.system('git checkout HEAD -- ' .. vim.fn.shellescape(file) .. ' 2>&1')
+      if vim.v.shell_error == 0 then
+        vim.notify('✅ Discarded changes in: ' .. shortname, vim.log.levels.INFO)
+        vim.cmd('edit!')
+      else
+        vim.notify('Failed to discard changes:\n' .. out, vim.log.levels.ERROR)
+      end
+    end)
+end
+
 -- ── Git keymaps ───────────────────────────────────────────────
 vim.keymap.set('n', '<leader>gg', open_lazygit,      { desc = 'Git: open lazygit' })
 vim.keymap.set('n', '<leader>gc', git_commit,        { desc = 'Git: commit' })
@@ -289,3 +337,4 @@ vim.keymap.set('n', '<leader>gP', git_push,          { desc = 'Git: push' })
 vim.keymap.set('n', '<leader>gs', switch_branch,     { desc = 'Git: switch branch' })
 vim.keymap.set('n', '<leader>gd', delete_branch,     { desc = 'Git: delete branch' })
 vim.keymap.set('n', '<leader>gm', merge_branch,      { desc = 'Git: merge branch' })
+vim.keymap.set('n', '<leader>gx', discard_buffer_changes, { desc = 'Git: discard changes in buffer' })

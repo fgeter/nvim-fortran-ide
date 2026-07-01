@@ -135,6 +135,15 @@ vim.keymap.set('n', '<leader>tW', function()
   end
 end, { desc = 'Toggle hard text wrap at textwidth (default 80)' })
 
+-- ── Relative line numbers ────────────────────────────────────
+-- Off by default (see core/options.lua) since absolute numbers are the
+-- baseline; this toggles relativenumber on top of the always-on `number`.
+vim.keymap.set('n', '<leader>tr', function()
+  vim.o.relativenumber = not vim.o.relativenumber
+  vim.notify('Relative line numbers ' .. (vim.o.relativenumber and 'on' or 'off'),
+    vim.log.levels.INFO)
+end, { desc = 'Toggle relative line numbers' })
+
 -- ── Diagnostics ──────────────────────────────────────────────
 -- Open all diagnostics for the current buffer in the quickfix list
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: quickfix list' })

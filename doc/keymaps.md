@@ -242,6 +242,7 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 | `<leader>gs` | Switch branch | `plugins/git.lua` |
 | `<leader>gd` | Delete branch | `plugins/git.lua` |
 | `<leader>gm` | Merge branch | `plugins/git.lua` |
+| `<leader>gx` | Discard all changes in current buffer's file (restores to HEAD; confirmation prompt; refuses on untracked files) | `plugins/git.lua` |
 
 ---
 
@@ -343,3 +344,4 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>ts` | Toggle spell check | `plugins/spell.lua` |
 | `<leader>tL` | Pick spell check language | `plugins/spell.lua` |
 | `<leader>tW` | Toggle hard text wrap at textwidth (default 80) | `core/keymaps.lua` |
+| `<leader>tr` | Toggle relative line numbers | `core/keymaps.lua` |
