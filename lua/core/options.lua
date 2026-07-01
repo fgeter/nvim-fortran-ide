@@ -84,6 +84,10 @@ vim.o.wrap          = false  -- don't wrap long lines
 vim.o.sidescroll    = 1      -- scroll one column at a time
 vim.o.sidescrolloff = 5      -- keep 5 columns of context at edges
 
+-- Neovim's default formatoptions ("tcqj") includes 't', which hard-wraps
+-- text at textwidth while typing. Start with that off; <leader>tW toggles it.
+vim.opt.formatoptions:remove('t')
+
 -- Prompt to save instead of refusing to close an unsaved buffer
 vim.o.confirm = true
 

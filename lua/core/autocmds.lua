@@ -24,6 +24,18 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   callback = function() vim.hl.on_yank() end,
 })
 
+-- Hard-wrap (auto-inserting newlines at textwidth while typing) is off by
+-- default globally (see core/options.lua), but Neovim's built-in ftplugins
+-- for prose filetypes (markdown, gitcommit, text, ...) add 't' back to
+-- formatoptions. Strip it again on every FileType so the off-by-default
+-- setting actually holds; <leader>tW still toggles it back on per buffer.
+vim.api.nvim_create_autocmd('FileType', {
+  desc     = 'Keep hard-wrap off by default regardless of ftplugin',
+  group    = vim.api.nvim_create_augroup('core-no-hard-wrap', { clear = true }),
+  pattern  = '*',
+  command  = 'setlocal formatoptions-=t',
+})
+
 -- Diagnostic configuration.
 -- Kept here rather than in lsp.lua because diagnostics are a core Neovim
 -- feature (vim.diagnostic) that work even without an LSP server attached.
