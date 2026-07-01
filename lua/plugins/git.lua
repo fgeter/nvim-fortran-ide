@@ -41,6 +41,18 @@ local function list_branches(all)
   return branches
 end
 
+-- Bare `:checktime` only reloads buffers currently displayed in a window —
+-- any buffer that's open but hidden (not visible in a split/tab right now)
+-- is skipped and keeps showing stale content until manually closed and
+-- reopened. Checking each loaded buffer individually reloads all of them.
+local function checktime_all_buffers()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) then
+      vim.cmd('checktime ' .. buf)
+    end
+  end
+end
+
 -- ── gitsigns ─────────────────────────────────────────────────
 -- Shows +/~/_ signs in the gutter for added/changed/deleted lines.
 -- Also provides hunk navigation and staging without leaving Neovim.
@@ -165,7 +177,7 @@ local function git_commit()
       local out = vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         vim.notify('✅ Committed successfully', vim.log.levels.INFO)
-        vim.cmd('checktime')
+        checktime_all_buffers()
       else
         vim.notify('Commit failed:\n' .. out, vim.log.levels.ERROR)
       end
@@ -181,7 +193,7 @@ local function git_pull()
     vim.schedule(function()
       if result.code == 0 then
         vim.notify('✅ Git pull successful', vim.log.levels.INFO)
-        vim.cmd('checktime')
+        checktime_all_buffers()
       else
         vim.notify('Git pull failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
       end
@@ -212,7 +224,7 @@ local function git_create_branch()
     if vim.v.shell_error == 0 then
       vim.g.git_branch = name
       vim.notify('✅ Created and switched to: ' .. name, vim.log.levels.INFO)
-      vim.cmd('checktime')
+      checktime_all_buffers()
     else
       vim.notify('Failed to create branch:\n' .. out, vim.log.levels.ERROR)
     end
@@ -235,7 +247,7 @@ local function switch_branch()
           if result.code == 0 then
             vim.g.git_branch = choice
             vim.notify('Switched to: ' .. choice, vim.log.levels.INFO)
-            vim.cmd('checktime')
+            checktime_all_buffers()
           else
             vim.notify('Failed to switch branch:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
           end
@@ -286,7 +298,7 @@ local function merge_branch()
       local out = vim.fn.system('git merge ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         vim.notify('Merged ' .. choice, vim.log.levels.INFO)
-        vim.cmd('checktime')
+        checktime_all_buffers()
       else
         vim.notify('Merge failed:\n' .. out, vim.log.levels.ERROR)
       end
