@@ -328,6 +328,70 @@ local function discard_buffer_changes()
     end)
 end
 
+-- Open the current file's version on another branch in a side-by-side diff
+-- so you can selectively pull changes with do/dp (diffget/diffput) instead
+-- of merging the whole file. The comparison buffer is read-only scratch —
+-- edits only ever land in your real, saveable buffer on the left/right
+-- depending on split direction.
+local function git_diff_file_against_branch()
+  if not is_git_repo() then return end
+  local file = vim.fn.expand('%:p')
+  if file == '' then
+    vim.notify('No file in current buffer', vim.log.levels.WARN)
+    return
+  end
+  local relpath = vim.fn.systemlist('git ls-files --full-name ' .. vim.fn.shellescape(file))[1]
+  if not relpath or relpath == '' then
+    vim.notify('File is not tracked by git', vim.log.levels.WARN)
+    return
+  end
+  local current  = current_branch(true)
+  local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
+  vim.ui.select(branches, { prompt = 'Diff current file against branch:' }, function(branch)
+    if not branch then return end
+    local content = vim.fn.system('git show ' .. vim.fn.shellescape(branch .. ':' .. relpath) .. ' 2>&1')
+    if vim.v.shell_error ~= 0 then
+      vim.notify('Failed to read ' .. relpath .. ' from ' .. branch .. ':\n' .. content, vim.log.levels.ERROR)
+      return
+    end
+
+    local orig_win = vim.api.nvim_get_current_win()
+    local orig_ft  = vim.bo.filetype
+
+    vim.cmd('belowright vsplit')
+    local scratch = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(0, scratch)
+    vim.api.nvim_buf_set_lines(scratch, 0, -1, false, vim.split(content, '\n', { plain = true }))
+    vim.bo[scratch].filetype   = orig_ft
+    vim.bo[scratch].buftype    = 'nofile'
+    vim.bo[scratch].bufhidden  = 'wipe'
+    vim.bo[scratch].swapfile   = false
+    vim.bo[scratch].modifiable = false
+    pcall(vim.api.nvim_buf_set_name, scratch, branch .. ':' .. relpath)
+
+    vim.cmd('diffthis')
+    vim.api.nvim_set_current_win(orig_win)
+    vim.cmd('diffthis')
+
+    -- Closing the scratch (branch) window leaves the real buffer's window
+    -- stuck showing diff highlighting/foldcolumn; turn that off automatically.
+    vim.api.nvim_create_autocmd('BufWipeout', {
+      buffer   = scratch,
+      once     = true,
+      callback = function()
+        vim.schedule(function()
+          if vim.api.nvim_win_is_valid(orig_win) then
+            vim.api.nvim_win_call(orig_win, function() vim.cmd('diffoff') end)
+          end
+        end)
+      end,
+    })
+
+    vim.notify('Diffing against ' .. branch .. ' — do/dp to move hunks, ]c/[c to jump between them',
+      vim.log.levels.INFO)
+  end)
+end
+
 -- ── Git keymaps ───────────────────────────────────────────────
 vim.keymap.set('n', '<leader>gg', open_lazygit,      { desc = 'Git: open lazygit' })
 vim.keymap.set('n', '<leader>gc', git_commit,        { desc = 'Git: commit' })
@@ -337,4 +401,5 @@ vim.keymap.set('n', '<leader>gP', git_push,          { desc = 'Git: push' })
 vim.keymap.set('n', '<leader>gs', switch_branch,     { desc = 'Git: switch branch' })
 vim.keymap.set('n', '<leader>gd', delete_branch,     { desc = 'Git: delete branch' })
 vim.keymap.set('n', '<leader>gm', merge_branch,      { desc = 'Git: merge branch' })
+vim.keymap.set('n', '<leader>gf', git_diff_file_against_branch, { desc = 'Git: diff file against branch (do/dp to pull hunks)' })
 vim.keymap.set('n', '<leader>gx', discard_buffer_changes, { desc = 'Git: discard changes in buffer' })
