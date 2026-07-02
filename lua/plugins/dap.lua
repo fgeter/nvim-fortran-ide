@@ -129,8 +129,43 @@ dap.listeners.after.event_initialized['dapui_config']  = function()
   vim.cmd('Neotree close')
   vim.notify('DAP session started — <leader>dF for key reference', vim.log.levels.INFO)
 end
-dap.listeners.before.event_terminated['dapui_config']  = function() dapui.close() end
-dap.listeners.before.event_exited['dapui_config']      = function() dapui.close() end
+
+local function is_neotree_open()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' then
+      return true
+    end
+  end
+  return false
+end
+
+-- Move focus to the first ordinary (non-neo-tree, non-terminal) window,
+-- since closing the dapui layout can otherwise leave focus in whatever
+-- window Neovim happened to fall back to.
+local function focus_file_window()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree' then
+      vim.api.nvim_set_current_win(win)
+      return
+    end
+  end
+end
+
+-- dapui.close() closed the neo-tree window at session start (see above),
+-- and never reopened it — leaving the sidebar gone after every debug
+-- session. Reopen it (without stealing focus, matching the convention used
+-- at startup/DirChanged in neo-tree.lua) and land the cursor back on the
+-- file buffer rather than wherever dapui's closing left it.
+local function on_dap_end()
+  dapui.close()
+  if not is_neotree_open() then
+    pcall(vim.cmd, 'Neotree show filesystem left')
+  end
+  focus_file_window()
+end
+dap.listeners.before.event_terminated['dapui_config']  = on_dap_end
+dap.listeners.before.event_exited['dapui_config']      = on_dap_end
 
 vim.keymap.set('n', '<F1>',  function() dap.step_into()         end, { desc = 'DAP: step into' })
 vim.keymap.set('n', '<F2>',  function() dap.step_over()         end, { desc = 'DAP: step over' })
