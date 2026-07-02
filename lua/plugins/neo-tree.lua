@@ -90,9 +90,16 @@ local function open_or_up(state)
 end
 
 -- The global signcolumn=yes bleeds into the neo-tree window; suppress it.
+-- winfixwidth protects the sidebar from 'equalalways': without it, opening
+-- or (especially) closing splits elsewhere — e.g. the git.lua diff-review
+-- workflow's close-then-reopen dance — redistributes width across every
+-- window in the tabpage and can leave neo-tree nearly full-width.
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'neo-tree',
-  callback = function() vim.wo.signcolumn = 'no' end,
+  callback = function()
+    vim.wo.signcolumn  = 'no'
+    vim.wo.winfixwidth = true
+  end,
 })
 
 -- ── Setup ────────────────────────────────────────────────────

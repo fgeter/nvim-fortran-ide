@@ -20,8 +20,13 @@ local function get_maxlen(bufnr)
   if maxlen[bufnr] then return maxlen[bufnr] end
   local max = 0
   for _, l in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    local w = vim.fn.strdisplaywidth(l)
-    if w > max then max = w end
+    -- Binary files can contain lines Vim represents as a Blob rather than a
+    -- String (e.g. embedded NULs); strdisplaywidth() then raises E976. Skip
+    -- those lines rather than letting the error abort the calling autocmd
+    -- (BufReadPost/WinEnter), which otherwise breaks unrelated things further
+    -- down the same event, like quickfix navigation onto a binary file.
+    local ok, w = pcall(vim.fn.strdisplaywidth, l)
+    if ok and w > max then max = w end
   end
   maxlen[bufnr] = max
   return max
