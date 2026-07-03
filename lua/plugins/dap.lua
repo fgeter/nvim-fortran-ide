@@ -126,7 +126,13 @@ require('nvim-dap-virtual-text').setup {
 -- duplication in each language file.
 dap.listeners.after.event_initialized['dapui_config']  = function()
   dapui.open()
-  vim.cmd('Neotree close')
+  -- Deferred past neo-tree's own 100ms follow_current_file debounce (see
+  -- filesystem/init.lua in neo-tree's source): starting a session focuses
+  -- the source file right around here, queuing that debounce. Closing the
+  -- window synchronously before it fires leaves it acting on a stale window
+  -- reference, crashing inside nui.tree ("Invalid 'win'"). Letting the
+  -- debounce complete first (while the window is still valid) avoids it.
+  vim.defer_fn(function() pcall(vim.cmd, 'Neotree close') end, 150)
   vim.notify('DAP session started — <leader>dF for key reference', vim.log.levels.INFO)
 end
 
