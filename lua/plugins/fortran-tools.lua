@@ -29,7 +29,8 @@ local function activate()
   local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
   local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
 
-  local dap = require('dap')
+  local dap   = require('dap')
+  local utils = require('core.utils')
 
   ---------------------------------------------------------------------------
   -- LSP: fortls
@@ -83,7 +84,7 @@ local function activate()
     return execs
   end
 
-  local function launch(program, cwd)
+  local function do_launch(program, cwd)
     local ok, err = pcall(dap.run, {
       name         = 'Launch swatplus',
       type         = 'gdb',
@@ -97,7 +98,57 @@ local function activate()
     end
   end
 
-  local utils = require('core.utils')
+  -- Rebuilds specifically the debug directory being debugged (not "whatever
+  -- preset is active" in cmake-tools, which may differ) — same command
+  -- either build system would run, chosen by whether CMakeLists.txt exists,
+  -- matching the detection cmake-tools.lua/make-tools.lua themselves use.
+  local function rebuild_debug(on_done)
+    local debug_dir = BUILD_ROOT .. '/debug'
+    local j = utils.get_cpu_count()
+    local cmd
+    if vim.fn.filereadable(REPO_ROOT .. '/CMakeLists.txt') == 1 then
+      cmd = 'cmake --build ' .. vim.fn.shellescape(debug_dir) .. ' -j ' .. j
+    else
+      cmd = 'make -j' .. j .. ' BUILD_TYPE=debug -C ' .. vim.fn.shellescape(REPO_ROOT)
+    end
+    vim.notify('Rebuilding debug build...', vim.log.levels.INFO)
+    utils.run_build_cmd(
+      cmd .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }',
+      on_done)
+  end
+
+  -- Heuristic: if any source file was modified after the executable, gdb's
+  -- debug info won't match the current source — breakpoints silently stay
+  -- "pending"/unverified and the program just runs to completion instead of
+  -- stopping. mtime comparison can't know if a touch actually changed
+  -- anything, so this warns rather than silently blocking.
+  local function is_build_stale(program)
+    local exe_mtime = vim.fn.getftime(program)
+    if exe_mtime < 0 then return false end
+    for _, f in ipairs(vim.fn.glob(SRC_DIR .. '/*.f90', false, true)) do
+      if vim.fn.getftime(f) > exe_mtime then return true end
+    end
+    return false
+  end
+
+  local function launch(program, cwd)
+    if not is_build_stale(program) then
+      do_launch(program, cwd)
+      return
+    end
+    vim.ui.input(
+      { prompt = 'Debug build looks older than source — breakpoints may not verify. Rebuild? (Y/n): ' },
+      function(confirm)
+        if not confirm or confirm:lower() == 'n' then return end
+        rebuild_debug(function(success)
+          if success then
+            do_launch(program, cwd)
+          else
+            vim.notify('Rebuild failed — not launching debugger.', vim.log.levels.ERROR)
+          end
+        end)
+      end)
+  end
 
   local function pick_cwd_and_launch(program)
     local dirs = utils.get_workdirs(WORK_ROOT)

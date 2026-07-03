@@ -33,7 +33,11 @@ end
 -- Run shell_cmd in a one-shot build terminal (botright split).
 -- The window closes automatically and focus returns to the previous
 -- editor window when the terminal process exits (TermClose).
-function M.run_build_cmd(shell_cmd)
+-- `on_exit(success)`, if given, is called after cleanup with whether the
+-- shell exited with status 0 (the build commands `exit 0` only after
+-- printing "Build succeeded", so this reflects a real success, not just
+-- the terminal being closed).
+function M.run_build_cmd(shell_cmd, on_exit)
   local origin_win = M.find_editor_win()
   vim.cmd('botright split')
   vim.cmd('terminal bash')
@@ -44,6 +48,7 @@ function M.run_build_cmd(shell_cmd)
     buffer   = build_buf,
     once     = true,
     callback = function()
+      local success = vim.v.event.status == 0
       vim.schedule(function()
         for _, win in ipairs(vim.api.nvim_list_wins()) do
           if vim.api.nvim_win_get_buf(win) == build_buf then
@@ -56,6 +61,7 @@ function M.run_build_cmd(shell_cmd)
         local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
           and origin_win or M.find_editor_win()
         if target then vim.api.nvim_set_current_win(target) end
+        if on_exit then on_exit(success) end
       end)
     end,
   })
