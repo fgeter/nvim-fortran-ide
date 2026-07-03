@@ -40,6 +40,14 @@ require('catppuccin').setup {
     mocha = function(colors)
       return {
         WinSeparator = { fg = colors.lavender },
+        -- Default DiffChange is only a 7%-blended blue wash — easy to miss
+        -- on a dark background, especially when just one character on a
+        -- line changed. DiffText (the changed characters themselves) was
+        -- the same hue, just more saturated, so the two didn't read as
+        -- distinct. Give the whole changed line a plain neutral background
+        -- and make the exact changed text pop with a contrasting color.
+        DiffChange = { bg = colors.surface1 },
+        DiffText   = { bg = colors.yellow, fg = colors.base, bold = true },
       }
     end,
   },
