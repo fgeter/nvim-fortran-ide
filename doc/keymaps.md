@@ -242,7 +242,12 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 | `<leader>gs` | Switch branch | `plugins/git.lua` |
 | `<leader>gd` | Delete branch | `plugins/git.lua` |
 | `<leader>gm` | Merge branch | `plugins/git.lua` |
+| `<leader>gf` | Diff current file against a branch, or a typed ref (e.g. `HEAD^1`) — `do`/`dp` to pull hunks | `plugins/git.lua` |
+| `<leader>gq` | Load files changed between two refs (default `HEAD^1`..`HEAD`) into the quickfix list | `plugins/git.lua` |
+| `<leader>gn` | Done with this file's diff: save, close, delete buffer, advance quickfix, reopen diff on the next file (auto-skips binaries) | `plugins/git.lua` |
 | `<leader>gx` | Discard all changes in current buffer's file (restores to HEAD; confirmation prompt; refuses on untracked files) | `plugins/git.lua` |
+
+> See `doc/selective-merge.md` for the full selective branch-merge workflow these three keys were built for.
 
 ---
 
