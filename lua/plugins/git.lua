@@ -238,6 +238,61 @@ local function git_push()
   end)
 end
 
+-- ── Remote-ahead check ──────────────────────────────────────────
+-- Periodically, and right before any <leader>g* action, fetches in the
+-- background and asks whether to pull if origin has moved ahead. Fetch
+-- failures (no network, working offline) are swallowed silently — this is
+-- advisory and shouldn't nag when there's nothing to fetch from.
+local remote_check_in_progress = false
+local prompt_open              = false
+local last_remote_check        = 0
+local KEYPRESS_DEBOUNCE_SECS   = 5 * 60
+local PERIODIC_INTERVAL_MS     = 20 * 60 * 1000
+
+local function check_remote_ahead()
+  if remote_check_in_progress or prompt_open or not is_git_repo() then return end
+  remote_check_in_progress = true
+  last_remote_check = os.time()
+  vim.system({ 'git', 'fetch' }, {}, function(result)
+    remote_check_in_progress = false
+    if result.code ~= 0 then return end -- offline or no remote — stay quiet
+    vim.schedule(function()
+      local ahead = tonumber(vim.fn.systemlist('git rev-list --count HEAD..@{u}')[1])
+      if not ahead or ahead == 0 then return end
+      local branch = current_branch(true)
+      prompt_open = true
+      vim.ui.input(
+        { prompt = ('origin/%s is %d commit(s) ahead — pull now? (y/N): '):format(branch, ahead) },
+        function(confirm)
+          prompt_open = false
+          if confirm and confirm:lower() == 'y' then git_pull() end
+        end)
+    end)
+  end)
+end
+
+-- Debounced so mashing several <leader>g* keymaps in a row doesn't fire a
+-- fetch on every single one; the periodic timer below runs unconditionally
+-- on its own schedule instead.
+local function maybe_check_remote_on_keypress()
+  if os.time() - last_remote_check >= KEYPRESS_DEBOUNCE_SECS then
+    check_remote_ahead()
+  end
+end
+
+local function with_remote_check(fn)
+  return function(...)
+    maybe_check_remote_on_keypress()
+    return fn(...)
+  end
+end
+
+local uv = vim.uv or vim.loop
+local remote_check_timer = uv.new_timer()
+remote_check_timer:start(PERIODIC_INTERVAL_MS, PERIODIC_INTERVAL_MS, function()
+  vim.schedule(check_remote_ahead)
+end)
+
 local function git_create_branch()
   if not is_git_repo() then return end
   vim.ui.input({ prompt = 'New branch name: ' }, function(name)
@@ -609,15 +664,17 @@ local function git_changed_files_to_quickfix()
 end
 
 -- ── Git keymaps ───────────────────────────────────────────────
-vim.keymap.set('n', '<leader>gg', open_lazygit,      { desc = 'Git: open lazygit' })
-vim.keymap.set('n', '<leader>gc', git_commit,        { desc = 'Git: commit' })
-vim.keymap.set('n', '<leader>gb', git_create_branch, { desc = 'Git: create branch' })
-vim.keymap.set('n', '<leader>gp', git_pull,          { desc = 'Git: pull' })
-vim.keymap.set('n', '<leader>gP', git_push,          { desc = 'Git: push' })
-vim.keymap.set('n', '<leader>gs', switch_branch,     { desc = 'Git: switch branch' })
-vim.keymap.set('n', '<leader>gd', delete_branch,     { desc = 'Git: delete branch' })
-vim.keymap.set('n', '<leader>gm', merge_branch,      { desc = 'Git: merge branch' })
-vim.keymap.set('n', '<leader>gf', git_diff_file_against_ref, { desc = 'Git: diff file against branch/ref (do/dp to pull hunks)' })
-vim.keymap.set('n', '<leader>gq', git_changed_files_to_quickfix, { desc = 'Git: changed files (ref..ref) to quickfix' })
-vim.keymap.set('n', '<leader>gn', git_diff_done_next, { desc = 'Git: done with this diff, save + close + next quickfix' })
-vim.keymap.set('n', '<leader>gx', discard_buffer_changes, { desc = 'Git: discard changes in buffer' })
+-- Every <leader>g* action is wrapped with with_remote_check so pressing any
+-- of them also triggers the debounced origin-ahead check above.
+vim.keymap.set('n', '<leader>gg', with_remote_check(open_lazygit),      { desc = 'Git: open lazygit' })
+vim.keymap.set('n', '<leader>gc', with_remote_check(git_commit),        { desc = 'Git: commit' })
+vim.keymap.set('n', '<leader>gb', with_remote_check(git_create_branch), { desc = 'Git: create branch' })
+vim.keymap.set('n', '<leader>gp', with_remote_check(git_pull),          { desc = 'Git: pull' })
+vim.keymap.set('n', '<leader>gP', with_remote_check(git_push),          { desc = 'Git: push' })
+vim.keymap.set('n', '<leader>gs', with_remote_check(switch_branch),     { desc = 'Git: switch branch' })
+vim.keymap.set('n', '<leader>gd', with_remote_check(delete_branch),     { desc = 'Git: delete branch' })
+vim.keymap.set('n', '<leader>gm', with_remote_check(merge_branch),      { desc = 'Git: merge branch' })
+vim.keymap.set('n', '<leader>gf', with_remote_check(git_diff_file_against_ref), { desc = 'Git: diff file against branch/ref (do/dp to pull hunks)' })
+vim.keymap.set('n', '<leader>gq', with_remote_check(git_changed_files_to_quickfix), { desc = 'Git: changed files (ref..ref) to quickfix' })
+vim.keymap.set('n', '<leader>gn', with_remote_check(git_diff_done_next), { desc = 'Git: done with this diff, save + close + next quickfix' })
+vim.keymap.set('n', '<leader>gx', with_remote_check(discard_buffer_changes), { desc = 'Git: discard changes in buffer' })
