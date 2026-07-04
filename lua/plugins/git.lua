@@ -147,6 +147,13 @@ vim.g.loaded_lazygit = true
 -- silently dropping the commit.
 local git_ui_busy = false
 
+-- Cached result of the last successful remote-ahead check. Read by
+-- maybe_check_remote_on_keypress when the debounce skips a fresh fetch, so a
+-- keypress shortly after a check (e.g. <leader>gR then <leader>gs within the
+-- same 5-minute window) still surfaces what's already known instead of
+-- silently reporting nothing. Reset to 0 after any pull.
+local last_known_ahead = 0
+
 -- Returns true if the current working directory is inside a git repo
 local function is_git_repo()
   local result = vim.fn.systemlist(
@@ -229,6 +236,7 @@ local function git_pull()
     vim.schedule(function()
       if result.code == 0 then
         vim.notify('✅ Git pull successful', vim.log.levels.INFO)
+        last_known_ahead = 0
         checktime_all_buffers()
       else
         vim.notify('Git pull failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
@@ -267,13 +275,48 @@ local last_remote_check        = 0
 local KEYPRESS_DEBOUNCE_SECS   = 5 * 60
 local PERIODIC_INTERVAL_MS     = 20 * 60 * 1000
 
+-- fn's own prompt (e.g. switch_branch's picker) may already be open when the
+-- fetch resolves — a competing vim.ui.input here would steal the cmdline
+-- from it, so wait for git_ui_busy to clear before asking. Defaults to yes:
+-- plain <CR> (or anything not starting with "n") pulls; only <Esc> (cancel)
+-- or an explicit "n" skip it. Gives up after ~30s and falls back to a
+-- passive notify if git_ui_busy is somehow never released.
+local function prompt_pull_when_free(branch, ahead, retries_left)
+  retries_left = retries_left or 100
+  if git_ui_busy then
+    if retries_left <= 0 then
+      vim.notify(
+        ('origin/%s is %d commit(s) ahead — pull manually or press <leader>gR'):format(branch, ahead),
+        vim.log.levels.WARN)
+      return
+    end
+    vim.defer_fn(function() prompt_pull_when_free(branch, ahead, retries_left - 1) end, 300)
+    return
+  end
+  git_ui_busy = true
+  vim.ui.input(
+    { prompt = ('origin/%s is %d commit(s) ahead — pull now? (Y/n): '):format(branch, ahead) },
+    function(confirm)
+      git_ui_busy = false
+      if confirm == nil then return end -- cancelled
+      if confirm:lower():sub(1, 1) == 'n' then return end
+      git_pull()
+    end)
+end
+
 local function check_remote_ahead(verbose)
   if remote_check_in_progress then
     if verbose then vim.notify('Remote check already in progress…', vim.log.levels.INFO) end
     return
   end
-  if git_ui_busy then
-    if verbose then vim.notify('Another git prompt is open — finish that first', vim.log.levels.WARN) end
+  -- Only a *manual* call (<leader>gR) bails here: it wants an immediate
+  -- answer, and another prompt is already occupying the cmdline. Keypress-
+  -- triggered calls run after fn (see with_remote_check below), so fn's own
+  -- prompt has almost always already set git_ui_busy by this point — that's
+  -- expected, not a reason to skip the fetch; prompt_pull_when_free just
+  -- waits for fn's prompt to close before asking about the pull.
+  if verbose and git_ui_busy then
+    vim.notify('Another git prompt is open — finish that first', vim.log.levels.WARN)
     return
   end
   if not is_git_repo() then return end
@@ -291,35 +334,31 @@ local function check_remote_ahead(verbose)
       return -- offline or no remote — stay quiet when not verbose
     end
     vim.schedule(function()
-      -- Re-check: an interactive prompt may have opened while the fetch ran.
-      if git_ui_busy then return end
       local ahead = tonumber(vim.fn.systemlist('git rev-list --count HEAD..@{u}')[1])
       if not ahead then
         if verbose then vim.notify('No upstream configured for current branch', vim.log.levels.WARN) end
         return
       end
+      last_known_ahead = ahead
       if ahead == 0 then
         if verbose then vim.notify('✅ Up to date with origin', vim.log.levels.INFO) end
         return
       end
-      local branch = current_branch(true)
-      git_ui_busy = true
-      vim.ui.input(
-        { prompt = ('origin/%s is %d commit(s) ahead — pull now? (y/N): '):format(branch, ahead) },
-        function(confirm)
-          git_ui_busy = false
-          if confirm and confirm:lower() == 'y' then git_pull() end
-        end)
+      prompt_pull_when_free(current_branch(true), ahead)
     end)
   end)
 end
 
 -- Debounced so mashing several <leader>g* keymaps in a row doesn't fire a
 -- fetch on every single one; the periodic timer below runs unconditionally
--- on its own schedule instead.
+-- on its own schedule instead. But debounced must not mean silent: if a
+-- prior check (e.g. <leader>gR moments ago) already found origin ahead,
+-- still surface that cached result here instead of skipping entirely.
 local function maybe_check_remote_on_keypress()
   if os.time() - last_remote_check >= KEYPRESS_DEBOUNCE_SECS then
     check_remote_ahead()
+  elseif last_known_ahead > 0 then
+    prompt_pull_when_free(current_branch(true), last_known_ahead)
   end
 end
 
