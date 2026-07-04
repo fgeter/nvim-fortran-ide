@@ -23,6 +23,10 @@
       "rev": "18aeab3d63d350dcf44d64c462cc489a3412af40",
       "src": "https://github.com/stevearc/conform.nvim"
     },
+    "dressing.nvim": {
+      "rev": "2d7c2db2507fa3c4956142ee607431ddb2828639",
+      "src": "https://github.com/stevearc/dressing.nvim"
+    },
     "everforest": {
       "rev": "aeef62ee97872d2557d25904d160ec93a4a355f8",
       "src": "https://github.com/sainnhe/everforest"
