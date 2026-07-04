@@ -139,6 +139,14 @@ require('gitsigns').setup {
 if vim.g.loaded_lazygit then return end
 vim.g.loaded_lazygit = true
 
+-- Set true by any function below while one of its vim.ui.select/vim.ui.input
+-- prompts is open. Neovim's cmdline can only serve one prompt at a time, so
+-- check_remote_ahead's own confirm prompt checks this before popping up —
+-- otherwise a background fetch finishing mid-commit steals the cmdline from
+-- the commit-message prompt and the keystrokes/Enter go to the wrong one,
+-- silently dropping the commit.
+local git_ui_busy = false
+
 -- Returns true if the current working directory is inside a git repo
 local function is_git_repo()
   local result = vim.fn.systemlist(
@@ -184,17 +192,19 @@ local function git_commit()
   end
   local choices = { 'Commit All Changes' }
   for _, f in ipairs(files) do table.insert(choices, f.status .. '  ' .. f.name) end
+  git_ui_busy = true
   vim.ui.select(choices, { prompt = 'Select files to commit:' }, function(choice)
-    if not choice then return end
+    if not choice then git_ui_busy = false; return end
     local add_cmd
     if choice == 'Commit All Changes' then
       add_cmd = 'git add -A'
     else
       local filename = choice:match('%s%s(.+)$')
-      if not filename then return end
+      if not filename then git_ui_busy = false; return end
       add_cmd = 'git add ' .. vim.fn.shellescape(filename)
     end
     vim.ui.input({ prompt = 'Commit message: ' }, function(msg)
+      git_ui_busy = false
       if not msg or msg == '' then return end
       local out = vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg) .. ' 2>&1')
       if vim.v.shell_error == 0 then
@@ -244,27 +254,28 @@ end
 -- failures (no network, working offline) are swallowed silently — this is
 -- advisory and shouldn't nag when there's nothing to fetch from.
 local remote_check_in_progress = false
-local prompt_open              = false
 local last_remote_check        = 0
 local KEYPRESS_DEBOUNCE_SECS   = 5 * 60
 local PERIODIC_INTERVAL_MS     = 20 * 60 * 1000
 
 local function check_remote_ahead()
-  if remote_check_in_progress or prompt_open or not is_git_repo() then return end
+  if remote_check_in_progress or git_ui_busy or not is_git_repo() then return end
   remote_check_in_progress = true
   last_remote_check = os.time()
   vim.system({ 'git', 'fetch' }, {}, function(result)
     remote_check_in_progress = false
     if result.code ~= 0 then return end -- offline or no remote — stay quiet
     vim.schedule(function()
+      -- Re-check: an interactive prompt may have opened while the fetch ran.
+      if git_ui_busy then return end
       local ahead = tonumber(vim.fn.systemlist('git rev-list --count HEAD..@{u}')[1])
       if not ahead or ahead == 0 then return end
       local branch = current_branch(true)
-      prompt_open = true
+      git_ui_busy = true
       vim.ui.input(
         { prompt = ('origin/%s is %d commit(s) ahead — pull now? (y/N): '):format(branch, ahead) },
         function(confirm)
-          prompt_open = false
+          git_ui_busy = false
           if confirm and confirm:lower() == 'y' then git_pull() end
         end)
     end)
@@ -295,7 +306,9 @@ end)
 
 local function git_create_branch()
   if not is_git_repo() then return end
+  git_ui_busy = true
   vim.ui.input({ prompt = 'New branch name: ' }, function(name)
+    git_ui_busy = false
     if not name or name == '' then return end
     local out = vim.fn.system('git checkout -b ' .. vim.fn.shellescape(name) .. ' 2>&1')
     if vim.v.shell_error == 0 then
@@ -312,8 +325,10 @@ local function switch_branch()
   if not is_git_repo() then return end
   local branches = list_branches(true)
   local current  = current_branch(true)
+  git_ui_busy = true
   vim.ui.select(branches, { prompt = 'Switch to branch (current: ' .. current .. '):' },
     function(choice)
+      git_ui_busy = false
       if not choice then return end
       if choice == current then
         vim.notify('Already on: ' .. choice, vim.log.levels.INFO)
@@ -342,15 +357,18 @@ local function delete_branch()
     vim.notify('No other branches to delete.', vim.log.levels.WARN)
     return
   end
+  git_ui_busy = true
   vim.ui.select(deletable, { prompt = 'Delete branch (current: ' .. current .. '):' },
     function(choice)
-      if not choice then return end
+      if not choice then git_ui_busy = false; return end
       vim.fn.system('git branch -d ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
+        git_ui_busy = false
         vim.notify('✅ Deleted: ' .. choice, vim.log.levels.INFO)
       else
         vim.ui.input({ prompt = 'Not fully merged. Force delete "' .. choice .. '"? (y/N): ' },
           function(confirm)
+            git_ui_busy = false
             if confirm and confirm:lower() == 'y' then
               local out = vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice) .. ' 2>&1')
               if vim.v.shell_error == 0 then
@@ -369,8 +387,10 @@ local function merge_branch()
   local branches = list_branches(true)
   local current  = current_branch(true)
   local mergeable = vim.tbl_filter(function(b) return b ~= current end, branches)
+  git_ui_busy = true
   vim.ui.select(mergeable, { prompt = 'Merge into "' .. current .. '":' },
     function(choice)
+      git_ui_busy = false
       if not choice then return end
       local out = vim.fn.system('git merge ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
@@ -404,8 +424,10 @@ local function discard_buffer_changes()
     return
   end
   local shortname = vim.fn.fnamemodify(file, ':t')
+  git_ui_busy = true
   vim.ui.input({ prompt = 'Discard ALL changes in ' .. shortname .. '? (y/N): ' },
     function(confirm)
+      git_ui_busy = false
       if not confirm or confirm:lower() ~= 'y' then return end
       local out = vim.fn.system('git checkout HEAD -- ' .. vim.fn.shellescape(file) .. ' 2>&1')
       if vim.v.shell_error == 0 then
@@ -527,13 +549,16 @@ local function git_diff_file_against_ref()
   local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
   local type_ref = 'Type a ref… (e.g. HEAD^, HEAD~2, a commit SHA)'
   table.insert(branches, type_ref)
+  git_ui_busy = true
   vim.ui.select(branches, { prompt = 'Diff current file against branch/ref:' }, function(choice)
-    if not choice then return end
+    if not choice then git_ui_busy = false; return end
     if choice == type_ref then
       vim.ui.input({ prompt = 'Git ref: ', default = last_diff_ref }, function(ref)
+        git_ui_busy = false
         if ref and ref ~= '' then open_ref_diff_for_current_buffer(ref) end
       end)
     else
+      git_ui_busy = false
       open_ref_diff_for_current_buffer(choice)
     end
   end)
@@ -635,9 +660,11 @@ end
 -- :cnext/:cprev alongside <leader>gf instead of tracking the list by hand.
 local function git_changed_files_to_quickfix()
   if not is_git_repo() then return end
+  git_ui_busy = true
   vim.ui.input({ prompt = 'Base ref: ', default = 'HEAD^1' }, function(base)
-    if not base or base == '' then return end
+    if not base or base == '' then git_ui_busy = false; return end
     vim.ui.input({ prompt = 'Target ref: ', default = 'HEAD' }, function(target)
+      git_ui_busy = false
       if not target or target == '' then return end
       local files = vim.fn.systemlist(
         'git diff --name-only ' .. vim.fn.shellescape(base) .. ' ' .. vim.fn.shellescape(target))
