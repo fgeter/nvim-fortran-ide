@@ -217,11 +217,15 @@ local function git_commit()
   end)
 end
 
--- Pull: async so a slow network doesn't freeze the UI
+-- Pull: async so a slow network doesn't freeze the UI. Explicit --no-rebase
+-- so this doesn't depend on pull.rebase/pull.ff being configured — with no
+-- default set, a plain `git pull` errors out ("need to specify how to
+-- reconcile divergent branches") instead of pulling whenever two machines
+-- have each committed since the last sync.
 local function git_pull()
   if not is_git_repo() then return end
   vim.notify('Pulling…', vim.log.levels.INFO)
-  vim.system({ 'git', 'pull' }, {}, function(result)
+  vim.system({ 'git', 'pull', '--no-rebase' }, {}, function(result)
     vim.schedule(function()
       if result.code == 0 then
         vim.notify('✅ Git pull successful', vim.log.levels.INFO)
