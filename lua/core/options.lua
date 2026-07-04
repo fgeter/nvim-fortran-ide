@@ -44,6 +44,12 @@ vim.o.breakindent = true
 -- Persist undo history to disk so you can undo across sessions
 vim.o.undofile = true
 
+-- No *.swp files. They mainly guard against crash recovery and concurrent
+-- edits of the same file from two Neovim instances, but with undofile
+-- already persisting history and multiple nvim instances/laptops touching
+-- the same repo, they mostly just throw "swapfile exists" warnings.
+vim.o.swapfile = false
+
 -- Case-insensitive search by default; case-sensitive when the query
 -- contains an uppercase letter or the \C flag
 vim.o.ignorecase = true
