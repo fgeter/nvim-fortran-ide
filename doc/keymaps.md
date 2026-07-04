@@ -8,8 +8,6 @@
 |-----|--------|--------|
 | `<Esc>` | Clear search highlights | `core/keymaps.lua` |
 | `<C-s>` | Save file  | `core/keymaps.lua` |
-| `<C-s>` | Save file | `core/keymaps.lua` |
-| `<C-s>` | Save file | `core/keymaps.lua` |
 | `<C-h>` | Focus left window | `core/keymaps.lua` |
 | `<C-j>` | Focus lower window | `core/keymaps.lua` |
 | `<C-k>` | Focus upper window | `core/keymaps.lua` |
