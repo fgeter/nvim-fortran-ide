@@ -121,7 +121,25 @@ local function activate()
   -- focus: when true, shifts the cursor into the output window so the
   -- user can read it and press <CR> to close. Set to false for interactive
   -- pickers (CMakeSelectConfigurePreset) that need to keep their own focus.
+  -- cmake-tools runs `:wall` before every generate/build/run. `:wall`
+  -- throws E141 on any unnamed buffer, and Neovim always has one lying
+  -- around when it's opened without a file argument (buffer 1, empty,
+  -- "[No Name]"). Clear out only pristine unnamed buffers — never ones
+  -- with unsaved content — so that stray buffer can't abort the command.
+  local function close_empty_unnamed_buffers()
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.bo[buf].buflisted
+          and vim.api.nvim_buf_get_name(buf) == ''
+          and not vim.bo[buf].modified
+          and vim.api.nvim_buf_line_count(buf) == 1
+          and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == '' then
+        pcall(vim.api.nvim_buf_delete, buf, {})
+      end
+    end
+  end
+
   local function run_cmake_cmd(cmd, on_close, focus)
+    close_empty_unnamed_buffers()
     local caller_win = get_editor_win()
 
     -- Snapshot windows before the command so we can detect the new one
