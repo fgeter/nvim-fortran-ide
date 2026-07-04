@@ -267,22 +267,16 @@ local last_remote_check        = 0
 local KEYPRESS_DEBOUNCE_SECS   = 5 * 60
 local PERIODIC_INTERVAL_MS     = 20 * 60 * 1000
 
--- callback fires once the check is fully resolved: nothing to report, or the
--- ahead-prompt has been answered — so callers can safely defer their own
--- prompt until any "pull now?" question has been asked first.
-local function check_remote_ahead(verbose, callback)
-  callback = callback or function() end
+local function check_remote_ahead(verbose)
   if remote_check_in_progress then
     if verbose then vim.notify('Remote check already in progress…', vim.log.levels.INFO) end
-    callback()
     return
   end
   if git_ui_busy then
     if verbose then vim.notify('Another git prompt is open — finish that first', vim.log.levels.WARN) end
-    callback()
     return
   end
-  if not is_git_repo() then callback(); return end
+  if not is_git_repo() then return end
   remote_check_in_progress = true
   last_remote_check = os.time()
   if verbose then vim.notify('Checking origin…', vim.log.levels.INFO) end
@@ -294,21 +288,18 @@ local function check_remote_ahead(verbose, callback)
           vim.notify('Fetch failed (offline?):\n' .. (result.stderr or ''), vim.log.levels.WARN)
         end)
       end
-      vim.schedule(callback) -- offline or no remote — stay quiet when not verbose
-      return
+      return -- offline or no remote — stay quiet when not verbose
     end
     vim.schedule(function()
       -- Re-check: an interactive prompt may have opened while the fetch ran.
-      if git_ui_busy then callback(); return end
+      if git_ui_busy then return end
       local ahead = tonumber(vim.fn.systemlist('git rev-list --count HEAD..@{u}')[1])
       if not ahead then
         if verbose then vim.notify('No upstream configured for current branch', vim.log.levels.WARN) end
-        callback()
         return
       end
       if ahead == 0 then
         if verbose then vim.notify('✅ Up to date with origin', vim.log.levels.INFO) end
-        callback()
         return
       end
       local branch = current_branch(true)
@@ -318,7 +309,6 @@ local function check_remote_ahead(verbose, callback)
         function(confirm)
           git_ui_busy = false
           if confirm and confirm:lower() == 'y' then git_pull() end
-          callback()
         end)
     end)
   end)
@@ -327,12 +317,9 @@ end
 -- Debounced so mashing several <leader>g* keymaps in a row doesn't fire a
 -- fetch on every single one; the periodic timer below runs unconditionally
 -- on its own schedule instead.
-local function maybe_check_remote_on_keypress(callback)
-  callback = callback or function() end
+local function maybe_check_remote_on_keypress()
   if os.time() - last_remote_check >= KEYPRESS_DEBOUNCE_SECS then
-    check_remote_ahead(false, callback)
-  else
-    callback()
+    check_remote_ahead()
   end
 end
 
@@ -341,12 +328,22 @@ local function force_check_remote()
   check_remote_ahead(true)
 end
 
--- Waits for the remote check (and any "pull now?" prompt it raises) to fully
--- resolve before running fn, so fn's own prompt can't race it into opening
--- first and swallowing the ahead-warning via the git_ui_busy guard above.
+-- Runs fn FIRST, then decides whether to kick off a background check —
+-- deliberately in that order. fn sets git_ui_busy synchronously before its
+-- first vim.ui.select/input call, with no async gap, so by the time this
+-- checks whether to fetch, git_ui_busy already reflects reality: an
+-- interactive fn skips the fetch entirely (retried on a later keypress),
+-- and a non-interactive one (pull/push/lazygit) just gets checked right
+-- after. The other order — check-then-fn, or worse, waiting for the check
+-- to fully resolve before running fn — either leaves a race window where
+-- the fetch starts before fn has claimed the cmdline, or delays fn's own
+-- prompt with no visible feedback; both let stray keystrokes land in the
+-- underlying buffer instead of fn's prompt.
 local function with_remote_check(fn)
-  return function()
-    maybe_check_remote_on_keypress(fn)
+  return function(...)
+    local result = fn(...)
+    maybe_check_remote_on_keypress()
+    return result
   end
 end
 
