@@ -71,17 +71,93 @@ Claude, Grok, and Gemini in that order.
 
 ## Requirements
 
-- **Neovim ≥ 0.11** — uses `vim.pack`, `vim.lsp.config`, and `vim.lsp.enable`
-- **[Nerd Font](https://www.nerdfonts.com/)** — icons throughout the UI (Mononoki Nerd Font 11pt recommended)
-- **`git`** — version control
-- **`make`** — for compiling the Telescope fzf native sorter (optional but recommended)
-- **`ripgrep`** — for Telescope live grep (`rg`)
+- **Neovim ≥ 0.12** — uses `vim.pack`, `vim.lsp.config`/`vim.lsp.enable`, and
+  `vim.uv.available_parallelism`
+- **[Nerd Font](https://www.nerdfonts.com/)** — icons throughout the UI
+  (Mononoki Nerd Font 11pt recommended); set `vim.g.have_nerd_font = false`
+  in `init.lua` to go without
+- **Network access on first launch** — plugins (vim.pack), Mason tools, and
+  treesitter parsers all download on demand
 
-**Fortran development:**
-- **`fortls`** — `pip install fortls` (Arch: `pacman -S fortls`)
-- **`gdb`** — GNU debugger: install via system package manager
-- **`cmake`** — for CMake integration
-- **`gfortran`** — for linting
+Mason auto-installs every LSP server, formatter, linter, and DAP adapter —
+no manual `:MasonInstall` needed — **but it relies on system runtimes being
+present**: Node.js/npm (TypeScript, HTML/CSS/JSON/YAML, Bash servers,
+prettier), Python 3 + pip/venv (basedpyright, debugpy, ruff), a Java JDK
+(jdtls — only if you use Java), plus `unzip`/`curl`/`tar` for downloads.
+The treesitter setup (nvim-treesitter `main` branch) additionally needs the
+`tree-sitter` CLI and a C compiler to build parsers.
+
+### Arch Linux
+
+```bash
+# Core: editor, build tools, search, runtimes, git UX, clipboard, font
+sudo pacman -S --needed \
+  neovim git base-devel cmake unzip curl wget \
+  ripgrep fd tree-sitter-cli \
+  gcc-fortran gdb \
+  nodejs npm python python-pip \
+  lazygit wl-clipboard xclip xdg-utils \
+  ttf-mononoki-nerd
+
+# Fortran LSP — the one server NOT managed by Mason.
+# fortls lives in the AUR, not the official repos:
+yay -S fortls                         # or paru -S fortls, or: pipx install fortls
+
+# Optional per-language extras
+sudo pacman -S --needed jdk-openjdk   # Java: jdtls, java-debug, google-java-format
+sudo pacman -S --needed rustup        # Rust toolchain (rust_analyzer itself comes via Mason)
+sudo pacman -S --needed kitty         # recommended terminal (OSC 52 clipboard path)
+```
+
+### Ubuntu / Debian
+
+Ubuntu's `apt` Neovim is far too old for this config. Use the unstable PPA
+(or the release tarball/AppImage from
+[neovim/neovim/releases](https://github.com/neovim/neovim/releases)):
+
+```bash
+sudo add-apt-repository ppa:neovim-ppa/unstable
+sudo apt update && sudo apt install neovim
+```
+
+Then the packages:
+
+```bash
+sudo apt install \
+  git build-essential cmake unzip curl wget \
+  ripgrep fd-find \
+  gfortran gdb \
+  nodejs npm python3-pip python3-venv pipx \
+  wl-clipboard xclip xdg-utils
+
+# Not packaged by Ubuntu:
+sudo npm install -g tree-sitter-cli   # treesitter parser builds
+pipx install fortls                   # Fortran LSP (not managed by Mason)
+
+# lazygit — install the release binary:
+LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" \
+  | grep -Po '"tag_name": *"v\K[^"]*')
+curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+tar xf lazygit.tar.gz lazygit && sudo install lazygit -D -t /usr/local/bin/ && rm lazygit lazygit.tar.gz
+
+# Nerd Font — no apt package; download Mononoki Nerd Font and install:
+mkdir -p ~/.local/share/fonts
+curl -Lo /tmp/Mononoki.zip \
+  https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Mononoki.zip
+unzip -o /tmp/Mononoki.zip -d ~/.local/share/fonts && fc-cache -f
+
+# Optional per-language extras
+sudo apt install default-jdk          # Java: jdtls, java-debug, google-java-format
+```
+
+**Ubuntu version caveats:**
+- **gdb ≥ 14** is required for DAP debugging (`gdb --interpreter=dap`).
+  Ubuntu 24.04+ ships gdb 15; **22.04 ships gdb 12, which will not work** —
+  build a newer gdb or use a newer release.
+- Ubuntu's `nodejs` can be old enough to break npm-based Mason servers; if
+  `ts_ls`/`eslint` fail to install, switch to
+  [NodeSource](https://github.com/nodesource/distributions) or `nvm`.
+- Ubuntu names the `fd` binary `fdfind` (optional for this config either way).
 
 **Intel Fortran compiler (optional — required for SWAT+ and other projects using `ifx`):**
 
@@ -123,8 +199,6 @@ you build with.
 **Jupyter notebooks (optional — required for `.ipynb` double-click in neo-tree):**
 - **`jupyter-lab`** — `pip install jupyterlab` or `conda install -c conda-forge jupyterlab`
 
-Mason auto-installs all LSP servers, formatters, linters, and DAP adapters on first launch. No manual `:MasonInstall` commands are needed.
-
 ## Installation
 
 ```bash
@@ -145,6 +219,19 @@ parsers install automatically when you first open a file of each language.
 
 If your terminal does not have a Nerd Font, set `vim.g.have_nerd_font = false`
 in `init.lua`.
+
+**Verify the install:**
+
+1. `:checkhealth` — look at the `vim.lsp`, `mason`, and `nvim-treesitter` sections
+2. `:MasonToolsInstall` — runs the ensure-installed check on demand (it also
+   runs automatically ~3s after startup)
+3. Open a Fortran/Python file — the "✅ … tools loaded" notification confirms
+   the language layer activated
+
+**Optional — Claude Code panel (`<F9>`):** install the
+[Claude Code CLI](https://code.claude.com/docs) so the `claude` binary is on
+your `PATH`; the keymap reports if it is missing.
+
 
 ## Project-local configuration
 
