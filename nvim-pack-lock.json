@@ -149,6 +149,11 @@
       "rev": "e1a36239e4e36759546852dae5f4737375b388f6",
       "src": "https://github.com/b0o/schemastore.nvim"
     },
+    "snacks.nvim": {
+      "rev": "e6fd58c82f2f3fcddd3fe81703d47d6d48fc7b9f",
+      "src": "https://github.com/folke/snacks.nvim",
+      "version": "2.0.0 - 3.0.0"
+    },
     "telescope-file-browser.nvim": {
       "rev": "3610dc7dc91f06aa98b11dca5cc30dfa98626b7e",
       "src": "https://github.com/nvim-telescope/telescope-file-browser.nvim"

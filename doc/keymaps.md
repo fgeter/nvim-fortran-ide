@@ -351,4 +351,5 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>ts` | Toggle spell check | `plugins/spell.lua` |
 | `<leader>tL` | Pick spell check language | `plugins/spell.lua` |
 | `<leader>tW` | Toggle hard text wrap at textwidth (default 80) | `core/keymaps.lua` |
+| `<leader>tn` | Show notification history (snacks.nvim) | `plugins/snacks.lua` |
 | `<leader>tr` | Toggle relative line numbers | `core/keymaps.lua` |

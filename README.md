@@ -35,6 +35,7 @@ Claude, Grok, and Gemini in that order.
 - **Surround** — `nvim-surround` for adding/changing/deleting surrounding pairs (`ys`, `cs`, `ds`)
 - **Spell checking** — built-in spell check; `<leader>tL` picks language (English US/UK, French, German, Spanish, Italian, Portuguese, Dutch, Russian — spell file auto-downloaded); `<leader>ts` toggles on/off; `zg` adds words to a per-language version-controlled personal dictionary; auto-on for Markdown/text/commit messages
 - **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
+- **Notifications** — `snacks.nvim` notifier: `vim.notify()` messages render as floating cards with a session history on `<leader>tn`; its input module provides the floating `vim.ui.input()` prompt
 - **Project-local config** — per-project `.nvim.lua` sets paths; shared language
   configs in `lua/projects/` are inherited so plugin files have no hardcoded paths
 
