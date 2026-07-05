@@ -1,8 +1,8 @@
 -- ============================================================
--- plugins/scrollview.lua — Horizontal scrollbar for buffer windows
+-- features/hscrollbar.lua — Horizontal scrollbar for buffer windows
 --
--- nvim-scrollview only does vertical bars, so this is a small
--- custom implementation: a floating 1-row window overlaid at the
+-- Entirely homegrown (no plugin involved — nvim-scrollview only does
+-- vertical bars):  a floating 1-row window overlaid at the
 -- bottom edge of a buffer window when wrap=false and content
 -- exceeds the window width.
 -- ============================================================

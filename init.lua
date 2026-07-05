@@ -31,29 +31,32 @@ require('core.options')   -- vim.o.* / vim.opt.* settings
 require('core.keymaps')   -- global keymaps (non-plugin)
 require('core.autocmds')  -- global autocommands
 
--- ── Plugin loader ────────────────────────────────────────────
--- Auto-load every .lua file in lua/plugins/ in alphabetical order.
--- Each file is responsible for its own vim.pack.add() + setup().
--- Files are skipped silently if they error (pcall), which prevents
--- one broken plugin from stopping the rest from loading.
+-- ── Plugin / feature loader ──────────────────────────────────
+-- Auto-load every .lua file in lua/plugins/ (third-party plugin config,
+-- each file owns its own vim.pack.add() + setup()) and then lua/features/
+-- (homegrown subsystems with no plugin behind them — git workflow,
+-- horizontal scrollbar, edge scrolling, …). A file that errors is
+-- reported and skipped so one broken module can't stop the rest.
 -- vim.fs.dir does not guarantee alphabetical order; sort explicitly so the
--- documented load order (alphabetical) is always honoured. This matters
--- because neo-tree.lua must precede ui.lua (which installs new packages
--- that fire VimEnter/DirChanged). dap.lua no longer needs to precede the
--- language files: they call require('plugins.dap').activate() themselves.
-local plugins_dir = vim.fn.stdpath('config') .. '/lua/plugins'
-local plugin_files = {}
-for name, ftype in vim.fs.dir(plugins_dir) do
-  if ftype == 'file' and name:match('%.lua$') then
-    table.insert(plugin_files, name)
+-- documented load order (alphabetical within each directory) is always
+-- honoured. This matters because neo-tree.lua must precede ui.lua (which
+-- installs new packages that fire VimEnter/DirChanged). dap.lua no longer
+-- needs to precede the language files: they call
+-- require('plugins.dap').activate() themselves.
+for _, dir in ipairs({ 'plugins', 'features' }) do
+  local files = {}
+  for name, ftype in vim.fs.dir(vim.fn.stdpath('config') .. '/lua/' .. dir) do
+    if ftype == 'file' and name:match('%.lua$') then
+      table.insert(files, name)
+    end
   end
-end
-table.sort(plugin_files)
-for _, name in ipairs(plugin_files) do
-  local mod = name:gsub('%.lua$', '')
-  local ok, err = pcall(require, 'plugins.' .. mod)
-  if not ok then
-    vim.notify('Error loading plugins/' .. name .. ':\n' .. err, vim.log.levels.ERROR)
+  table.sort(files)
+  for _, name in ipairs(files) do
+    local mod = name:gsub('%.lua$', '')
+    local ok, err = pcall(require, dir .. '.' .. mod)
+    if not ok then
+      vim.notify('Error loading ' .. dir .. '/' .. name .. ':\n' .. err, vim.log.levels.ERROR)
+    end
   end
 end
 

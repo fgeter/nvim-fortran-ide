@@ -236,18 +236,18 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>gg` | Open lazygit | `plugins/git.lua` |
-| `<leader>gc` | Commit (with file picker) | `plugins/git.lua` |
-| `<leader>gb` | Create branch | `plugins/git.lua` |
-| `<leader>gp` | Pull (async) | `plugins/git.lua` |
-| `<leader>gP` | Push (async) | `plugins/git.lua` |
-| `<leader>gs` | Switch branch | `plugins/git.lua` |
-| `<leader>gd` | Delete branch | `plugins/git.lua` |
-| `<leader>gm` | Merge branch | `plugins/git.lua` |
-| `<leader>gf` | Diff current file against a branch, or a typed ref (e.g. `HEAD^1`) — `do`/`dp` to pull hunks | `plugins/git.lua` |
-| `<leader>gq` | Load files changed between two refs (default `HEAD^1`..`HEAD`) into the quickfix list | `plugins/git.lua` |
-| `<leader>gn` | Done with this file's diff: save, close, delete buffer, advance quickfix, reopen diff on the next file (auto-skips binaries) | `plugins/git.lua` |
-| `<leader>gx` | Discard all changes in current buffer's file (restores to HEAD; confirmation prompt; refuses on untracked files) | `plugins/git.lua` |
+| `<leader>gg` | Open lazygit | `features/git-workflow.lua` |
+| `<leader>gc` | Commit (with file picker) | `features/git-workflow.lua` |
+| `<leader>gb` | Create branch | `features/git-workflow.lua` |
+| `<leader>gp` | Pull (async) | `features/git-workflow.lua` |
+| `<leader>gP` | Push (async) | `features/git-workflow.lua` |
+| `<leader>gs` | Switch branch | `features/git-workflow.lua` |
+| `<leader>gd` | Delete branch | `features/git-workflow.lua` |
+| `<leader>gm` | Merge branch | `features/git-workflow.lua` |
+| `<leader>gf` | Diff current file against a branch, or a typed ref (e.g. `HEAD^1`) — `do`/`dp` to pull hunks | `features/git-workflow.lua` |
+| `<leader>gq` | Load files changed between two refs (default `HEAD^1`..`HEAD`) into the quickfix list | `features/git-workflow.lua` |
+| `<leader>gn` | Done with this file's diff: save, close, delete buffer, advance quickfix, reopen diff on the next file (auto-skips binaries) | `features/git-workflow.lua` |
+| `<leader>gx` | Discard all changes in current buffer's file (restores to HEAD; confirmation prompt; refuses on untracked files) | `features/git-workflow.lua` |
 
 > See `doc/selective-merge.md` for the full selective branch-merge workflow these three keys were built for.
 
@@ -257,20 +257,20 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 | Key | Mode | Action | Plugin |
 |-----|------|--------|--------|
-| `]c` | n | Next hunk | `plugins/git.lua` |
-| `[c` | n | Previous hunk | `plugins/git.lua` |
-| `<leader>hs` | n/v | Stage hunk | `plugins/git.lua` |
-| `<leader>hr` | n/v | Reset hunk | `plugins/git.lua` |
-| `<leader>hS` | n | Stage buffer | `plugins/git.lua` |
-| `<leader>hR` | n | Reset buffer | `plugins/git.lua` |
-| `<leader>hp` | n | Preview hunk | `plugins/git.lua` |
-| `<leader>hi` | n | Preview hunk inline | `plugins/git.lua` |
-| `<leader>hb` | n | Blame line | `plugins/git.lua` |
-| `<leader>hd` | n | Diff against index | `plugins/git.lua` |
-| `<leader>hD` | n | Diff against last commit | `plugins/git.lua` |
-| `<leader>hq` | n | Quickfix hunks (this file) | `plugins/git.lua` |
-| `<leader>hQ` | n | Quickfix hunks (all files) | `plugins/git.lua` |
-| `ih` | o/x | Select inside hunk (text object) | `plugins/git.lua` |
+| `]c` | n | Next hunk | `plugins/gitsigns.lua` |
+| `[c` | n | Previous hunk | `plugins/gitsigns.lua` |
+| `<leader>hs` | n/v | Stage hunk | `plugins/gitsigns.lua` |
+| `<leader>hr` | n/v | Reset hunk | `plugins/gitsigns.lua` |
+| `<leader>hS` | n | Stage buffer | `plugins/gitsigns.lua` |
+| `<leader>hR` | n | Reset buffer | `plugins/gitsigns.lua` |
+| `<leader>hp` | n | Preview hunk | `plugins/gitsigns.lua` |
+| `<leader>hi` | n | Preview hunk inline | `plugins/gitsigns.lua` |
+| `<leader>hb` | n | Blame line | `plugins/gitsigns.lua` |
+| `<leader>hd` | n | Diff against index | `plugins/gitsigns.lua` |
+| `<leader>hD` | n | Diff against last commit | `plugins/gitsigns.lua` |
+| `<leader>hq` | n | Quickfix hunks (this file) | `plugins/gitsigns.lua` |
+| `<leader>hQ` | n | Quickfix hunks (all files) | `plugins/gitsigns.lua` |
+| `ih` | o/x | Select inside hunk (text object) | `plugins/gitsigns.lua` |
 
 ---
 
@@ -345,8 +345,8 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>tb` | Toggle git blame line | `plugins/git.lua` |
-| `<leader>tw` | Toggle git word diff | `plugins/git.lua` |
+| `<leader>tb` | Toggle git blame line | `plugins/gitsigns.lua` |
+| `<leader>tw` | Toggle git word diff | `plugins/gitsigns.lua` |
 | `<leader>th` | Toggle LSP inlay hints | `plugins/lsp.lua` |
 | `<leader>ts` | Toggle spell check | `plugins/spell.lua` |
 | `<leader>tL` | Pick spell check language | `plugins/spell.lua` |

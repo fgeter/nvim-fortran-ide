@@ -218,12 +218,11 @@ cd ~/myproject && nvim
     │   ├── completion.lua      — blink.cmp + luasnip    [lazy: InsertEnter]
     │   ├── formatting.lua      — conform.nvim            [lazy: <leader>f]
     │   ├── treesitter.lua      — syntax highlighting     [lazy: FileType]
-    │   ├── git.lua             — gitsigns + lazygit
+    │   ├── gitsigns.lua        — inline git decorations + hunk ops
     │   ├── neo-tree.lua        — file explorer
     │   ├── toggleterm.lua      — persistent terminal
     │   ├── dap.lua             — DAP core, dapui setup + listeners, all <leader>d* keymaps
     │   ├── markdown.lua        — render-markdown.nvim
-    │   ├── scrollview.lua      — horizontal scrollbar (custom floating bar)
     │   ├── surround.lua        — nvim-surround (ys/cs/ds) [lazy: BufReadPost]
     │   ├── lint.lua            — nvim-lint + shellcheck   [lazy: FileType sh/bash]
     │   ├── cmake-tools.lua     — CMake integration        [lazy: DirChanged]
@@ -233,6 +232,12 @@ cd ~/myproject && nvim
     │   ├── java-tools.lua      — Java LSP + DAP (jdtls)   [lazy: FileType java]
     │   ├── fortran-tools.lua   — Fortran LSP + DAP        [lazy: FileType fortran]
     │   └── python.lua          — Python LSP + DAP         [lazy: FileType python]
+    ├── features/               — homegrown subsystems (no plugin behind them)
+    │   ├── git-workflow.lua    — lazygit, commit/pull/push, branches, ref-diff review, remote-ahead check
+    │   ├── hscrollbar.lua      — horizontal scrollbar (custom floating bar)
+    │   ├── edge-scroll.lua     — mouse edge-hover horizontal scrolling
+    │   ├── goto-file-line.lua  — gF / <C-g>f: open file:line from compiler errors
+    │   └── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
     └── projects/               — shared language configs
         ├── fortran.lua         — sourced by Fortran project .nvim.lua files
         └── python.lua          — sourced by Python project .nvim.lua files

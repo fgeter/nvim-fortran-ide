@@ -43,7 +43,7 @@ Diagnostic configuration lives in `autocmds.lua` (not `lsp.lua`) because `vim.di
 Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loading uses a guard flag at the top (`if vim.g.loaded_X then return end`) and defers all setup into a local `activate()` function.
 
 **Always-loaded plugins** (load at startup):
-- `git.lua` — gitsigns + lazygit wrappers
+- `gitsigns.lua` — inline git decorations + hunk keymaps
 - `lsp.lua` — Mason + nvim-lspconfig + fidget
 - `neo-tree.lua` — file explorer, opens at startup; `DirChanged` autocmd switches the panel to the filesystem source on `:cd`
 - `telescope.lua` — fuzzy finder, also overrides `vim.ui.select()`
@@ -60,6 +60,18 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 - `markdown.lua` — activates on `FileType markdown`
 
 The buffer-local `K` handler (`utils.attach_k_handler`) resolves dap via `package.loaded` at keypress time, never at LspAttach — required because the DAP stack may load after LSP attaches.
+
+### Feature files (`lua/features/`)
+
+Homegrown subsystems with no third-party plugin behind them, loaded after `lua/plugins/` by the same init.lua loop. When a plugin update breaks something, the blast radius is immediately clear: `plugins/` files are configuration, `features/` files are our code.
+
+| File | Purpose |
+|------|---------|
+| `git-workflow.lua` | Repo-level git: lazygit launcher, commit/pull/push, branch ops, ref-diff review (`<leader>gf/gq/gn`), remote-ahead check (startup, `:cd`, periodic, pre-keymap) |
+| `hscrollbar.lua` | Horizontal scrollbar (floating 1-row bar; nvim-scrollview only does vertical) |
+| `edge-scroll.lua` | Mouse edge-hover horizontal scrolling (needs `mousemoveevent`) |
+| `goto-file-line.lua` | `gF` / `<C-g>f` — open `file:line` references from compiler errors |
+| `neotree-recovery.lua` | Reopens an editor window when `:q` leaves only the neo-tree sidebar (pairs with `close_if_last_window = false`) |
 
 ### Fortran / SWAT+ project integration
 
@@ -103,10 +115,10 @@ All custom highlights (`WinSeparator`, `NeoTreeWinSeparator`, `StatusLine`, `Sta
 | `<leader>b` | Buffer operations | `core/keymaps.lua` |
 | `<leader>c` | CMake | `plugins/cmake-tools.lua` |
 | `<leader>d` | DAP / Debug | `plugins/dap.lua` (common); `<leader>ds` in language files |
-| `<leader>g` | Git (repo-level) | `plugins/git.lua` |
-| `<leader>h` | Git hunks (gitsigns) | `plugins/git.lua` |
+| `<leader>g` | Git (repo-level) | `features/git-workflow.lua` |
+| `<leader>h` | Git hunks (gitsigns) | `plugins/gitsigns.lua` |
 | `<leader>s` | Search (Telescope) | `plugins/telescope.lua` |
-| `<leader>t` | Toggles | `plugins/git.lua`, `plugins/lsp.lua` |
+| `<leader>t` | Toggles | `plugins/gitsigns.lua`, `plugins/lsp.lua` |
 | `gr` | LSP actions | `plugins/lsp.lua`, `plugins/telescope.lua` |
 
 Full keymap reference: `doc/keymaps.md` (rendered in-buffer via render-markdown.nvim).

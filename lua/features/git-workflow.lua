@@ -1,21 +1,16 @@
 -- ============================================================
--- plugins/git.lua — Git integration
+-- features/git-workflow.lua — Custom repository-level git workflow
 --
--- Two complementary tools:
---   gitsigns  — inline git decorations (added/changed/deleted lines
---               in the sign column) and hunk-level operations
---   lazygit   — full terminal git UI opened in a dedicated tab
+-- Homegrown code (no plugin): lazygit launcher, commit/pull/push,
+-- branch create/switch/delete/merge, discard-buffer-changes, the
+-- ref-diff review workflow (<leader>gf/gq/gn), and the remote-ahead
+-- check (startup, :cd, periodic, and before every <leader>g* action).
 --
--- Keymaps:
---   <leader>g* — repository-level operations (commit, push, pull, etc.)
---   <leader>h* — hunk-level operations (stage, reset, preview, blame)
+-- Keymaps: <leader>g* — see the bottom of this file.
 --
--- LAZY: gitsigns loads at startup (it attaches via BufRead internally).
---       lazygit functions are defined at startup but lazygit itself
---       only launches when a keymap is pressed.
+-- gitsigns (hunk-level operations, <leader>h*) is separate plugin
+-- config in lua/plugins/gitsigns.lua.
 -- ============================================================
-
-local gh = require('core.utils').gh
 
 -- `fresh = true` forces a live git query instead of trusting the cached
 -- vim.g.git_branch. The cache is only updated by switch_branch/git_create_branch
@@ -78,68 +73,6 @@ local function checktime_all_buffers()
     end
   end
 end
-
--- ── gitsigns ─────────────────────────────────────────────────
--- Shows +/~/_ signs in the gutter for added/changed/deleted lines.
--- Also provides hunk navigation and staging without leaving Neovim.
--- Installed once here (removed the duplicate install from the old
--- init.lua Section 3 which had no keymaps).
-vim.pack.add { { src = gh 'lewis6991/gitsigns.nvim', version = vim.version.range '2.*' } }
-
-require('gitsigns').setup {
-  signs = {
-    add          = { text = '+' }, ---@diagnostic disable-line: missing-fields
-    change       = { text = '~' }, ---@diagnostic disable-line: missing-fields
-    delete       = { text = '_' }, ---@diagnostic disable-line: missing-fields
-    topdelete    = { text = '‾' }, ---@diagnostic disable-line: missing-fields
-    changedelete = { text = '~' }, ---@diagnostic disable-line: missing-fields
-  },
-
-  on_attach = function(bufnr)
-    local gs = require('gitsigns')
-    local function map(mode, l, r, opts)
-      opts = opts or {}
-      opts.buffer = bufnr
-      vim.keymap.set(mode, l, r, opts)
-    end
-
-    -- Hunk navigation: jump to next/previous changed section
-    -- In diff mode, uses Vim's built-in ]c/[c instead
-    map('n', ']c', function()
-      if vim.wo.diff then vim.cmd.normal { ']c', bang = true }
-      else gs.nav_hunk('next') end
-    end, { desc = 'Git: next hunk' })
-
-    map('n', '[c', function()
-      if vim.wo.diff then vim.cmd.normal { '[c', bang = true }
-      else gs.nav_hunk('prev') end
-    end, { desc = 'Git: prev hunk' })
-
-    -- Hunk operations (visual mode: operate on selected lines only)
-    map('v', '<leader>hs', function() gs.stage_hunk { vim.fn.line('.'), vim.fn.line('v') } end, { desc = 'Git hunk: stage' })
-    map('v', '<leader>hr', function() gs.reset_hunk { vim.fn.line('.'), vim.fn.line('v') } end, { desc = 'Git hunk: reset' })
-
-    -- Hunk operations (normal mode)
-    map('n', '<leader>hs', gs.stage_hunk,          { desc = 'Git hunk: stage' })
-    map('n', '<leader>hr', gs.reset_hunk,           { desc = 'Git hunk: reset' })
-    map('n', '<leader>hS', gs.stage_buffer,         { desc = 'Git hunk: stage buffer' })
-    map('n', '<leader>hR', gs.reset_buffer,         { desc = 'Git hunk: reset buffer' })
-    map('n', '<leader>hp', gs.preview_hunk,         { desc = 'Git hunk: preview' })
-    map('n', '<leader>hi', gs.preview_hunk_inline,  { desc = 'Git hunk: preview inline' })
-    map('n', '<leader>hb', function() gs.blame_line { full = true } end, { desc = 'Git hunk: blame line' })
-    map('n', '<leader>hd', gs.diffthis,             { desc = 'Git hunk: diff against index' })
-    map('n', '<leader>hD', function() gs.diffthis('@') end, { desc = 'Git hunk: diff against last commit' })
-    map('n', '<leader>hq', gs.setqflist,            { desc = 'Git hunk: quickfix (this file)' })
-    map('n', '<leader>hQ', function() gs.setqflist('all') end, { desc = 'Git hunk: quickfix (all files)' })
-
-    -- Toggles
-    map('n', '<leader>tb', gs.toggle_current_line_blame, { desc = 'Toggle: git blame line' })
-    map('n', '<leader>tw', gs.toggle_word_diff,          { desc = 'Toggle: git word diff' })
-
-    -- Text object: ih selects inside a hunk (usable with d/y/c)
-    map({ 'o', 'x' }, 'ih', gs.select_hunk)
-  end,
-}
 
 -- ── lazygit ──────────────────────────────────────────────────
 -- Full git UI launched in a dedicated terminal tab.
