@@ -12,7 +12,7 @@
 --       is no reason to load it at startup.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 vim.pack.add {
   { src = gh 'L3MON4D3/LuaSnip',   version = vim.version.range '2.*' },

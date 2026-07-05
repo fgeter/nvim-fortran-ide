@@ -39,8 +39,9 @@ local function activate()
   if vim.g.make_tools_active then return end
   vim.g.make_tools_active = true
 
-  local REPO_ROOT = vim.g.project_repo_root or vim.fn.getcwd()
-  local WORK_ROOT = vim.g.project_work_root or (REPO_ROOT .. '/workdata')
+  local project = require('core.project')
+  local roots   = project.roots()
+  local REPO_ROOT, BUILD_ROOT = roots.repo, roots.build
 
   local utils = require('core.utils')
   local term  = utils.make_terminal()
@@ -49,13 +50,12 @@ local function activate()
   -- Build: make [-jN] in a dedicated terminal (same UX as cmake-tools)
   ---------------------------------------------------------------------------
   local function run_build(build_type, jobs)
-    local j = jobs or utils.get_cpu_count()
+    local j = jobs or vim.g.project_build_jobs or utils.get_cpu_count()
     vim.notify('Building ' .. build_type .. ' with make -j' .. j, vim.log.levels.INFO)
     local make_cmd = 'make -j' .. j
       .. ' BUILD_TYPE=' .. build_type
       .. ' -C ' .. vim.fn.shellescape(REPO_ROOT)
-    utils.run_build_cmd(make_cmd
-      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }')
+    utils.run_build_cmd(make_cmd .. project.build_done_suffix)
   end
 
   local function do_build(jobs)
@@ -69,56 +69,35 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- Executable discovery
+  -- Run: pick executable → optionally pick workdata → launch
   ---------------------------------------------------------------------------
-  local function get_executables()
-    local candidates = {
-      { label = 'Debug',   path = REPO_ROOT .. '/build/debug/swatplus' },
-      { label = 'Release', path = REPO_ROOT .. '/build/release/swatplus' },
-    }
-    local found = {}
-    for _, c in ipairs(candidates) do
-      if vim.fn.executable(c.path) == 1 then
-        table.insert(found, c)
-      end
-    end
-    return found
-  end
-
-  ---------------------------------------------------------------------------
-  -- Run: pick debug/release → optionally pick workdata → launch
-  ---------------------------------------------------------------------------
+  -- Discovery, the two-step picker, and pre-run output cleaning are shared
+  -- with cmake-tools/fortran-tools via core/project.lua. When the project
+  -- has no workdata directories the launch falls back to the repo root
+  -- (unlike cmake-tools, which treats missing workdata as an error).
   local function launch(program, cwd)
+    local removed = project.clean_output_files(cwd)
+    if removed > 0 then
+      vim.notify('Removed ' .. removed .. ' previous output file(s) from '
+        .. vim.fn.fnamemodify(cwd, ':t'), vim.log.levels.INFO)
+    end
     term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
   end
 
-  local function pick_workdata_and_launch(program)
-    local dirs = utils.get_workdirs(WORK_ROOT)
-    if #dirs == 0 then
-      launch(program, REPO_ROOT)
-      return
-    end
-    if #dirs == 1 then launch(program, dirs[1]); return end
-    vim.ui.select(dirs, {
-      prompt      = 'Select working directory:',
-      format_item = utils.basename,
-    }, function(choice) if choice then launch(program, choice) end end)
-  end
-
   local function pick_and_run()
-    local execs = get_executables()
+    local execs = project.find_executables { root = BUILD_ROOT }
     if #execs == 0 then
       vim.notify(
-        'No executable found in build/debug/ or build/release/.\n' ..
+        'No executables found under ' .. BUILD_ROOT .. '.\n' ..
         'Build first with <leader>cb.',
         vim.log.levels.WARN)
       return
     end
-    if #execs == 1 then pick_workdata_and_launch(execs[1].path); return end
-    vim.ui.select(execs, {
-      prompt      = 'Run build:',
-      format_item = function(item) return item.label end,
-    }, function(choice) if choice then pick_workdata_and_launch(choice.path) end end)
+    project.pick_and_launch {
+      execs            = execs,
+      launch           = launch,
+      workdir_fallback = REPO_ROOT,
+    }
   end
 
   ---------------------------------------------------------------------------

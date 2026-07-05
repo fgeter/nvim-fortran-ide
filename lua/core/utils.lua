@@ -4,23 +4,52 @@
 
 local M = {}
 
--- Return the first window showing a normal file buffer, skipping
--- neo-tree, terminal windows, and all dap panels (any filetype
--- starting with 'dap' catches dapui_*, dap-repl, and future panels).
--- Used by toggleterm, cmake-tools, make-tools, and keymaps to restore
--- focus after side panels open and close.
+-- GitHub URL shorthand for vim.pack.add lists. Defined once here instead
+-- of a local copy at the top of every plugin file.
+function M.gh(repo) return 'https://github.com/' .. repo end
+
+-- True when buf holds a normal editable file: not a special buftype
+-- (terminal, quickfix, prompt, …) and not one of the side-panel filetypes
+-- (neo-tree, toggleterm, and all dap panels — the '^dap' prefix catches
+-- dapui_*, dap-repl, and future panels). Single source of truth for the
+-- "is this a real editor buffer" filter used by find_editor_win and the
+-- relative-number toggle in core/keymaps.lua.
+function M.is_editor_buf(buf)
+  local ft = vim.bo[buf].filetype
+  return vim.bo[buf].buftype == ''
+    and ft ~= 'neo-tree'
+    and ft ~= 'toggleterm'
+    and not ft:match('^dap')
+end
+
+-- Return the first window showing a normal file buffer.
+-- Used by toggleterm, cmake-tools, make-tools, dap, and keymaps to
+-- restore focus after side panels open and close.
 function M.find_editor_win()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
-    local buf = vim.api.nvim_win_get_buf(win)
-    local ft  = vim.bo[buf].filetype
-    if vim.bo[buf].buftype == ''
-      and ft ~= 'neo-tree'
-      and ft ~= 'toggleterm'
-      and not ft:match('^dap') then
+    if M.is_editor_buf(vim.api.nvim_win_get_buf(win)) then
       return win
     end
   end
   return nil
+end
+
+-- Raise any floating window that appeared since `before` (a snapshot from
+-- vim.api.nvim_list_wins()) above the horizontal scrollbar (zindex 150).
+-- The 50ms defer is unavoidable here: the floats are opened by async LSP/
+-- DAP responses that offer no completion event to hook.
+function M.raise_new_floats(before)
+  vim.defer_fn(function()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if not vim.tbl_contains(before, win) then
+        local cfg = vim.api.nvim_win_get_config(win)
+        if cfg.relative ~= '' then
+          cfg.zindex = 200
+          vim.api.nvim_win_set_config(win, cfg)
+        end
+      end
+    end
+  end, 50)
 end
 
 -- Number of logical CPU cores. Linux: nproc; macOS: sysctl. Falls back to 4.
@@ -158,17 +187,7 @@ function M.attach_k_handler(bufnr, dap, dapui)
     else
       vim.lsp.buf.hover()
     end
-    vim.defer_fn(function()
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if not vim.tbl_contains(before, win) then
-          local cfg = vim.api.nvim_win_get_config(win)
-          if cfg.relative ~= '' then
-            cfg.zindex = 200
-            vim.api.nvim_win_set_config(win, cfg)
-          end
-        end
-      end
-    end, 50)
+    M.raise_new_floats(before)
   end, { buffer = bufnr, desc = 'K: DAP eval / LSP hover' })
 end
 

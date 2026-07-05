@@ -12,7 +12,7 @@
 --       file is opened.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 -- fidget: shows LSP progress (indexing, loading, etc.) in the
 -- bottom-right corner so you know when the server is ready

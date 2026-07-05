@@ -165,10 +165,7 @@ vim.keymap.set('n', '<leader>tr', function()
   vim.o.relativenumber = new_val
   for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
-      local buf = vim.api.nvim_win_get_buf(win)
-      local ft  = vim.bo[buf].filetype
-      if vim.bo[buf].buftype == '' and ft ~= 'neo-tree' and ft ~= 'toggleterm'
-          and not ft:match('^dap') then
+      if require('core.utils').is_editor_buf(vim.api.nvim_win_get_buf(win)) then
         vim.wo[win].relativenumber = new_val
       end
     end

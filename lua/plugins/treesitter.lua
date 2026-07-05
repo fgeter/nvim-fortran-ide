@@ -10,7 +10,7 @@
 --       language parsers are installed/attached lazily on FileType.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 

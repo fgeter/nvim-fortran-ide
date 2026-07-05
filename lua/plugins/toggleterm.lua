@@ -16,7 +16,7 @@
 --       keymap is pressed.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 vim.pack.add { gh 'akinsho/toggleterm.nvim' }
 

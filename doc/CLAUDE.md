@@ -58,31 +58,30 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 
 ### Fortran / SWAT+ project integration
 
-Both `cmake-tools.lua` and `fortran-tools.lua` read project paths from `vim.g` variables set by the project's `.nvim.lua` file. They do **not** hardcode any paths. Each variable falls back to a cwd-relative default so the tools work for any Fortran/CMake project even without a `.nvim.lua`.
+Shared project-runner logic lives in **`lua/core/project.lua`**: root resolution (`project.roots()`), executable discovery (`project.find_executables`, filtered by `vim.g.project_executable_pattern`, default `'*'`), the two-step executable→workdata picker (`project.pick_and_launch`), pre-run output cleaning (`project.clean_output_files`, driven by `vim.g.project_clean_output_patterns`, no-op when unset), and the build-terminal success suffix (`project.build_done_suffix`). `cmake-tools.lua`, `make-tools.lua`, and `fortran-tools.lua` all consume these helpers — none of them hardcodes paths or executable names.
 
-**Important:** these locals are resolved inside `activate()`, not at module load time. This ensures `:cd ~/project` before activation (cmake-tools via `DirChanged`, fortran-tools via `FileType fortran`) picks up the correct cwd rather than the cwd at Neovim startup.
+**Important:** `project.roots()` must be called inside `activate()`, not at module load time. This ensures `:cd ~/project` before activation (cmake-tools via `DirChanged`, fortran-tools via `FileType fortran`) picks up the correct cwd rather than the cwd at Neovim startup. Also inside `activate()`: anything that waits on `VimEnter` must first check `vim.v.vim_did_enter` — on the DirChanged path VimEnter has already fired and will never fire again.
 
 ```lua
--- inside activate() in both cmake-tools.lua and fortran-tools.lua
-local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
-local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')   -- fortran-tools only
-local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
-local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
+-- inside activate()
+local project = require('core.project')
+local roots   = project.roots()   -- { repo, build, work, src } from vim.g.project_* or cwd defaults
 ```
 
-Set these in your project's `.nvim.lua` (see `doc/swatplus.nvim.lua.template`).
+Set the `vim.g.project_*` variables in your project's `.nvim.lua` (see `doc/swatplus.nvim.lua.template`).
 
 **Fortran LSP** (`fortls`) is configured in `fortran-tools.lua`, not `lsp.lua`, because it is lazy-loaded. It requires `fortls` to be installed separately (not via Mason).
 
 **DAP** for Fortran uses `gdb --interpreter=dap`. `dapui.setup()` is called exactly once in `dap.lua` at startup. Do not add another `dapui.setup()` call in language files.
 
-### Timing-sensitive defers in `cmake-tools.lua`
+### Event-driven sequencing (no timing defers)
 
-Several `vim.defer_fn` calls have specific delays that must not be shortened:
-- **200ms** after `vim.pack.add` before `require('cmake-tools')` — cmake-tools module is not available immediately after pack install
-- **150ms** before scanning for new cmake output windows — cmake-tools opens windows asynchronously
-- **50ms** after `WinClosed` before `set_current_win` — lets Neovim finish window teardown
-- **500ms** before `CMakeGenerate` after preset selection — cmake-tools keeps task state alive briefly
+Cross-plugin sequencing is event-driven, not timer-based — keep it that way when editing:
+- cmake output windows are detected via a `WinNew` watcher registered before the command runs (only terminal buffers are claimed); post-close cleanup uses `vim.schedule` from `WinClosed`
+- `<leader>cp` chains `CMakeGenerate` from `cmake.select_configure_preset(callback)` — cmake-tools' own completion callback
+- neo-tree's startup open runs on `UIEnter`, which is guaranteed to fire after every `VimEnter` handler (including session restore)
+- `dap.lua` clears neo-tree's pending `neo-tree-follow` debounce via `neo-tree.utils.debounce(name, nil, …)` before closing the sidebar
+- toggleterm `term:send` immediately after `term:open` is safe — the shell job is spawned synchronously
 
 ### LSP configuration pattern
 
@@ -90,7 +89,7 @@ Servers are configured with `vim.lsp.config(name, opts)` and enabled with `vim.l
 
 ### Colorscheme highlight persistence
 
-`ui.lua` re-applies custom `WinSeparator` and `StatusLine` highlights via a `ColorScheme` autocmd with a **100ms defer** — required because `mini.statusline` resets its highlight groups slightly after `ColorScheme` fires.
+All custom highlights (`WinSeparator`, `NeoTreeWinSeparator`, `StatusLine`, `StatusLineNC`, diff groups) live in catppuccin's `highlight_overrides` in `ui.lua`, so catppuccin itself re-applies them on every `:colorscheme catppuccin` — no ColorScheme autocmd or defer.
 
 ## Key keymap groups
 

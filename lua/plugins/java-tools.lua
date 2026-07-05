@@ -20,7 +20,7 @@
 if vim.g.loaded_java_tools then return end
 vim.g.loaded_java_tools = true
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 vim.pack.add { gh 'mfussenegger/nvim-jdtls' }
 
 local mason_path = vim.fn.stdpath('data') .. '/mason/packages'

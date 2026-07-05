@@ -15,7 +15,7 @@
 --       only launches when a keymap is pressed.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 -- `fresh = true` forces a live git query instead of trusting the cached
 -- vim.g.git_branch. The cache is only updated by switch_branch/git_create_branch

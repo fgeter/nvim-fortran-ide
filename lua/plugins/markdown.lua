@@ -12,7 +12,7 @@
 --       startup and is the correct approach for this plugin.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 vim.pack.add { gh 'MeanderingProgrammer/render-markdown.nvim' }
 

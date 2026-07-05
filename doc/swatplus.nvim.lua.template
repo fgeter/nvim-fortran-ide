@@ -30,6 +30,14 @@ vim.g.project_build_root = vim.g.project_repo_root .. '/build'
 -- Defaults to nproc (all cores) if not set.
 -- vim.g.project_build_jobs = 16
 
+-- Glob for the run/debug executables offered by <leader>cr and <leader>ds.
+-- Without it, every executable file in the build tree is offered.
+vim.g.project_executable_pattern = 'swatplus*'
+
+-- Output files deleted from the chosen workdata directory before each run
+-- (readme.txt is always preserved). Remove this line to disable cleaning.
+vim.g.project_clean_output_patterns = { '*.txt', '*.out', '*.csv' }
+
 -- ── Load shared Fortran project configuration ─────────────────
 -- This activates cmake-tools and fortran-tools with the paths
 -- defined above. All LSP, DAP, and cmake keymaps are set up

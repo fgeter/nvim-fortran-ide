@@ -14,7 +14,8 @@
 --       calls require('dap') on first FileType fortran.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local utils = require('core.utils')
+local gh    = utils.gh
 
 vim.pack.add {
   gh 'mfussenegger/nvim-dap',
@@ -27,19 +28,7 @@ local dap   = require('dap')
 local dapui = require('dapui')
 
 -- Raise zindex of any float that opens asynchronously above the scrollbar.
-local function raise_new_floats(before)
-  vim.defer_fn(function()
-    for _, win in ipairs(vim.api.nvim_list_wins()) do
-      if not vim.tbl_contains(before, win) then
-        local cfg = vim.api.nvim_win_get_config(win)
-        if cfg.relative ~= '' then
-          cfg.zindex = 200
-          vim.api.nvim_win_set_config(win, cfg)
-        end
-      end
-    end
-  end, 50)
-end
+local raise_new_floats = utils.raise_new_floats
 
 -- ── Gutter signs ─────────────────────────────────────────────
 vim.fn.sign_define('DapBreakpoint',         { text = '●', texthl = 'DiagnosticError',   linehl = '', numhl = '' })
@@ -153,17 +142,12 @@ local function is_neotree_open()
   return false
 end
 
--- Move focus to the first ordinary (non-neo-tree, non-terminal) window,
--- since closing the dapui layout can otherwise leave focus in whatever
--- window Neovim happened to fall back to.
+-- Move focus to the first ordinary editor window (utils.find_editor_win
+-- skips neo-tree, terminals, and dap panels), since closing the dapui
+-- layout can otherwise leave focus in whatever window Neovim fell back to.
 local function focus_file_window()
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    local buf = vim.api.nvim_win_get_buf(win)
-    if vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree' then
-      vim.api.nvim_set_current_win(win)
-      return
-    end
-  end
+  local win = utils.find_editor_win()
+  if win then vim.api.nvim_set_current_win(win) end
 end
 
 -- dapui.close() closed the neo-tree window at session start (see above),

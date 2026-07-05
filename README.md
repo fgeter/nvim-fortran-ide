@@ -191,6 +191,9 @@ cd ~/myproject && nvim
 | `vim.g.project_build_root` | CMake build output directory |
 | `vim.g.project_venv` | Virtualenv path (Python, optional) |
 | `vim.g.project_python_bin` | Explicit Python binary (Python, optional) |
+| `vim.g.project_executable_pattern` | Glob for run/debug executables in the build tree, e.g. `'swatplus*'` (optional, default `'*'`) |
+| `vim.g.project_clean_output_patterns` | Globs deleted from the chosen workdata dir before each run, e.g. `{ '*.txt', '*.out', '*.csv' }`; `readme.txt` always kept (optional, default: no cleaning) |
+| `vim.g.project_build_jobs` | Parallel build thread count override (optional, default: nproc) |
 
 ## Configuration structure
 

@@ -55,11 +55,12 @@ local function activate()
   if vim.g.cmake_tools_active then return end
   vim.g.cmake_tools_active = true
 
-  -- Read paths now (at activation time) so :cd before activation gives the
-  -- right root. vim.g overrides let a .nvim.lua pin these to a specific root.
-  local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
-  local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
-  local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
+  -- Resolve paths now (at activation time) so :cd before activation gives
+  -- the right root. vim.g overrides let a .nvim.lua pin these (core/project
+  -- reads them there).
+  local project = require('core.project')
+  local roots   = project.roots()
+  local REPO_ROOT, BUILD_ROOT = roots.repo, roots.build
 
   -- Install cmake-tools.nvim. vim.pack.add is synchronous for the
   -- download step but the Lua module is required only inside the VimEnter
@@ -259,66 +260,27 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- Helper: find all swatplus executables across all build subdirectories
-  ---------------------------------------------------------------------------
-  -- Scans BUILD_ROOT/*/swatplus* so both debug and release builds appear
-  -- in the <leader>cr pick list. Labels show "debug/swatplus" etc.
-  local function get_all_executables()
-    local execs = {}
-    -- Check the build root itself (flat builds without a subdirectory)
-    for _, path in ipairs(vim.fn.glob(BUILD_ROOT .. '/swatplus*', false, true)) do
-      if vim.fn.executable(path) == 1 then table.insert(execs, path) end
-    end
-    -- Check one level of subdirectories (debug/, release/, etc.)
-    for _, subdir in ipairs(vim.fn.glob(BUILD_ROOT .. '/*', false, true)) do
-      if vim.fn.isdirectory(subdir) == 1 then
-        for _, path in ipairs(vim.fn.glob(subdir .. '/swatplus*', false, true)) do
-          if vim.fn.executable(path) == 1 then table.insert(execs, path) end
-        end
-      end
-    end
-    return execs
-  end
-
-  ---------------------------------------------------------------------------
   -- Build: cmake --build using the active preset's build directory
   ---------------------------------------------------------------------------
   local function do_build(jobs)
     local build = get_active_build_dir()
     if not build then return end
-    local j = jobs or utils.get_cpu_count()
+    local j = jobs or vim.g.project_build_jobs or utils.get_cpu_count()
     vim.notify('Building: ' .. build.label .. ' (-j ' .. j .. ')', vim.log.levels.INFO)
     local cmake_cmd = 'cmake --build ' .. vim.fn.shellescape(build.path) .. ' -j ' .. j
-    utils.run_build_cmd(cmake_cmd
-      .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }')
+    utils.run_build_cmd(cmake_cmd .. project.build_done_suffix)
   end
 
   ---------------------------------------------------------------------------
   -- Run: pick executable → pick workdata → clean outputs → launch
   ---------------------------------------------------------------------------
-
-  -- Delete swatplus output files (*.txt, *.out, *.csv) from `dir` before
-  -- launching. readme.txt is preserved. Runs silently — no confirmation
-  -- prompt here because the user already confirmed by choosing to run.
-  -- Returns the number of files deleted.
-  local function clean_output_files(dir)
-    local patterns = { '*.txt', '*.out', '*.csv' }
-    local count = 0
-    for _, pat in ipairs(patterns) do
-      for _, path in ipairs(vim.fn.glob(dir .. '/' .. pat, false, true)) do
-        local basename = vim.fn.fnamemodify(path, ':t'):lower()
-        if basename ~= 'readme.txt' then
-          vim.fn.delete(path)
-          count = count + 1
-        end
-      end
-    end
-    return count
-  end
+  -- Discovery (build root + one level of subdirs, filtered by
+  -- vim.g.project_executable_pattern), the two-step picker, and the
+  -- pre-run output cleaning (vim.g.project_clean_output_patterns) all
+  -- live in core/project.lua, shared with make-tools and fortran-tools.
 
   local function launch(program, cwd)
-    -- Clean output files first so the new run starts with a fresh directory.
-    local removed = clean_output_files(cwd)
+    local removed = project.clean_output_files(cwd)
     if removed > 0 then
       vim.notify('Removed ' .. removed .. ' previous output file(s) from '
         .. vim.fn.fnamemodify(cwd, ':t'), vim.log.levels.INFO)
@@ -326,31 +288,14 @@ local function activate()
     term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
   end
 
-  local function pick_workdata_and_launch(program)
-    local dirs = utils.get_workdirs(WORK_ROOT)
-    if #dirs == 0 then
-      vim.notify('No workdata directories found in ' .. WORK_ROOT, vim.log.levels.ERROR)
-      return
-    end
-    if #dirs == 1 then launch(program, dirs[1]); return end
-    vim.ui.select(dirs, {
-      prompt      = 'Select workdata directory:',
-      format_item = utils.basename,
-    }, function(choice) if choice then launch(program, choice) end end)
-  end
-
   local function pick_and_run()
-    local execs = get_all_executables()
+    local execs = project.find_executables { root = BUILD_ROOT }
     if #execs == 0 then
-      vim.notify('No swatplus executables found under ' .. BUILD_ROOT,
-        vim.log.levels.ERROR)
+      vim.notify('No executables found under ' .. BUILD_ROOT ..
+        '\nBuild first with <leader>cb.', vim.log.levels.ERROR)
       return
     end
-    if #execs == 1 then pick_workdata_and_launch(execs[1]); return end
-    vim.ui.select(execs, {
-      prompt      = 'Select executable:',
-      format_item = function(item) return item:gsub(BUILD_ROOT .. '/', '') end,
-    }, function(choice) if choice then pick_workdata_and_launch(choice) end end)
+    project.pick_and_launch { execs = execs, launch = launch }
   end
 
   ---------------------------------------------------------------------------
@@ -450,7 +395,7 @@ local function activate()
     -- Run: pick executable and workdata directory, launch in terminal
     pcall(vim.keymap.del, 'n', '<leader>cr')
     vim.keymap.set('n', '<leader>cr', pick_and_run,
-      { desc = 'CMake: run swatplus', nowait = true })
+      { desc = 'CMake: run executable', nowait = true })
 
   end
 

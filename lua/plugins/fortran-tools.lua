@@ -22,12 +22,12 @@ local function activate()
   if vim.g.fortran_tools_active then return end
   vim.g.fortran_tools_active = true
 
-  -- Read paths at activation time so :cd before opening a Fortran file
-  -- gives the right root. vim.g overrides let a .nvim.lua pin these.
-  local REPO_ROOT  = vim.g.project_repo_root  or vim.fn.getcwd()
-  local SRC_DIR    = vim.g.project_src_dir    or (REPO_ROOT .. '/src')
-  local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
-  local BUILD_ROOT = vim.g.project_build_root or (REPO_ROOT .. '/build')
+  -- Resolve paths at activation time so :cd before opening a Fortran file
+  -- gives the right root. vim.g overrides let a .nvim.lua pin these
+  -- (core/project reads them there).
+  local project = require('core.project')
+  local roots   = project.roots()
+  local REPO_ROOT, SRC_DIR, BUILD_ROOT = roots.repo, roots.src, roots.build
 
   local dap   = require('dap')
   local utils = require('core.utils')
@@ -57,6 +57,8 @@ local function activate()
 
   -- Only debug builds are offered — release builds strip debug symbols
   -- so gdb cannot map instructions back to source lines meaningfully.
+  -- Discovery itself (vim.g.project_executable_pattern) is shared via
+  -- core/project.lua; this wrapper adds the debug-specific guidance.
   local function get_executables()
     local debug_dir = BUILD_ROOT .. '/debug'
 
@@ -68,12 +70,7 @@ local function activate()
       return {}
     end
 
-    local execs = {}
-    for _, path in ipairs(vim.fn.glob(debug_dir .. '/swatplus*', false, true)) do
-      if vim.fn.executable(path) == 1 then
-        table.insert(execs, path)
-      end
-    end
+    local execs = project.find_executables { root = debug_dir, subdirs = false }
 
     if #execs == 0 then
       vim.notify(
@@ -86,7 +83,7 @@ local function activate()
 
   local function do_launch(program, cwd)
     local ok, err = pcall(dap.run, {
-      name         = 'Launch swatplus',
+      name         = 'Launch executable',
       type         = 'gdb',
       request      = 'launch',
       program      = program,
@@ -104,7 +101,7 @@ local function activate()
   -- matching the detection cmake-tools.lua/make-tools.lua themselves use.
   local function rebuild_debug(on_done)
     local debug_dir = BUILD_ROOT .. '/debug'
-    local j = utils.get_cpu_count()
+    local j = vim.g.project_build_jobs or utils.get_cpu_count()
     local cmd
     if vim.fn.filereadable(REPO_ROOT .. '/CMakeLists.txt') == 1 then
       cmd = 'cmake --build ' .. vim.fn.shellescape(debug_dir) .. ' -j ' .. j
@@ -112,9 +109,7 @@ local function activate()
       cmd = 'make -j' .. j .. ' BUILD_TYPE=debug -C ' .. vim.fn.shellescape(REPO_ROOT)
     end
     vim.notify('Rebuilding debug build...', vim.log.levels.INFO)
-    utils.run_build_cmd(
-      cmd .. ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }',
-      on_done)
+    utils.run_build_cmd(cmd .. project.build_done_suffix, on_done)
   end
 
   -- Heuristic: if any source file was modified after the executable, gdb's
@@ -150,39 +145,10 @@ local function activate()
       end)
   end
 
-  local function pick_cwd_and_launch(program)
-    local dirs = utils.get_workdirs(WORK_ROOT)
-    if #dirs == 0 then
-      vim.notify('No workdata directories found in ' .. WORK_ROOT, vim.log.levels.ERROR)
-      return
-    end
-    if #dirs == 1 then
-      launch(program, dirs[1])
-      return
-    end
-    vim.ui.select(dirs, {
-      prompt      = 'Select workdata directory:',
-      format_item = utils.basename,
-    }, function(choice)
-      if choice then launch(program, choice) end
-    end)
-  end
-
   local function pick_and_launch()
     local execs = get_executables()
     if #execs == 0 then return end
-    if #execs == 1 then
-      pick_cwd_and_launch(execs[1])
-      return
-    end
-    vim.ui.select(execs, {
-      prompt      = 'Select debug executable:',
-      format_item = function(item)
-        return item:gsub(BUILD_ROOT .. '/', '')
-      end,
-    }, function(choice)
-      if choice then pick_cwd_and_launch(choice) end
-    end)
+    project.pick_and_launch { execs = execs, launch = launch }
   end
 
   ---------------------------------------------------------------------------

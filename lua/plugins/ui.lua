@@ -9,7 +9,7 @@
 --       looks correct on the first frame.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 -- ── guess-indent ─────────────────────────────────────────────
 -- Automatically detects the indentation style of each file (tabs vs

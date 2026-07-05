@@ -21,7 +21,7 @@
 -- LAZY: No — neo-tree opens at startup and must be ready immediately.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 local plugins = {
   { src = gh 'nvim-neo-tree/neo-tree.nvim', version = vim.version.range '*' },

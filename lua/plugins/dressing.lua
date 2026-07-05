@@ -15,7 +15,7 @@
 --       be in place before any plugin calls vim.ui.input().
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 vim.pack.add { gh 'stevearc/dressing.nvim' }
 

@@ -10,7 +10,7 @@
 --       plugin calls that function.
 -- ============================================================
 
-local function gh(repo) return 'https://github.com/' .. repo end
+local gh = require('core.utils').gh
 
 local telescope_plugins = {
   gh 'nvim-lua/plenary.nvim',
