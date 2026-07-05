@@ -38,8 +38,9 @@ require('core.autocmds')  -- global autocommands
 -- one broken plugin from stopping the rest from loading.
 -- vim.fs.dir does not guarantee alphabetical order; sort explicitly so the
 -- documented load order (alphabetical) is always honoured. This matters
--- because dap.lua must precede fortran-tools.lua, and neo-tree.lua must
--- precede ui.lua (which installs new packages that fire VimEnter/DirChanged).
+-- because neo-tree.lua must precede ui.lua (which installs new packages
+-- that fire VimEnter/DirChanged). dap.lua no longer needs to precede the
+-- language files: they call require('plugins.dap').activate() themselves.
 local plugins_dir = vim.fn.stdpath('config') .. '/lua/plugins'
 local plugin_files = {}
 for name, ftype in vim.fs.dir(plugins_dir) do

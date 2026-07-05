@@ -29,6 +29,7 @@ local function activate()
   local roots   = project.roots()
   local REPO_ROOT, SRC_DIR, BUILD_ROOT = roots.repo, roots.src, roots.build
 
+  require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap   = require('dap')
   local utils = require('core.utils')
 

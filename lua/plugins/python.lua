@@ -87,6 +87,7 @@ local function activate()
   ---------------------------------------------------------------------------
   -- DAP: debugpy
   ---------------------------------------------------------------------------
+  require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
 
   dap.adapters.python = {

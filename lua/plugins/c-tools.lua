@@ -21,6 +21,7 @@ local function activate()
   if vim.g.c_tools_active then return end
   vim.g.c_tools_active = true
 
+  require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
 
   -- Share the GDB adapter with fortran-tools.lua when both are loaded.

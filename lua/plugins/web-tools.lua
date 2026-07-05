@@ -32,6 +32,7 @@ local function activate()
     return
   end
 
+  require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
 
   dap.adapters['pwa-node'] = {

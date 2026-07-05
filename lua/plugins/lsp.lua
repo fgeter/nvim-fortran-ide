@@ -138,6 +138,12 @@ local extra_mason_tools = {
 
 require('mason-tool-installer').setup {
   ensure_installed = vim.list_extend(vim.tbl_keys(servers), extra_mason_tools),
+  -- The ensure_installed walk (~30 packages) runs via defer_fn with a
+  -- default delay of 0, competing with first-buffer work right after
+  -- startup. 3s pushes it past interactive startup entirely; missing
+  -- tools still auto-install, just a few seconds later, and
+  -- :MasonToolsInstall runs the check on demand.
+  start_delay = 3000,
 }
 
 for name, server in pairs(servers) do
@@ -164,14 +170,9 @@ vim.api.nvim_create_autocmd('LspAttach', {
     map('grD', vim.lsp.buf.declaration,  '[G]oto [D]eclaration')
 
     -- K: DAP eval during a debug session, LSP hover otherwise.
-    -- Uses utils so the implementation is defined once and shared.
-    local ok_dap, dap   = pcall(require, 'dap')
-    local ok_ui,  dapui = pcall(require, 'dapui')
-    if ok_dap and ok_ui then
-      require('core.utils').attach_k_handler(ev.buf, dap, dapui)
-    else
-      map('K', vim.lsp.buf.hover, 'hover docs')
-    end
+    -- utils resolves dap lazily at keypress (the DAP stack is lazy-loaded),
+    -- so this works whether debugging starts before or after LspAttach.
+    require('core.utils').attach_k_handler(ev.buf)
 
     -- Diagnostic navigation — globally available on all LSP buffers
     map('[d',        function() vim.diagnostic.jump({ count = -1 }) end, 'prev diagnostic')

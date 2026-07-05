@@ -199,11 +199,16 @@ end
 
 -- Set a buffer-local K keymap: DAP eval when a session is active,
 -- LSP hover otherwise. The eval float closes on the next cursor move.
-function M.attach_k_handler(bufnr, dap, dapui)
+-- dap is resolved at keypress time, not attach time: the DAP stack is
+-- lazy-loaded (plugins/dap.lua), so it may not exist when LspAttach
+-- fires but be active later in the same buffer. package.loaded is
+-- checked instead of require so K never forces the stack to load.
+function M.attach_k_handler(bufnr)
   vim.keymap.set('n', 'K', function()
     local before = vim.api.nvim_list_wins()
-    if dap.session() then
-      dapui.eval(nil, { enter = true })
+    local dap = package.loaded['dap']
+    if dap and dap.session() then
+      require('dapui').eval(nil, { enter = true })
     else
       vim.lsp.buf.hover()
     end

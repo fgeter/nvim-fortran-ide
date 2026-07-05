@@ -85,6 +85,7 @@ local _java_dap_registered = false
 local function ensure_java_dap()
   if _java_dap_registered then return end
   _java_dap_registered = true
+  require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
   if not dap.adapters['java'] then
     dap.adapters['java'] = function(cb, _)

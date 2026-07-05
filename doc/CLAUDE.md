@@ -43,8 +43,6 @@ Diagnostic configuration lives in `autocmds.lua` (not `lsp.lua`) because `vim.di
 Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loading uses a guard flag at the top (`if vim.g.loaded_X then return end`) and defers all setup into a local `activate()` function.
 
 **Always-loaded plugins** (load at startup):
-- `completion.lua` — blink.cmp + LuaSnip
-- `dap.lua` — nvim-dap + nvim-dap-ui install + dapui.setup + listeners + all language-agnostic `<leader>d*` keymaps
 - `git.lua` — gitsigns + lazygit wrappers
 - `lsp.lua` — Mason + nvim-lspconfig + fidget
 - `neo-tree.lua` — file explorer, opens at startup; `DirChanged` autocmd switches the panel to the filesystem source on `:cd`
@@ -54,9 +52,14 @@ Each file owns its own `vim.pack.add()` + `setup()`. The convention for lazy loa
 - `ui.lua` — catppuccin, which-key, mini.nvim, todo-comments
 
 **Lazy-loaded plugins**:
+- `dap.lua` — the whole DAP stack (nvim-dap, dap-ui, nio, virtual-text + dapui.setup + listeners) lives in an `activate()` triggered by the first `<leader>d*`/F-key press (the keymaps are permanent thin closures) or by a language file calling `require('plugins.dap').activate()` before its `require('dap')`
+- `completion.lua` — blink.cmp + LuaSnip on first InsertEnter
+- `autopairs.lua` — setup on first InsertEnter (its setup force-attaches to the current buffer, so the first bracket typed still pairs)
 - `cmake-tools.lua` — activates once on startup if `CMakeLists.txt` is found in cwd or a parent, or on `DirChanged` when entering a CMake project
 - `fortran-tools.lua` — activates once on first `FileType fortran` event
 - `markdown.lua` — activates on `FileType markdown`
+
+The buffer-local `K` handler (`utils.attach_k_handler`) resolves dap via `package.loaded` at keypress time, never at LspAttach — required because the DAP stack may load after LSP attaches.
 
 ### Fortran / SWAT+ project integration
 
