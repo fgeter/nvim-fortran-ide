@@ -24,7 +24,8 @@ require('guess-indent').setup {}
 -- Only installed when a Nerd Font is available; without one the icons
 -- render as boxes or question marks.
 if vim.g.have_nerd_font then
-  vim.pack.add { { src = gh 'nvim-tree/nvim-web-devicons', version = vim.version.range '*' } }
+  -- no version pin: its only tag (v0.100) is not parseable semver (see neo-tree.lua)
+  vim.pack.add { gh 'nvim-tree/nvim-web-devicons' }
 end
 
 -- ── Catppuccin colorscheme ───────────────────────────────────

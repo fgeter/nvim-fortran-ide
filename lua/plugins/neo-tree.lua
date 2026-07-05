@@ -29,7 +29,9 @@ local plugins = {
   { src = gh 'MunifTanjim/nui.nvim',        version = vim.version.range '*' },
 }
 if vim.g.have_nerd_font then
-  table.insert(plugins, { src = gh 'nvim-tree/nvim-web-devicons', version = vim.version.range '*' })
+  -- no version pin: its only tag (v0.100) is not parseable semver,
+  -- so vim.pack can offer no matching release — branch tracking only
+  table.insert(plugins, gh 'nvim-tree/nvim-web-devicons')
 end
 vim.pack.add(plugins)
 
