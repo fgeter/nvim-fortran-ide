@@ -33,13 +33,25 @@ end
 -- the lavender window separator colour survives plugin resets.
 vim.pack.add { gh 'catppuccin/nvim' }
 
+-- All custom highlights live in highlight_overrides so catppuccin itself
+-- re-applies them on every `:colorscheme catppuccin` — no ColorScheme
+-- autocmd or timer needed. (A deferred autocmd used to re-set these
+-- "because mini.statusline resets its groups after ColorScheme", but
+-- mini.statusline's ColorScheme hook only defines its own MiniStatusline*
+-- groups as defaults — it never touches StatusLine/StatusLineNC or the
+-- separators, verified against mini/statusline.lua H.create_default_hl.)
 require('catppuccin').setup {
   flavour              = 'mocha',
   transparent_background = true,
   highlight_overrides = {
     mocha = function(colors)
       return {
-        WinSeparator = { fg = colors.lavender },
+        WinSeparator        = { fg = colors.lavender },
+        NeoTreeWinSeparator = { fg = colors.lavender },
+        -- fg = bg turns the statusline into a solid separator line
+        -- (fillchars stl/stlnc are '─' in core/options.lua).
+        StatusLine          = { fg = colors.lavender, bg = colors.lavender },
+        StatusLineNC        = { fg = colors.lavender, bg = colors.lavender },
         -- Default DiffChange is only a 7%-blended blue wash — easy to miss
         -- on a dark background, especially when just one character on a
         -- line changed. DiffText (the changed characters themselves) was
@@ -52,24 +64,6 @@ require('catppuccin').setup {
     end,
   },
 }
-
--- Re-apply custom highlights whenever the colorscheme is set (or reset
--- by a plugin). The 100ms defer is required because mini.statusline
--- resets its highlight groups slightly after ColorScheme fires.
-vim.api.nvim_create_autocmd('ColorScheme', {
-  group    = vim.api.nvim_create_augroup('ui-colorscheme-overrides', { clear = true }),
-  callback = function(ev)
-    if ev.match:match('^catppuccin') then
-      vim.defer_fn(function()
-        local c = '#b4befe'  -- catppuccin-mocha lavender
-        vim.api.nvim_set_hl(0, 'WinSeparator',        { fg = c })
-        vim.api.nvim_set_hl(0, 'NeoTreeWinSeparator', { fg = c })
-        vim.api.nvim_set_hl(0, 'StatusLine',          { fg = c, bg = c })
-        vim.api.nvim_set_hl(0, 'StatusLineNC',        { fg = c, bg = c })
-      end, 100)
-    end
-  end,
-})
 
 vim.cmd.colorscheme('catppuccin')
 

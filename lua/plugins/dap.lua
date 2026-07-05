@@ -126,13 +126,21 @@ require('nvim-dap-virtual-text').setup {
 -- duplication in each language file.
 dap.listeners.after.event_initialized['dapui_config']  = function()
   dapui.open()
-  -- Deferred past neo-tree's own 100ms follow_current_file debounce (see
-  -- filesystem/init.lua in neo-tree's source): starting a session focuses
-  -- the source file right around here, queuing that debounce. Closing the
-  -- window synchronously before it fires leaves it acting on a stale window
-  -- reference, crashing inside nui.tree ("Invalid 'win'"). Letting the
-  -- debounce complete first (while the window is still valid) avoids it.
-  vim.defer_fn(function() pcall(vim.cmd, 'Neotree close') end, 150)
+  -- Starting a session focuses the source file, which queues neo-tree's
+  -- 100ms follow_current_file debounce (utils.debounce('neo-tree-follow',…)
+  -- in filesystem/init.lua). Closing the window while that callback is
+  -- pending leaves it acting on a stale window reference, crashing inside
+  -- nui.tree ("Invalid 'win'"). Instead of waiting out the debounce with a
+  -- timer, clear the pending callback through neo-tree's own debounce
+  -- mechanism — registering nil as the last-one-wins function drops
+  -- whatever was queued — then close immediately. Any follow queued *after*
+  -- the close bails out early in follow_internal (window no longer exists).
+  pcall(function()
+    local nt_utils = require('neo-tree.utils')
+    nt_utils.debounce('neo-tree-follow', nil, 100,
+      nt_utils.debounce_strategy.CALL_LAST_ONLY)
+  end)
+  pcall(vim.cmd, 'Neotree close')
   vim.notify('DAP session started — <leader>dF for key reference', vim.log.levels.INFO)
 end
 

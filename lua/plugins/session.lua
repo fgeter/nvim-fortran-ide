@@ -24,8 +24,9 @@ end
 -- ── Restore ──────────────────────────────────────────────────
 -- VimEnter fires after all plugins load, so session macros that
 -- reference plugin commands (e.g. Neotree) work correctly.
--- neo-tree's 50ms startup defer checks vim.g.session_loaded to
--- skip its 'enew' step when we have already restored buffers.
+-- neo-tree's UIEnter startup handler (which always runs after every
+-- VimEnter handler, including this one) checks vim.g.session_loaded
+-- to skip its 'enew' step when we have already restored buffers.
 vim.api.nvim_create_autocmd('VimEnter', {
   once     = true,
   callback = function()

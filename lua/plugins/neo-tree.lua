@@ -144,8 +144,11 @@ require('neo-tree').setup {
         local terms = require('toggleterm.terminal')
         local term, is_new = terms.get_or_create_term(1, dir, 'horizontal')
         if is_new then
+          -- Terminal:open() spawns the shell job synchronously (open →
+          -- spawn → termopen sets job_id before returning), so send works
+          -- immediately — the PTY buffers the input until the shell reads it.
           term:open(15)
-          vim.defer_fn(function() term:send(vim.fn.shellescape(path)) end, 200)
+          term:send(vim.fn.shellescape(path))
         else
           if not term:is_open() then term:open(15) end
           term:change_dir(dir)
@@ -412,29 +415,36 @@ vim.api.nvim_create_autocmd('DirChanged', {
 })
 
 -- ── Startup behaviour ─────────────────────────────────────────
-vim.defer_fn(function()
-  -- When a session was restored (plugins/session.lua sets this flag on
-  -- VimEnter, which fires before this defer), our buffers and window
-  -- layout are already in place — skip the 'enew' step that would wipe
-  -- the restored current buffer, and just ensure neo-tree is visible.
-  if vim.g.session_loaded then
-    pcall(vim.cmd, 'Neotree show filesystem left')
-    return
-  end
-
-  local argc    = vim.fn.argc()
-  local arg0    = argc > 0 and vim.fn.argv(0) or ''
-  local is_dir  = vim.fn.isdirectory(arg0) == 1
-
-  if argc == 0 or is_dir then
-    local original_buf = vim.api.nvim_get_current_buf()
-    if is_dir then
-      vim.cmd('cd ' .. vim.fn.fnameescape(vim.fn.fnamemodify(arg0, ':p')))
+-- UIEnter fires after every VimEnter handler has run — including
+-- session.lua's restore, which sets vim.g.session_loaded — so this
+-- ordering is guaranteed by Neovim's startup sequence rather than by
+-- hoping a timer (previously 50ms) lands late enough on a loaded machine.
+vim.api.nvim_create_autocmd('UIEnter', {
+  once     = true,
+  callback = function()
+    -- When a session was restored (plugins/session.lua sets this flag on
+    -- VimEnter, which fires before UIEnter), our buffers and window
+    -- layout are already in place — skip the 'enew' step that would wipe
+    -- the restored current buffer, and just ensure neo-tree is visible.
+    if vim.g.session_loaded then
+      pcall(vim.cmd, 'Neotree show filesystem left')
+      return
     end
-    vim.cmd('enew')
-    pcall(vim.api.nvim_buf_delete, original_buf, { force = true })
-    pcall(vim.cmd, 'Neotree show filesystem left')
-  else
-    pcall(vim.cmd, 'Neotree show filesystem left')
-  end
-end, 50)
+
+    local argc    = vim.fn.argc()
+    local arg0    = argc > 0 and vim.fn.argv(0) or ''
+    local is_dir  = vim.fn.isdirectory(arg0) == 1
+
+    if argc == 0 or is_dir then
+      local original_buf = vim.api.nvim_get_current_buf()
+      if is_dir then
+        vim.cmd('cd ' .. vim.fn.fnameescape(vim.fn.fnamemodify(arg0, ':p')))
+      end
+      vim.cmd('enew')
+      pcall(vim.api.nvim_buf_delete, original_buf, { force = true })
+      pcall(vim.cmd, 'Neotree show filesystem left')
+    else
+      pcall(vim.cmd, 'Neotree show filesystem left')
+    end
+  end,
+})
