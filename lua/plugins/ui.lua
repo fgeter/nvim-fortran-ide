@@ -95,10 +95,12 @@ vim.pack.add { gh 'folke/todo-comments.nvim' }
 require('todo-comments').setup { signs = false }
 
 -- ── mini.nvim ────────────────────────────────────────────────
--- A collection of small independent modules. We use three:
+-- A collection of small independent modules. We use two:
 --   mini.ai        — improved text objects (va), yi', etc.)
---   mini.surround  — add/change/delete surrounding brackets/quotes
 --   mini.statusline — lightweight statusline (no external config needed)
+-- (mini.surround is intentionally NOT enabled: nvim-surround in
+-- plugins/surround.lua already owns surround editing via ys/cs/ds,
+-- and running both meant two plugins for one feature.)
 vim.pack.add { gh 'nvim-mini/mini.nvim' }
 
 -- Better text objects. Mappings adjusted to avoid conflict with
@@ -110,9 +112,6 @@ require('mini.ai').setup {
   },
   n_lines = 500,
 }
-
--- Surround operations: saiw) adds parens, sd' deletes quotes, sr)' replaces
-require('mini.surround').setup()
 
 -- Statusline: shows mode, filename, git branch, diagnostics, cursor pos
 local statusline = require('mini.statusline')

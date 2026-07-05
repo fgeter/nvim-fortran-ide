@@ -26,6 +26,11 @@ local gh = require('core.utils').gh
 local function current_branch(fresh)
   if not fresh and vim.g.git_branch then return vim.g.git_branch end
   local branch = vim.fn.system('git branch --show-current'):gsub('\n', '')
+  -- On failure (not a repo, broken git) don't cache the error text as a
+  -- "branch name" — it would show up in the statusline and every prompt.
+  if vim.v.shell_error ~= 0 then
+    return vim.g.git_branch or ''
+  end
   vim.g.git_branch = branch
   return branch
 end
@@ -34,7 +39,13 @@ local function list_branches(all)
   local branches = {}
   local cmd = all and "git branch --all --format='%(refname:short)'"
                    or "git branch --format='%(refname:short)'"
-  for _, line in ipairs(vim.fn.systemlist(cmd)) do
+  local lines = vim.fn.systemlist(cmd)
+  if vim.v.shell_error ~= 0 then
+    vim.notify('git branch failed:\n' .. table.concat(lines, '\n'),
+      vim.log.levels.WARN)
+    return {}
+  end
+  for _, line in ipairs(lines) do
     line = line:match('^%s*(.-)%s*$')
     if line ~= '' then table.insert(branches, line) end
   end

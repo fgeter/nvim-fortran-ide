@@ -410,7 +410,7 @@ vim.api.nvim_create_autocmd('WinClosed', {
 -- the Neotree command is registered.
 vim.api.nvim_create_autocmd('DirChanged', {
   callback = function()
-    pcall(vim.cmd, 'Neotree show filesystem left')
+    require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
   end,
 })
 
@@ -427,7 +427,7 @@ vim.api.nvim_create_autocmd('UIEnter', {
     -- layout are already in place — skip the 'enew' step that would wipe
     -- the restored current buffer, and just ensure neo-tree is visible.
     if vim.g.session_loaded then
-      pcall(vim.cmd, 'Neotree show filesystem left')
+      require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
       return
     end
 
@@ -442,9 +442,9 @@ vim.api.nvim_create_autocmd('UIEnter', {
       end
       vim.cmd('enew')
       pcall(vim.api.nvim_buf_delete, original_buf, { force = true })
-      pcall(vim.cmd, 'Neotree show filesystem left')
+      require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
     else
-      pcall(vim.cmd, 'Neotree show filesystem left')
+      require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
     end
   end,
 })

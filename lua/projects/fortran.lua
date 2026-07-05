@@ -16,7 +16,7 @@
 -- Optional vim.g variables:
 --   vim.g.project_name        — display name shown in notifications
 --   vim.g.project_build_jobs  — parallel build thread count override
---                               (default: nproc)
+--                               (default: all logical cores)
 --   vim.g.project_executable_pattern
 --                             — glob for run/debug targets in the build
 --                               tree, e.g. 'swatplus*' (default: '*',

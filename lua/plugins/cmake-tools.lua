@@ -9,7 +9,7 @@
 --   • Chained preset+generate — <leader>cp selects a preset AND
 --     automatically runs CMakeGenerate afterwards
 --   • Build via terminal — <leader>cb builds using all CPU cores
---     (detected via nproc at call time); <leader>cB builds with
+--     (via vim.uv.available_parallelism); <leader>cB builds with
 --     -j 1 for clean single-threaded compile error output
 --   • Run picker — <leader>cr shows ALL executables from
 --     build/debug/ and build/release/ so you can choose which
@@ -343,10 +343,28 @@ local function activate()
         return
       end
 
+      -- Safety net for the rm -rf below: only ever delete a directory that
+      -- lives *inside* the project root. A mistyped vim.g.project_build_root
+      -- in a .nvim.lua (or a stale cwd fallback) must not be able to point
+      -- this at /, $HOME, or some unrelated directory.
+      local build = vim.fn.fnamemodify(BUILD_ROOT, ':p'):gsub('/+$', '')
+      local repo  = vim.fn.fnamemodify(REPO_ROOT,  ':p'):gsub('/+$', '')
+      if build == '' or build == '/' or build == vim.env.HOME
+          or not vim.startswith(build, repo .. '/') then
+        vim.notify(
+          'Refusing to delete ' .. BUILD_ROOT .. ' — not inside the project root ('
+          .. repo .. ').\nCheck vim.g.project_build_root in .nvim.lua; '
+          .. 'delete the directory manually if this location is intentional.',
+          vim.log.levels.ERROR)
+        return
+      end
+
+      -- Same Y/n convention as the git pull prompt: plain <CR> confirms,
+      -- <Esc> or anything starting with 'n' cancels.
       vim.ui.input({
-        prompt = 'Delete ALL contents of ' .. BUILD_ROOT .. '? (yes/N): ',
+        prompt = 'Delete ALL contents of ' .. BUILD_ROOT .. '? (Y/n): ',
       }, function(input)
-        if input ~= 'yes' then
+        if input == nil or input:lower():sub(1, 1) == 'n' then
           vim.notify('Delete cancelled.', vim.log.levels.INFO)
           return
         end

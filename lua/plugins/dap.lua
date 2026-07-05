@@ -124,12 +124,13 @@ dap.listeners.after.event_initialized['dapui_config']  = function()
   -- mechanism — registering nil as the last-one-wins function drops
   -- whatever was queued — then close immediately. Any follow queued *after*
   -- the close bails out early in follow_internal (window no longer exists).
-  pcall(function()
-    local nt_utils = require('neo-tree.utils')
-    nt_utils.debounce('neo-tree-follow', nil, 100,
-      nt_utils.debounce_strategy.CALL_LAST_ONLY)
-  end)
-  pcall(vim.cmd, 'Neotree close')
+  utils.try('Neo-tree follow-debounce cancel (its internals may have changed)',
+    function()
+      local nt_utils = require('neo-tree.utils')
+      nt_utils.debounce('neo-tree-follow', nil, 100,
+        nt_utils.debounce_strategy.CALL_LAST_ONLY)
+    end)
+  utils.try('Neo-tree close', 'Neotree close')
   vim.notify('DAP session started — <leader>dF for key reference', vim.log.levels.INFO)
 end
 
@@ -158,7 +159,7 @@ end
 local function on_dap_end()
   dapui.close()
   if not is_neotree_open() then
-    pcall(vim.cmd, 'Neotree show filesystem left')
+    require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
   end
   focus_file_window()
 end

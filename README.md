@@ -11,9 +11,8 @@ TOML, and Lua — LSP,
 
 > **Platform:** This configuration has been developed and tested on **Linux
 > only** (Arch Linux with Wayland). It should work on macOS with minor
-> adjustments (notably `nproc` → `sysctl -n hw.logicalcpu` for CPU core
-> detection, and system package manager differences), but this has not been
-> verified. **Pull requests adding macOS instructions or compatibility fixes
+> adjustments (system package manager differences; CPU core detection is
+> portable via libuv), but this has not been verified. **Pull requests adding macOS instructions or compatibility fixes
 > are very welcome.**
 
 ## Credits
@@ -193,7 +192,7 @@ cd ~/myproject && nvim
 | `vim.g.project_python_bin` | Explicit Python binary (Python, optional) |
 | `vim.g.project_executable_pattern` | Glob for run/debug executables in the build tree, e.g. `'swatplus*'` (optional, default `'*'`) |
 | `vim.g.project_clean_output_patterns` | Globs deleted from the chosen workdata dir before each run, e.g. `{ '*.txt', '*.out', '*.csv' }`; `readme.txt` always kept (optional, default: no cleaning) |
-| `vim.g.project_build_jobs` | Parallel build thread count override (optional, default: nproc) |
+| `vim.g.project_build_jobs` | Parallel build thread count override (optional, default: all logical cores) |
 
 ## Configuration structure
 
@@ -377,7 +376,7 @@ Formatters: Lua → stylua, Python → ruff, C/C++ → clang-format, Java → go
 |-----|--------|
 | `<leader>cp` | Select preset + auto-run Generate |
 | `<leader>cg` | CMake Generate (configure) |
-| `<leader>cb` | Build using all CPU cores (detected via `nproc`) |
+| `<leader>cb` | Build using all CPU cores |
 | `<leader>cB` | Build single-threaded (`-j 1`) — cleaner error output |
 | `<leader>cx` | Clean active preset |
 | `<leader>cd` | Delete build directory (prompts confirmation) |
@@ -389,7 +388,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 
 | Key | Action |
 |-----|--------|
-| `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) |
+| `<leader>cb` | Build (pick debug/release, all CPU cores) |
 | `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release |
 | `<leader>cx` | Clean (pick debug/release/both) |
 | `<leader>cr` | Run executable (pick debug/release, then workdata directory) |

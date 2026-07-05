@@ -52,11 +52,31 @@ function M.raise_new_floats(before)
   end, 50)
 end
 
--- Number of logical CPU cores. Linux: nproc; macOS: sysctl. Falls back to 4.
+-- Run fn (a function, or an Ex command string) under pcall; on failure
+-- surface the error as a WARN notification prefixed with `context`
+-- instead of silently swallowing it. Use this anywhere a bare
+-- pcall(vim.cmd, …) would hide a real problem (session restore,
+-- Neotree open/close, …). Returns the same ok, err as pcall.
+function M.try(context, fn)
+  local ok, err
+  if type(fn) == 'string' then
+    ok, err = pcall(vim.cmd, fn)
+  else
+    ok, err = pcall(fn)
+  end
+  if not ok then
+    vim.notify(context .. ' failed: ' .. tostring(err), vim.log.levels.WARN)
+  end
+  return ok, err
+end
+
+-- Number of logical CPU cores via libuv (cross-platform, no subprocess).
+-- Falls back to 4 on the off chance the API is unavailable.
 function M.get_cpu_count()
-  local nproc  = tonumber((vim.fn.system('nproc 2>/dev/null'):gsub('%s+', '')))
-  local sysctl = tonumber((vim.fn.system('sysctl -n hw.logicalcpu 2>/dev/null'):gsub('%s+', '')))
-  return nproc or sysctl or 4
+  if vim.uv and vim.uv.available_parallelism then
+    return vim.uv.available_parallelism()
+  end
+  return 4
 end
 
 -- Run shell_cmd in a one-shot build terminal (botright split).

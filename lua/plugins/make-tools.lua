@@ -5,7 +5,7 @@
 -- CMakeLists.txt (cmake-tools.lua takes priority when both exist).
 --
 -- Keymaps mirror cmake-tools so muscle memory transfers:
---   <leader>cb  pick debug/release → parallel build (all CPU cores via nproc)
+--   <leader>cb  pick debug/release → parallel build (all CPU cores)
 --   <leader>cB  pick debug/release → single-threaded build (-j 1, cleaner errors)
 --   <leader>cx  pick debug/release/both → make clean
 --   <leader>cr  run executable (vim.g.project_executable or auto-detect)

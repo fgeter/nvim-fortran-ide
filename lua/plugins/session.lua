@@ -33,8 +33,17 @@ vim.api.nvim_create_autocmd('VimEnter', {
     if vim.fn.argc() ~= 0 then return end
     local sf = session_file()
     if vim.fn.filereadable(sf) == 1 then
-      pcall(vim.cmd, 'silent source ' .. vim.fn.fnameescape(sf))
+      -- A corrupted session file used to fail silently here, leaving every
+      -- startup session-less with no hint why. utils.try reports it; a
+      -- partial restore still counts as loaded so neo-tree doesn't wipe
+      -- whatever buffers did come back.
+      local ok = require('core.utils').try('Session restore (' .. sf .. ')',
+        'silent source ' .. vim.fn.fnameescape(sf))
       vim.g.session_loaded = true
+      if not ok then
+        vim.notify('Delete the session file to start clean: ' .. sf,
+          vim.log.levels.INFO)
+      end
       -- :badd in the session file adds buffers without firing BufRead,
       -- so FileType (and therefore treesitter/LSP) never runs for them.
       -- Re-detect on every loaded file buffer that still has no filetype.
