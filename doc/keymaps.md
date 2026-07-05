@@ -353,4 +353,19 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>tL` | Pick spell check language | `plugins/spell.lua` |
 | `<leader>tW` | Toggle hard text wrap at textwidth (default 80) | `core/keymaps.lua` |
 | `<leader>tn` | Show notification history (snacks.nvim) | `plugins/snacks.lua` |
+| `<leader>tu` | Toggle undotree (undo history browser) | `plugins/undotree.lua` |
+
+## Jump / pin / replace (flash, harpoon, grug-far)
+
+| Key | Mode | Action | Notes |
+|-----|------|--------|-------|
+| `s` + 1-2 chars + label | n/x | Flash: jump to any visible match (works across splits) | single match jumps immediately |
+| `S` | n | Flash: label + select a treesitter node | visual `S` remains nvim-surround |
+| `f`/`t`/`F`/`T` | n/x/o | Enhanced by flash: matches labeled, repeat with same key | |
+| `r` | o | Flash remote: operate at a jump target without moving | e.g. `yr` + jump |
+| `<leader>a` | n | Harpoon: pin current file | |
+| `<leader>A` | n | Harpoon: unpin current file | or `dd` its line in the menu |
+| `<leader>1`-`4` | n | Harpoon: jump to pinned file 1-4 | per-project list, persists |
+| `<leader>0` | n | Harpoon: open list menu (editable buffer; `dd` removes) | |
+| `<leader>sR` | n | grug-far: project-wide search & replace | v mode: selection pre-filled |
 | `<leader>tr` | Toggle relative line numbers | `core/keymaps.lua` |
