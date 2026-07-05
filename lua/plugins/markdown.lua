@@ -14,7 +14,7 @@
 
 local gh = require('core.utils').gh
 
-vim.pack.add { gh 'MeanderingProgrammer/render-markdown.nvim' }
+vim.pack.add { { src = gh 'MeanderingProgrammer/render-markdown.nvim', version = vim.version.range '8.*' } }
 
 require('render-markdown').setup {
   file_types    = { 'markdown' },

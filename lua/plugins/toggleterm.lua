@@ -18,7 +18,7 @@
 
 local gh = require('core.utils').gh
 
-vim.pack.add { gh 'akinsho/toggleterm.nvim' }
+vim.pack.add { { src = gh 'akinsho/toggleterm.nvim', version = vim.version.range '2.*' } }
 
 local find_editor_win = require('core.utils').find_editor_win
 

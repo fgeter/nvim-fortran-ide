@@ -18,10 +18,10 @@ local utils = require('core.utils')
 local gh    = utils.gh
 
 vim.pack.add {
-  gh 'mfussenegger/nvim-dap',
-  gh 'rcarriga/nvim-dap-ui',
-  gh 'nvim-neotest/nvim-nio',           -- required async library for dap-ui
-  gh 'theHamsta/nvim-dap-virtual-text', -- show variable values inline during debug
+  { src = gh 'mfussenegger/nvim-dap',  version = vim.version.range '*' },
+  { src = gh 'rcarriga/nvim-dap-ui',   version = vim.version.range '4.*' },
+  { src = gh 'nvim-neotest/nvim-nio',  version = vim.version.range '1.*' },  -- required async library for dap-ui
+  gh 'theHamsta/nvim-dap-virtual-text',  -- inline variable values; no tagged releases
 }
 
 local dap   = require('dap')

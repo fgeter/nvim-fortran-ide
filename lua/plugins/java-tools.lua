@@ -21,7 +21,7 @@ if vim.g.loaded_java_tools then return end
 vim.g.loaded_java_tools = true
 
 local gh = require('core.utils').gh
-vim.pack.add { gh 'mfussenegger/nvim-jdtls' }
+vim.pack.add { { src = gh 'mfussenegger/nvim-jdtls', version = vim.version.range '*' } }
 
 local mason_path = vim.fn.stdpath('data') .. '/mason/packages'
 

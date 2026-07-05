@@ -26,6 +26,8 @@ The alphabetical load order matters: `dap.lua` installs nvim-dap before `fortran
 
 This config uses **`vim.pack`** (Neovim's built-in plugin manager, available since 0.11), not lazy.nvim or packer. Every plugin is added with `vim.pack.add { 'https://github.com/...' }`. Plugins are stored in `~/.local/share/nvim/pack/`.
 
+**Version pinning convention:** every plugin with tagged releases is pinned via `version = vim.version.range(...)` — a major range like `'2.*'` when the project has a stable major, or `'*'` (latest release tag, never the branch tip) for 0.x projects. Only plugins with no usable tags (mason-tool-installer, schemastore, nvim-dap-virtual-text, guess-indent, nvim-lint, telescope-ui-select, telescope-fzf-native, cmake-tools) track their default branch. Version constraints are applied by `vim.pack.update()`, not at startup, so bumping a pin takes effect on the next explicit update. When adding a plugin, check its tags and pin accordingly.
+
 ### Core modules (`lua/core/`)
 
 | File | Purpose |

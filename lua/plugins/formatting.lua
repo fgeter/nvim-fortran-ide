@@ -13,7 +13,7 @@
 
 local gh = require('core.utils').gh
 
-vim.pack.add { gh 'stevearc/conform.nvim' }
+vim.pack.add { { src = gh 'stevearc/conform.nvim', version = vim.version.range '9.*' } }
 
 if vim.g.loaded_conform then return end
 vim.g.loaded_conform = true

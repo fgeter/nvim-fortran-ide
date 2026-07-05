@@ -24,14 +24,12 @@ require('guess-indent').setup {}
 -- Only installed when a Nerd Font is available; without one the icons
 -- render as boxes or question marks.
 if vim.g.have_nerd_font then
-  vim.pack.add { gh 'nvim-tree/nvim-web-devicons' }
+  vim.pack.add { { src = gh 'nvim-tree/nvim-web-devicons', version = vim.version.range '*' } }
 end
 
 -- ── Catppuccin colorscheme ───────────────────────────────────
 -- Single colorscheme (tokyonight and kanagawa removed — unused).
--- The highlight_overrides and the ColorScheme autocmd below ensure
--- the lavender window separator colour survives plugin resets.
-vim.pack.add { gh 'catppuccin/nvim' }
+vim.pack.add { { src = gh 'catppuccin/nvim', version = vim.version.range '2.*' } }
 
 -- All custom highlights live in highlight_overrides so catppuccin itself
 -- re-applies them on every `:colorscheme catppuccin` — no ColorScheme
@@ -70,7 +68,7 @@ vim.cmd.colorscheme('catppuccin')
 -- ── which-key ────────────────────────────────────────────────
 -- Shows a popup of available keymaps after pressing a leader prefix.
 -- The spec table documents key groups so which-key can label them.
-vim.pack.add { gh 'folke/which-key.nvim' }
+vim.pack.add { { src = gh 'folke/which-key.nvim', version = vim.version.range '3.*' } }
 require('which-key').setup {
   delay = 0,
   icons = { mappings = vim.g.have_nerd_font },
@@ -91,7 +89,7 @@ require('which-key').setup {
 -- ── todo-comments ────────────────────────────────────────────
 -- Highlights TODO / FIXME / NOTE / HACK etc. in comments and makes
 -- them searchable via :TodoTelescope
-vim.pack.add { gh 'folke/todo-comments.nvim' }
+vim.pack.add { { src = gh 'folke/todo-comments.nvim', version = vim.version.range '1.*' } }
 require('todo-comments').setup { signs = false }
 
 -- ── mini.nvim ────────────────────────────────────────────────
@@ -101,7 +99,7 @@ require('todo-comments').setup { signs = false }
 -- (mini.surround is intentionally NOT enabled: nvim-surround in
 -- plugins/surround.lua already owns surround editing via ys/cs/ds,
 -- and running both meant two plugins for one feature.)
-vim.pack.add { gh 'nvim-mini/mini.nvim' }
+vim.pack.add { { src = gh 'nvim-mini/mini.nvim', version = vim.version.range '*' } }
 
 -- Better text objects. Mappings adjusted to avoid conflict with
 -- Neovim >= 0.12 built-in incremental selection (which uses ia/aa).
@@ -135,7 +133,7 @@ end
 -- Draws a vertical guide line at each indentation level.
 -- scope highlights the current indentation block under the cursor,
 -- which is especially useful in Python and nested Fortran loops.
-vim.pack.add { gh 'lukas-reineke/indent-blankline.nvim' }
+vim.pack.add { { src = gh 'lukas-reineke/indent-blankline.nvim', version = vim.version.range '3.*' } }
 require('ibl').setup {
   indent = { char = '│' },
   scope  = { enabled = true },
@@ -145,7 +143,7 @@ require('ibl').setup {
 -- Shows open buffers as tabs at the top of the screen.
 -- Uses catppuccin highlights natively so colours match the theme.
 -- nvim-web-devicons provides file-type icons in each tab.
-vim.pack.add { { src = gh 'akinsho/bufferline.nvim', version = vim.version.range '*' } }
+vim.pack.add { { src = gh 'akinsho/bufferline.nvim', version = vim.version.range '4.*' } }
 require('bufferline').setup {
   options = {
     mode            = 'buffers',

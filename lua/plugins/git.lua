@@ -84,7 +84,7 @@ end
 -- Also provides hunk navigation and staging without leaving Neovim.
 -- Installed once here (removed the duplicate install from the old
 -- init.lua Section 3 which had no keymaps).
-vim.pack.add { gh 'lewis6991/gitsigns.nvim' }
+vim.pack.add { { src = gh 'lewis6991/gitsigns.nvim', version = vim.version.range '2.*' } }
 
 require('gitsigns').setup {
   signs = {

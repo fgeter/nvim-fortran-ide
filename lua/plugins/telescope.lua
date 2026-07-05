@@ -13,9 +13,9 @@
 local gh = require('core.utils').gh
 
 local telescope_plugins = {
-  gh 'nvim-lua/plenary.nvim',
-  gh 'nvim-telescope/telescope.nvim',
-  gh 'nvim-telescope/telescope-ui-select.nvim',
+  { src = gh 'nvim-lua/plenary.nvim',          version = vim.version.range '*' },
+  { src = gh 'nvim-telescope/telescope.nvim',  version = vim.version.range '*' },
+  gh 'nvim-telescope/telescope-ui-select.nvim',  -- no tagged releases
 }
 
 -- telescope-fzf-native provides a compiled C fuzzy matcher that is

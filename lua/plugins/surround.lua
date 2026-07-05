@@ -14,7 +14,7 @@
 if vim.g.loaded_surround then return end
 vim.g.loaded_surround = true
 
-vim.pack.add { 'https://github.com/kylechui/nvim-surround' }
+vim.pack.add { { src = 'https://github.com/kylechui/nvim-surround', version = vim.version.range '4.*' } }
 
 vim.api.nvim_create_autocmd('BufReadPost', {
   once     = true,

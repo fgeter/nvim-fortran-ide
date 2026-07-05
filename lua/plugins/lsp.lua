@@ -16,18 +16,18 @@ local gh = require('core.utils').gh
 
 -- fidget: shows LSP progress (indexing, loading, etc.) in the
 -- bottom-right corner so you know when the server is ready
-vim.pack.add { gh 'j-hui/fidget.nvim' }
+vim.pack.add { { src = gh 'j-hui/fidget.nvim', version = vim.version.range '1.*' } }
 require('fidget').setup {}
 
 -- Mason: downloads and manages LSP servers, formatters, and linters
 -- into Neovim's data directory (~/.local/share/nvim)
 vim.pack.add {
-  gh 'neovim/nvim-lspconfig',
-  gh 'mason-org/mason.nvim',
-  gh 'mason-org/mason-lspconfig.nvim',
-  gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
+  { src = gh 'neovim/nvim-lspconfig',          version = vim.version.range '2.*' },
+  { src = gh 'mason-org/mason.nvim',           version = vim.version.range '2.*' },
+  { src = gh 'mason-org/mason-lspconfig.nvim', version = vim.version.range '2.*' },
+  gh 'WhoIsSethDaniel/mason-tool-installer.nvim',  -- no tagged releases
   -- schemastore provides JSON/YAML schema lists for jsonls and yamlls
-  gh 'b0o/schemastore.nvim',
+  gh 'b0o/schemastore.nvim',                       -- no tagged releases
 }
 
 require('mason').setup {}

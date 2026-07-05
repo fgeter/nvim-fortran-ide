@@ -24,12 +24,12 @@
 local gh = require('core.utils').gh
 
 local plugins = {
-  { src = gh 'nvim-neo-tree/neo-tree.nvim', version = vim.version.range '*' },
-  gh 'nvim-lua/plenary.nvim',
-  gh 'MunifTanjim/nui.nvim',
+  { src = gh 'nvim-neo-tree/neo-tree.nvim', version = vim.version.range '3.*' },
+  { src = gh 'nvim-lua/plenary.nvim',       version = vim.version.range '*' },
+  { src = gh 'MunifTanjim/nui.nvim',        version = vim.version.range '*' },
 }
 if vim.g.have_nerd_font then
-  table.insert(plugins, gh 'nvim-tree/nvim-web-devicons')
+  table.insert(plugins, { src = gh 'nvim-tree/nvim-web-devicons', version = vim.version.range '*' })
 end
 vim.pack.add(plugins)
 
@@ -314,26 +314,53 @@ require('neo-tree').setup {
 -- wrapping renderer.show_nodes: on every full filesystem tree render
 -- (parentId == nil) a virtual nav_up item is prepended to sourceItems.
 -- The open_or_up mapping above handles clicks/Enter on that node.
+-- This is a monkey-patch of neo-tree internals, so it is guarded to fail
+-- LOUDLY instead of mysteriously when a neo-tree update changes shape:
+--   • if renderer.show_nodes no longer exists, the patch is skipped with
+--     a warning (tree still works, just without the "← .." entry)
+--   • if the injection itself ever errors (e.g. state.name semantics
+--     change), it warns once and passes items through unpatched.
 do
-  local renderer = require('neo-tree.ui.renderer')
-  local orig = renderer.show_nodes
-  renderer.show_nodes = function(sourceItems, state, parentId, callback)
-    if state.name == 'filesystem' and parentId == nil
-        and sourceItems and #sourceItems > 0 then
-      local patched = { {
-        id    = '__nav_up__',
-        name  = '← ..',
-        type  = 'nav_up',
-        level = 0,
-        extra = {},
-        is_last_child = false,
-      } }
-      for _, v in ipairs(sourceItems) do
-        table.insert(patched, v)
+  local ok, renderer = pcall(require, 'neo-tree.ui.renderer')
+  if not ok or type(renderer.show_nodes) ~= 'function' then
+    vim.notify(
+      'neo-tree "← .." patch disabled: renderer.show_nodes not found — '
+      .. 'neo-tree internals changed with an update. Tree works normally; '
+      .. 'update the patch in plugins/neo-tree.lua to restore the entry.',
+      vim.log.levels.WARN)
+  else
+    local orig = renderer.show_nodes
+    local warned = false
+    renderer.show_nodes = function(sourceItems, state, parentId, callback)
+      local inject_ok, patched = pcall(function()
+        if state.name == 'filesystem' and parentId == nil
+            and sourceItems and #sourceItems > 0 then
+          local items = { {
+            id    = '__nav_up__',
+            name  = '← ..',
+            type  = 'nav_up',
+            level = 0,
+            extra = {},
+            is_last_child = false,
+          } }
+          for _, v in ipairs(sourceItems) do
+            table.insert(items, v)
+          end
+          return items
+        end
+        return sourceItems
+      end)
+      if inject_ok then
+        sourceItems = patched
+      elseif not warned then
+        warned = true
+        vim.notify(
+          'neo-tree "← .." injection failed (internals changed?): '
+          .. tostring(patched) .. '\nRendering unpatched items.',
+          vim.log.levels.WARN)
       end
-      sourceItems = patched
+      return orig(sourceItems, state, parentId, callback)
     end
-    return orig(sourceItems, state, parentId, callback)
   end
 end
 
