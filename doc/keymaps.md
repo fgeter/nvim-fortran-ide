@@ -368,4 +368,5 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>1`-`4` | n | Harpoon: jump to pinned file 1-4 | per-project list, persists |
 | `<leader>0` | n | Harpoon: open list menu (editable buffer; `dd` removes) | |
 | `<leader>sR` | n | grug-far: project-wide search & replace | v mode: selection pre-filled |
+| `<F9>` | n/t | Toggle Claude Code panel (vertical toggleterm; session persists while hidden) | `features/claude-terminal.lua` |
 | `<leader>tr` | Toggle relative line numbers | `core/keymaps.lua` |
