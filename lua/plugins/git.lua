@@ -261,8 +261,9 @@ local function git_push()
 end
 
 -- ── Remote-ahead check ──────────────────────────────────────────
--- Periodically, and right before any <leader>g* action, fetches in the
--- background and asks whether to pull if origin has moved ahead. Fetch
+-- On entering a repo (startup or :cd), periodically, and right before any
+-- <leader>g* action, fetches in the background and asks whether to pull
+-- if origin has moved ahead. Fetch
 -- failures (no network, working offline) are swallowed silently — this is
 -- advisory and shouldn't nag when there's nothing to fetch from. The
 -- keypress-triggered path is also debounced (5 min), so a check made just
@@ -391,6 +392,42 @@ local remote_check_timer = uv.new_timer()
 remote_check_timer:start(PERIODIC_INTERVAL_MS, PERIODIC_INTERVAL_MS, function()
   vim.schedule(check_remote_ahead)
 end)
+
+-- ── Check on entering a repo ────────────────────────────────────
+-- Run the same origin-ahead check (fetch → "pull now?" prompt) as soon as
+-- a git repo becomes the working directory: once at startup when Neovim
+-- was launched inside a repo, and again whenever :cd / neo-tree navigation
+-- lands in a *different* repo than the one last checked. Keyed on the git
+-- root rather than raw cwd so cd-ing between subdirectories of the same
+-- repo doesn't re-fetch on every move — staying current within one repo is
+-- already covered by the keypress debounce and the periodic timer above.
+local last_checked_root = nil
+
+local function git_root()
+  local out = vim.fn.systemlist('git rev-parse --show-toplevel 2>/dev/null')
+  if vim.v.shell_error ~= 0 or not out[1] or out[1] == '' then return nil end
+  return out[1]
+end
+
+local function check_if_entered_new_repo()
+  local root = git_root()
+  if not root or root == last_checked_root then return end
+  last_checked_root = root
+  check_remote_ahead()
+end
+
+-- UIEnter (not VimEnter): it is guaranteed to fire after every VimEnter
+-- handler, including session.lua's restore, so the check sees the final
+-- startup cwd. It also never fires headless, where a pull prompt would
+-- have nowhere to go.
+vim.api.nvim_create_autocmd('UIEnter', {
+  once     = true,
+  callback = check_if_entered_new_repo,
+})
+
+vim.api.nvim_create_autocmd('DirChanged', {
+  callback = check_if_entered_new_repo,
+})
 
 local function git_create_branch()
   if not is_git_repo() then return end
