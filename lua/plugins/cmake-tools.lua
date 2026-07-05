@@ -21,16 +21,15 @@
 --       registered. vim.pack.add, cmake.setup(), and all keymaps
 --       are deferred into activate().
 --
--- Timing notes (important — do not remove the defer_fn calls):
---   200ms outer defer — lets vim.pack.add finish making cmake-tools
---     available before require('cmake-tools') is called
---   150ms window scan — cmake-tools opens its output window
---     asynchronously; we wait before scanning for new windows
---   50ms  WinClosed defer — Neovim finishes window teardown before
---     we call set_current_win, preventing layout glitches
---   500ms before CMakeGenerate — cmake-tools keeps its internal
---     task state alive briefly after the output window closes;
---     firing CMakeGenerate too soon causes "task already running"
+-- Sequencing notes (event-driven, no fixed timers):
+--   • The output window is detected with a one-shot WinNew watcher
+--     registered before the cmake command runs, not by scanning the
+--     window list after a delay.
+--   • Post-close cleanup runs in vim.schedule from WinClosed, which
+--     executes after Neovim finishes the synchronous window teardown.
+--   • <leader>cp chains CMakeGenerate from the completion callback of
+--     cmake.select_configure_preset() (a documented cmake-tools API),
+--     not from a timer guessing when the picker is done.
 -- ============================================================
 
 if vim.g.loaded_cmake_tools_wrapper then return end
@@ -63,8 +62,8 @@ local function activate()
   local WORK_ROOT  = vim.g.project_work_root  or (REPO_ROOT .. '/workdata')
 
   -- Install cmake-tools.nvim. vim.pack.add is synchronous for the
-  -- download step but the Lua module is not available until after the
-  -- 200ms defer below, hence the deferred require('cmake-tools').
+  -- download step but the Lua module is required only inside the VimEnter
+  -- callback below, by which point it is guaranteed to be on the rtp.
   vim.pack.add { 'https://github.com/civitasv/cmake-tools.nvim' }
 
   -- cmake-tools configuration table passed to cmake.setup() below
@@ -115,12 +114,10 @@ local function activate()
   ---------------------------------------------------------------------------
   -- Helper: run a cmake-tools command and restore focus when done
   ---------------------------------------------------------------------------
-  -- `cmd`      — a cmake-tools Ex command string e.g. 'CMakeGenerate'
-  -- `on_close` — optional function to call after the output window closes
-  --              (used by <leader>cp to chain CMakeGenerate automatically)
-  -- focus: when true, shifts the cursor into the output window so the
-  -- user can read it and press <CR> to close. Set to false for interactive
-  -- pickers (CMakeSelectConfigurePreset) that need to keep their own focus.
+  -- `cmd` — a cmake-tools Ex command string e.g. 'CMakeGenerate'.
+  -- Focus always shifts into the output window (all callers are output
+  -- commands; the preset picker uses cmake.select_configure_preset directly
+  -- and never comes through here).
   -- cmake-tools runs `:wall` before every generate/build/run. `:wall`
   -- throws E141 on any unnamed buffer, and Neovim always has one lying
   -- around when it's opened without a file argument (buffer 1, empty,
@@ -138,103 +135,101 @@ local function activate()
     end
   end
 
-  local function run_cmake_cmd(cmd, on_close, focus)
+  -- Wires up the output window of a cmake command: shifts focus into it,
+  -- maps <CR> to close it, and restores focus/wipes the buffer when it
+  -- closes. Called from the WinNew watcher in run_cmake_cmd once the
+  -- output window is confirmed to be a terminal.
+  local function attach_output_window(output_win, output_buf, caller_win)
+    local augroup = vim.api.nvim_create_augroup(
+      'cmake_focus_restore_' .. output_win, { clear = true })
+
+    -- Move focus into the output window so the user can read it.
+    -- No nvim_win_set_cursor here: the output is always a live terminal
+    -- (entering it resumes terminal mode, where cursor ops error with
+    -- "Can't re-enter normal mode from terminal mode"), and toggleterm's
+    -- auto_scroll=true already keeps the view at the bottom.
+    vim.api.nvim_set_current_win(output_win)
+
+    -- <CR> closes the output window, wipes the buffer, and returns focus
+    -- to the editor window captured before the cmake command ran.
+    -- pcall guards against the buffer becoming invalid before key press.
+    pcall(vim.keymap.set, 'n', '<CR>', function()
+      if vim.api.nvim_win_is_valid(output_win) then
+        vim.api.nvim_win_close(output_win, true)
+      end
+    end, { buffer = output_buf, nowait = true, desc = 'Close cmake output' })
+
+    -- When the output window closes:
+    --   1. Wipe the output buffer so it doesn't linger in the buffer list
+    --   2. Restore focus to the editor window captured before the command
+    -- vim.schedule (not a timer): WinClosed fires during the synchronous
+    -- window teardown; scheduled callbacks run right after it completes,
+    -- so set_current_win/buf_delete never race the teardown.
+    vim.api.nvim_create_autocmd('WinClosed', {
+      group   = augroup,
+      pattern = tostring(output_win),
+      once    = true,
+      callback = function()
+        vim.schedule(function()
+          -- Wipe the buffer (force=true handles unmodified terminal buffers)
+          if vim.api.nvim_buf_is_valid(output_buf) then
+            pcall(vim.api.nvim_buf_delete, output_buf, { force = true })
+          end
+          local target = (caller_win and vim.api.nvim_win_is_valid(caller_win))
+            and caller_win or get_editor_win()
+          if target then vim.api.nvim_set_current_win(target) end
+          vim.api.nvim_del_augroup_by_id(augroup)
+        end)
+      end,
+    })
+  end
+
+  local function run_cmake_cmd(cmd)
     close_empty_unnamed_buffers()
     local caller_win = get_editor_win()
 
-    -- Snapshot windows before the command so we can detect the new one
-    local wins_before = {}
-    for _, w in ipairs(vim.api.nvim_list_wins()) do wins_before[w] = true end
+    -- Watch for the output window with WinNew instead of scanning the
+    -- window list after a fixed 150ms delay (which raced cmake-tools'
+    -- asynchronous window creation). WinNew fires the moment the split is
+    -- created with the new window as current; the buffer is assigned just
+    -- after, so the rest runs in vim.schedule — that executes once
+    -- toggleterm's synchronous open sequence has finished, regardless of
+    -- how long it takes.
+    local watcher
+    local function disarm()
+      if watcher then
+        pcall(vim.api.nvim_del_autocmd, watcher)
+        watcher = nil
+      end
+    end
+
+    watcher = vim.api.nvim_create_autocmd('WinNew', {
+      callback = function()
+        local output_win = vim.api.nvim_get_current_win()
+        vim.schedule(function()
+          if not watcher then return end  -- already claimed by another WinNew
+          if not vim.api.nvim_win_is_valid(output_win) then return end
+          local output_buf = vim.api.nvim_win_get_buf(output_win)
+          -- Only claim terminal windows (the toggleterm executor/runner).
+          -- Unrelated windows (floats, user splits) are ignored and the
+          -- watcher keeps waiting for the real output window.
+          if not vim.api.nvim_buf_is_valid(output_buf)
+              or vim.bo[output_buf].buftype ~= 'terminal' then
+            return
+          end
+          disarm()
+          attach_output_window(output_win, output_buf, caller_win)
+        end)
+      end,
+    })
 
     vim.cmd(cmd)
 
-    -- Wait 150ms for cmake-tools to open its output window asynchronously.
-    -- Without this delay the scan below runs before the window exists.
-    vim.defer_fn(function()
-      local output_win = nil
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if not wins_before[win] then output_win = win; break end
-      end
-
-      if not output_win then
-        -- cmake-tools handled the command silently (no output window).
-        -- Still fire on_close after 500ms in case a background task is
-        -- running (e.g. switching to an already-configured preset).
-        if on_close then vim.defer_fn(on_close, 500) end
-        return
-      end
-
-      -- Guard: the window must still be valid after the 150ms delay.
-      -- cmake-tools can finish very quickly and close the window before
-      -- we get here. Also guard the buffer separately — toggleterm can
-      -- recycle/invalidate a buffer id even while the window still exists.
-      if not vim.api.nvim_win_is_valid(output_win) then
-        if on_close then vim.defer_fn(on_close, 500) end
-        return
-      end
-
-      local output_buf = vim.api.nvim_win_get_buf(output_win)
-
-      if not vim.api.nvim_buf_is_valid(output_buf) then
-        if on_close then vim.defer_fn(on_close, 500) end
-        return
-      end
-
-      local augroup = vim.api.nvim_create_augroup(
-        'cmake_focus_restore_' .. output_win, { clear = true })
-
-      -- Only shift focus and set up <CR> for output windows (generate, clean).
-      -- Interactive pickers (preset selector) manage their own focus and must
-      -- not be redirected or they dismiss immediately.
-      if focus then
-        -- Move focus into the output window so the user can read it.
-        vim.api.nvim_set_current_win(output_win)
-        -- Skip nvim_win_set_cursor for terminal buffers: switching to a live
-        -- terminal re-enters terminal mode, and cursor ops then call nvim_exec2
-        -- with a :normal command which errors ("Can't re-enter normal mode from
-        -- terminal mode"). toggleterm auto_scroll=true already keeps the view
-        -- at the bottom, so positioning the cursor is unnecessary.
-        local buftype = vim.api.nvim_get_option_value('buftype', { buf = output_buf })
-        if buftype ~= 'terminal' then
-          local line_count = vim.api.nvim_buf_line_count(output_buf)
-          vim.api.nvim_win_set_cursor(output_win, { line_count, 0 })
-        end
-
-        -- <CR> closes the output window, wipes the buffer, and returns focus
-        -- to the editor window captured before the cmake command ran.
-        -- pcall guards against the buffer becoming invalid before key press.
-        pcall(vim.keymap.set, 'n', '<CR>', function()
-          if vim.api.nvim_win_is_valid(output_win) then
-            vim.api.nvim_win_close(output_win, true)
-          end
-        end, { buffer = output_buf, nowait = true, desc = 'Close cmake output' })
-      end
-
-      -- When the output window closes:
-      --   1. Wipe the output buffer so it doesn't linger in the buffer list
-      --   2. Restore focus to the editor window captured before the command
-      --   3. Fire on_close if provided (e.g. chain CMakeGenerate after preset)
-      -- 50ms defer lets Neovim finish window teardown before set_current_win
-      -- and buf_delete, preventing layout glitches.
-      vim.api.nvim_create_autocmd('WinClosed', {
-        group   = augroup,
-        pattern = tostring(output_win),
-        once    = true,
-        callback = function()
-          vim.defer_fn(function()
-            -- Wipe the buffer (force=true handles unmodified terminal buffers)
-            if vim.api.nvim_buf_is_valid(output_buf) then
-              pcall(vim.api.nvim_buf_delete, output_buf, { force = true })
-            end
-            local target = (caller_win and vim.api.nvim_win_is_valid(caller_win))
-              and caller_win or get_editor_win()
-            if target then vim.api.nvim_set_current_win(target) end
-            vim.api.nvim_del_augroup_by_id(augroup)
-            if on_close then on_close() end
-          end, 50)
-        end,
-      })
-    end, 150)
+    -- Garbage collection only, not sequencing: if the command never opens
+    -- a window (e.g. output pane already open — toggleterm is a singleton,
+    -- so re-running just reuses it), drop the watcher so it can't claim an
+    -- unrelated terminal later. Nothing waits on this timer.
+    vim.defer_fn(disarm, 2000)
   end
 
   ---------------------------------------------------------------------------
@@ -360,13 +355,17 @@ local function activate()
 
   ---------------------------------------------------------------------------
   -- cmake-tools setup + keymaps
-  -- Deferred to VimEnter so that:
+  -- At startup this is deferred to VimEnter so that:
   --   1. cmake-tools.nvim is fully available (vim.pack.add already ran above)
   --   2. This callback never fires inside a vim.fn.confirm() modal that other
   --      plugins trigger during their first-time install (which spins the event
   --      loop and would execute a vim.defer_fn prematurely).
+  -- When activation happens via DirChanged (navigating into a CMake project
+  -- after startup), VimEnter has already fired and a VimEnter autocmd would
+  -- never run — in that case setup runs immediately instead (vim.pack.add
+  -- above was synchronous, so the module is already on the runtimepath).
   ---------------------------------------------------------------------------
-  vim.api.nvim_create_autocmd('VimEnter', { once = true, callback = function()
+  local function setup_cmake_tools()
     local ok, cmake = pcall(require, 'cmake-tools')
     if not ok then
       vim.notify('cmake-tools.nvim failed to load. Try restarting Neovim.',
@@ -379,12 +378,12 @@ local function activate()
 
     -- Generate: configure the cmake build system from CMakePresets.json
     vim.keymap.set('n', '<leader>cg', function()
-      run_cmake_cmd('CMakeGenerate', nil, true)
+      run_cmake_cmd('CMakeGenerate')
     end, { desc = 'CMake: generate' })
 
     -- Clean: remove build artefacts for the active preset
     vim.keymap.set('n', '<leader>cx', function()
-      run_cmake_cmd('CMakeClean', nil, true)
+      run_cmake_cmd('CMakeClean')
     end, { desc = 'CMake: clean' })
 
     -- Delete build directory: wipes the entire build/ folder.
@@ -421,15 +420,18 @@ local function activate()
     end, { desc = 'CMake: delete build directory (prompts for confirmation)' })
 
     -- Preset: select a configure preset, then automatically run Generate.
-    -- The 500ms delay before CMakeGenerate lets cmake-tools finish its
-    -- internal task state before starting a new one (avoids "task already
-    -- running" errors that occur when Generate fires too quickly).
+    -- cmake.select_configure_preset(callback) is cmake-tools' own Lua API:
+    -- the callback fires exactly when the picker resolves, so Generate can
+    -- be chained without a timer. Its internal check_active_job guard
+    -- reports "task already running" itself in the (now unlikely) case a
+    -- previous task is still live. On cancel/error the result is not ok
+    -- and Generate is skipped.
     vim.keymap.set('n', '<leader>cp', function()
-      run_cmake_cmd('CMakeSelectConfigurePreset', function()
-        vim.defer_fn(function()
-          run_cmake_cmd('CMakeGenerate', nil, true)
-        end, 500)
-      end, false)
+      cmake.select_configure_preset(function(result)
+        if result and result.is_ok and result:is_ok() then
+          run_cmake_cmd('CMakeGenerate')
+        end
+      end)
     end, { desc = 'CMake: select preset + generate' })
 
     -- Build: runs cmake --build in the persistent terminal
@@ -450,7 +452,13 @@ local function activate()
     vim.keymap.set('n', '<leader>cr', pick_and_run,
       { desc = 'CMake: run swatplus', nowait = true })
 
-  end })
+  end
+
+  if vim.v.vim_did_enter == 1 then
+    setup_cmake_tools()
+  else
+    vim.api.nvim_create_autocmd('VimEnter', { once = true, callback = setup_cmake_tools })
+  end
 end
 
 -- ── Entry point ───────────────────────────────────────────────

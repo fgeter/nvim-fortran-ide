@@ -174,8 +174,11 @@ local function activate()
     local terms  = require('toggleterm.terminal')
     local term, is_new = terms.get_or_create_term(1, vim.fn.expand('%:p:h'), 'horizontal')
     if is_new then
+      -- Terminal:open() spawns the shell job synchronously (open → spawn →
+      -- termopen sets job_id before returning), so send works immediately —
+      -- the PTY buffers the input until the shell reads it.
       term:open(15)
-      vim.defer_fn(function() term:send(cmd) end, 200)
+      term:send(cmd)
     else
       if not term:is_open() then term:open(15) end
       term:send(cmd)
