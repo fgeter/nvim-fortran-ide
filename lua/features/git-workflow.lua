@@ -3,7 +3,7 @@
 --
 -- Homegrown code (no plugin): lazygit launcher, commit/pull/push,
 -- branch create/switch/delete/merge, discard-buffer-changes, the
--- ref-diff review workflow (<leader>gf/gq/gn), and the remote-ahead
+-- diffview-driven review keymaps (<leader>gf/gv/gw/gh), and the remote-ahead
 -- check (startup, :cd, periodic, and before every <leader>g* action).
 --
 -- Keymaps: <leader>g* — see the bottom of this file.
@@ -45,21 +45,6 @@ local function list_branches(all)
     if line ~= '' then table.insert(branches, line) end
   end
   return branches
-end
-
--- Opening/closing a window normally re-equalizes every window's size across
--- the whole tabpage ('equalalways'), which grows the neo-tree sidebar out of
--- its fixed width even though it's winfixwidth — that protects it from
--- explicit `<C-w>=`/manual equalization commands, but the automatic
--- redistribution on split/close still visibly disturbs it in practice.
--- Disabling 'equalalways' for the duration of a window open/close sequence
--- keeps every window untouched except the ones actually being resized.
-local function without_equalize(fn)
-  local saved = vim.o.equalalways
-  vim.o.equalalways = false
-  local ok, err = pcall(fn)
-  vim.o.equalalways = saved
-  if not ok then error(err, 0) end
 end
 
 -- Bare `:checktime` only reloads buffers currently displayed in a window —
@@ -508,255 +493,78 @@ local function discard_buffer_changes()
     end)
 end
 
--- Remembers the ref most recently used by open_ref_diff_for_current_buffer,
--- so a post-merge quickfix walk (<leader>gq + <leader>gn) can keep reopening
--- the diff against the same ref (e.g. HEAD^1) on each new file automatically,
--- without re-prompting every time.
-local last_diff_ref = nil
+-- ── Diff / review (diffview.nvim) ──────────────────────────────
+-- The review engine is diffview.nvim (plugins/diffview.lua): native
+-- side-by-side diff mode — do/dp still move hunks, ]c/[c still jump —
+-- plus a persistent file panel, rename/binary handling, per-file
+-- history, and q to close the whole review tab. The pickers below feed
+-- it the same branch/ref choices the old hand-rolled workflow used
+-- (that ~300-line quickfix-walk machinery was replaced by diffview).
 
--- Bumped every time a new ref-diff is opened. Lets a stale deferred cleanup
--- (see BufWipeout below) detect that a newer diff has since been set up on
--- the same (reused) window and skip itself, rather than clobbering it.
-local diff_generation = 0
-
--- `git diff --numstat` prints "-\t-\t<path>" instead of add/delete counts
--- for files it considers binary. Cheap way to know do/dp-style text diffing
--- won't make sense for a given file before trying to render it as text.
-local function is_binary_relpath(ref, relpath)
-  local out = vim.fn.systemlist(
-    'git diff --numstat ' .. vim.fn.shellescape(ref) .. ' -- ' .. vim.fn.shellescape(relpath))
-  return out[1] ~= nil and out[1]:match('^%-\t%-\t') ~= nil
-end
-
--- Opens the *current* buffer's file at `ref` in a side-by-side diff so you
--- can selectively pull changes with do/dp (diffget/diffput) instead of
--- merging the whole file. The comparison buffer is read-only scratch —
--- edits only ever land in your real, saveable buffer. Silently does nothing
--- if the current file isn't tracked by git (used for auto-continuing a
--- review onto whatever quickfix lands on next, which may not always apply).
-local function open_ref_diff_for_current_buffer(ref)
-  local file = vim.fn.expand('%:p')
-  if file == '' then return end
-  local relpath = vim.fn.systemlist('git ls-files --full-name ' .. vim.fn.shellescape(file))[1]
-  if not relpath or relpath == '' then return end
-
-  if is_binary_relpath(ref, relpath) then
-    vim.notify('Binary file (' .. relpath .. ') — skipping diff view, do/dp do not apply',
-      vim.log.levels.WARN)
-    return
-  end
-
-  local content = vim.fn.system('git show ' .. vim.fn.shellescape(ref .. ':' .. relpath) .. ' 2>&1')
-  if vim.v.shell_error ~= 0 then
-    vim.notify('Failed to read ' .. relpath .. ' from ' .. ref .. ':\n' .. content, vim.log.levels.ERROR)
-    return
-  end
-
-  local orig_win = vim.api.nvim_get_current_win()
-  local orig_ft  = vim.bo.filetype
-  local scratch
-
-  diff_generation = diff_generation + 1
-  local my_generation = diff_generation
-
-  without_equalize(function()
-    vim.cmd('belowright vsplit')
-    scratch = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_win_set_buf(0, scratch)
-    vim.api.nvim_buf_set_lines(scratch, 0, -1, false, vim.split(content, '\n', { plain = true }))
-    vim.bo[scratch].filetype   = orig_ft
-    vim.bo[scratch].buftype    = 'nofile'
-    vim.bo[scratch].bufhidden  = 'wipe'
-    vim.bo[scratch].swapfile   = false
-    vim.bo[scratch].modifiable = false
-    pcall(vim.api.nvim_buf_set_name, scratch, ref .. ':' .. relpath)
-
-    vim.cmd('diffthis')
-    vim.api.nvim_set_current_win(orig_win)
-    vim.cmd('diffthis')
-  end)
-
-  -- Closing the scratch (ref) window leaves the real buffer's window
-  -- stuck showing diff highlighting/foldcolumn; turn that off automatically.
-  -- Guarded by generation: if a newer diff has since been opened on the same
-  -- (reused) window — e.g. <leader>gn immediately opening the next file's
-  -- diff before this deferred callback runs — skip so it doesn't clobber it.
-  vim.api.nvim_create_autocmd('BufWipeout', {
-    buffer   = scratch,
-    once     = true,
-    callback = function()
-      vim.schedule(function()
-        if diff_generation == my_generation and vim.api.nvim_win_is_valid(orig_win) then
-          vim.api.nvim_win_call(orig_win, function() vim.cmd('diffoff') end)
-        end
+-- Offer a branch picker plus a "type a ref…" option (HEAD^1 for
+-- post-merge review, HEAD~2, a commit SHA, …), then call open(ref).
+local function pick_ref_then(open)
+  local current  = current_branch(true)
+  local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
+  local type_ref = 'Type a ref… (e.g. HEAD^1, HEAD~2, a commit SHA)'
+  table.insert(branches, type_ref)
+  git_ui_busy = true
+  vim.ui.select(branches, { prompt = 'Diff against branch/ref:' }, function(choice)
+    if not choice then git_ui_busy = false; return end
+    if choice == type_ref then
+      vim.ui.input({ prompt = 'Git ref: ', default = 'HEAD^1' }, function(ref)
+        git_ui_busy = false
+        if ref and ref ~= '' then open(ref) end
       end)
-    end,
-  })
-
-  last_diff_ref = ref
-  vim.notify('Diffing against ' .. ref .. ' — do/dp to move hunks, ]c/[c to jump between them',
-    vim.log.levels.INFO)
+    else
+      git_ui_busy = false
+      open(choice)
+    end
+  end)
 end
 
--- Offers a branch picker plus a "type a ref…" option, since post-merge
--- cleanup needs to diff against HEAD^ (pre-merge state) rather than a
--- branch name.
-local function git_diff_file_against_ref()
+-- Diff only the current file against a picked branch/ref.
+local function diff_file_against_ref()
   if not is_git_repo() then return end
   local file = vim.fn.expand('%:p')
   if file == '' then
     vim.notify('No file in current buffer', vim.log.levels.WARN)
     return
   end
-  local relpath = vim.fn.systemlist('git ls-files --full-name ' .. vim.fn.shellescape(file))[1]
-  if not relpath or relpath == '' then
-    vim.notify('File is not tracked by git', vim.log.levels.WARN)
-    return
-  end
-
-  local current  = current_branch(true)
-  local branches = vim.tbl_filter(function(b) return b ~= current end, list_branches(true))
-  local type_ref = 'Type a ref… (e.g. HEAD^, HEAD~2, a commit SHA)'
-  table.insert(branches, type_ref)
-  git_ui_busy = true
-  vim.ui.select(branches, { prompt = 'Diff current file against branch/ref:' }, function(choice)
-    if not choice then git_ui_busy = false; return end
-    if choice == type_ref then
-      vim.ui.input({ prompt = 'Git ref: ', default = last_diff_ref }, function(ref)
-        git_ui_busy = false
-        if ref and ref ~= '' then open_ref_diff_for_current_buffer(ref) end
-      end)
-    else
-      git_ui_busy = false
-      open_ref_diff_for_current_buffer(choice)
-    end
+  pick_ref_then(function(ref)
+    vim.cmd('DiffviewOpen ' .. vim.fn.fnameescape(ref) .. ' -- ' .. vim.fn.fnameescape(file))
   end)
 end
 
--- Advances the quickfix list and reports whether it actually moved.
--- pcall(vim.cmd, 'cnext')'s own success/failure isn't reliable here: landing
--- on a new buffer can trigger unrelated autocmds (scrollview, neo-tree
--- reveal, etc.) that throw *after* the jump already happened, which makes
--- pcall report failure even though the quickfix index did advance. Compare
--- the index directly instead, so an unrelated autocmd error downstream
--- doesn't get mistaken for "reached the end of the list".
-local function try_cnext()
-  local before = vim.fn.getqflist({ idx = 0 }).idx
-  pcall(vim.cmd, 'cnext')
-  local after = vim.fn.getqflist({ idx = 0 }).idx
-  return after ~= before
-end
-
--- "I am done here, moving on to the next change": for use after a <leader>gf
--- review — saves the real file, closes the read-only ref/scratch side (which
--- self-wipes and triggers the diffoff cleanup on the other window), deletes
--- the real file's buffer so it doesn't linger in the buffer list across a
--- long quickfix walk, then advances to the next quickfix entry and reopens
--- the diff there against the same ref, so the left/right panes carry over
--- from file to file without re-prompting. Identifies the two sides purely by
--- 'diff' being set on the window, so it works no matter which side (real
--- file or scratch) the cursor is on when invoked.
-local function git_diff_done_next()
-  local diff_wins = vim.tbl_filter(function(w) return vim.wo[w].diff end,
-    vim.api.nvim_tabpage_list_wins(0))
-
-  local real_win, real_buf, scratch_win
-  for _, win in ipairs(diff_wins) do
-    local buf = vim.api.nvim_win_get_buf(win)
-    if vim.bo[buf].modifiable then
-      real_win, real_buf = win, buf
-      if vim.bo[buf].modified then
-        vim.api.nvim_win_call(win, function() vim.cmd('write') end)
-      end
-    else
-      scratch_win = win
-    end
-  end
-
-  -- Turn off diff mode on the real window synchronously now, rather than
-  -- relying on the scratch buffer's own BufWipeout->diffoff autocmd (which
-  -- runs on a deferred vim.schedule): since we're about to reuse this same
-  -- window for the next file's diff, that deferred callback could otherwise
-  -- fire after the new diff is already set up and incorrectly clear it.
-  if real_win and vim.api.nvim_win_is_valid(real_win) then
-    vim.api.nvim_win_call(real_win, function() vim.cmd('diffoff') end)
-  end
-
-  -- Advance the quickfix list *before* closing/deleting anything, with focus
-  -- on the real window, so :cnext swaps that window's buffer in place. If we
-  -- deleted the old buffer first instead, a window with no "alternate"
-  -- buffer to fall back to (common once we've cycled through a few files)
-  -- gets closed outright rather than cleared — collapsing neo-tree's sibling
-  -- window and leaving the sidebar to inherit the whole row's width.
-  if real_win and vim.api.nvim_win_is_valid(real_win) then
-    vim.api.nvim_set_current_win(real_win)
-  end
-  local advanced = try_cnext()
-
-  without_equalize(function()
-    if scratch_win and vim.api.nvim_win_is_valid(scratch_win) then
-      vim.api.nvim_win_close(scratch_win, true)
-    end
-    if real_buf and vim.api.nvim_buf_is_valid(real_buf) then
-      pcall(vim.api.nvim_buf_delete, real_buf, { force = false })
-    end
-  end)
-
-  if not advanced or not last_diff_ref then return end
-
-  -- Skip forward past any binary files (do/dp diffing doesn't apply to
-  -- them) so the walk doesn't stop on a garbled-looking raw-bytes buffer.
-  -- Each skipped file's buffer is deleted once cnext has moved off it, same
-  -- as the real-file cleanup above, so they don't pile up in the buffer list.
-  while true do
-    local file = vim.fn.expand('%:p')
-    local relpath = file ~= '' and vim.fn.systemlist('git ls-files --full-name ' .. vim.fn.shellescape(file))[1]
-    if not relpath or relpath == '' or not is_binary_relpath(last_diff_ref, relpath) then
-      break
-    end
-    vim.notify('Skipping binary file: ' .. relpath, vim.log.levels.INFO)
-    local binary_buf = vim.api.nvim_get_current_buf()
-    if not try_cnext() then break end
-    pcall(vim.api.nvim_buf_delete, binary_buf, { force = false })
-  end
-
-  open_ref_diff_for_current_buffer(last_diff_ref)
-end
-
--- List every file changed between two refs (default: HEAD^1..HEAD, i.e. what
--- a merge commit just brought in relative to the branch it was merged into)
--- into the quickfix list, so a post-merge review can walk them with
--- :cnext/:cprev alongside <leader>gf instead of tracking the list by hand.
-local function git_changed_files_to_quickfix()
+-- Review every file changed against a picked branch/ref in one tab.
+-- Tip: for what a merge just brought in, pick "type a ref" and enter
+-- HEAD^1..HEAD (a range diffs two commits; a plain ref diffs against
+-- the working tree).
+local function review_changes_against_ref()
   if not is_git_repo() then return end
-  git_ui_busy = true
-  vim.ui.input({ prompt = 'Base ref: ', default = 'HEAD^1' }, function(base)
-    if not base or base == '' then git_ui_busy = false; return end
-    vim.ui.input({ prompt = 'Target ref: ', default = 'HEAD' }, function(target)
-      git_ui_busy = false
-      if not target or target == '' then return end
-      local files = vim.fn.systemlist(
-        'git diff --name-only ' .. vim.fn.shellescape(base) .. ' ' .. vim.fn.shellescape(target))
-      if vim.v.shell_error ~= 0 then
-        vim.notify('Failed to diff ' .. base .. '..' .. target .. ':\n' .. table.concat(files, '\n'),
-          vim.log.levels.ERROR)
-        return
-      end
-      if #files == 0 then
-        vim.notify('No changed files between ' .. base .. ' and ' .. target, vim.log.levels.INFO)
-        return
-      end
-      local root = vim.fn.systemlist('git rev-parse --show-toplevel')[1]
-      local qflist = {}
-      for _, f in ipairs(files) do
-        table.insert(qflist, { filename = root .. '/' .. f, lnum = 1, text = f })
-      end
-      vim.fn.setqflist(qflist)
-      vim.cmd('copen')
-      vim.notify(#files .. ' changed file(s) (' .. base .. '..' .. target .. ') loaded to quickfix',
-        vim.log.levels.INFO)
-    end)
+  pick_ref_then(function(ref)
+    vim.cmd('DiffviewOpen ' .. vim.fn.fnameescape(ref))
   end)
+end
+
+-- Review the current working-tree changes (staged + unstaged vs HEAD).
+local function review_working_tree()
+  if not is_git_repo() then return end
+  vim.cmd('DiffviewOpen')
+end
+
+-- History of the current file (normal) or the selected lines (visual):
+-- every commit that touched it, each openable as a diff.
+local function file_history()
+  if not is_git_repo() then return end
+  vim.cmd('DiffviewFileHistory %')
+end
+
+local function range_history()
+  if not is_git_repo() then return end
+  -- Leave visual mode first so '< and '> are set for the range form.
+  vim.cmd([[execute "normal! \<Esc>"]])
+  vim.cmd("'<,'>DiffviewFileHistory")
 end
 
 -- ── Git keymaps ───────────────────────────────────────────────
@@ -770,8 +578,10 @@ vim.keymap.set('n', '<leader>gP', with_remote_check(git_push),          { desc =
 vim.keymap.set('n', '<leader>gs', with_remote_check(switch_branch),     { desc = 'Git: switch branch' })
 vim.keymap.set('n', '<leader>gd', with_remote_check(delete_branch),     { desc = 'Git: delete branch' })
 vim.keymap.set('n', '<leader>gm', with_remote_check(merge_branch),      { desc = 'Git: merge branch' })
-vim.keymap.set('n', '<leader>gf', with_remote_check(git_diff_file_against_ref), { desc = 'Git: diff file against branch/ref (do/dp to pull hunks)' })
-vim.keymap.set('n', '<leader>gq', with_remote_check(git_changed_files_to_quickfix), { desc = 'Git: changed files (ref..ref) to quickfix' })
-vim.keymap.set('n', '<leader>gn', with_remote_check(git_diff_done_next), { desc = 'Git: done with this diff, save + close + next quickfix' })
+vim.keymap.set('n', '<leader>gf', with_remote_check(diff_file_against_ref), { desc = 'Git: diff current file against branch/ref (diffview; do/dp to pull hunks)' })
+vim.keymap.set('n', '<leader>gv', with_remote_check(review_changes_against_ref), { desc = 'Git: review all changes against branch/ref (diffview)' })
+vim.keymap.set('n', '<leader>gw', with_remote_check(review_working_tree), { desc = 'Git: review working-tree changes (diffview)' })
+vim.keymap.set('n', '<leader>gh', with_remote_check(file_history), { desc = 'Git: file history (diffview)' })
+vim.keymap.set('v', '<leader>gh', range_history, { desc = 'Git: history of selected lines (diffview)' })
 vim.keymap.set('n', '<leader>gx', with_remote_check(discard_buffer_changes), { desc = 'Git: discard changes in buffer' })
 vim.keymap.set('n', '<leader>gR', force_check_remote, { desc = 'Git: check if origin is ahead (bypasses debounce)' })

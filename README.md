@@ -25,7 +25,7 @@ Claude, Grok, and Gemini in that order.
 - **LSP** — Fortran (`fortls`), Python (`basedpyright`), Lua (`lua_ls`), C/C++ (`clangd`), Bash (`bashls`), JSON/YAML with schema validation (`jsonls`/`yamlls` + schemastore), TOML (`taplo`), Rust (`rust_analyzer`), HTML/CSS (`html`/`cssls`), TypeScript/JavaScript/React (`ts_ls`, `eslint`), Java (`jdtls` via nvim-jdtls)
 - **Debugging** — GDB for Fortran and C/C++, debugpy for Python, jdtls DAP for Java, pwa-node for JS/TS/React — all with full DAP UI and inline virtual-text variable values
 - **CMake** — preset selection, configure, parallel build, run with workdata picker
-- **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management
+- **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management, diffview.nvim reviews (ref diffs, working-tree review, per-file history, 3-way merge resolution)
 - **File navigation** — neo-tree sidebar, Telescope fuzzy finder, recent files
 - **Jupyter notebooks** — double-click `.ipynb` in neo-tree opens in JupyterLab (browser); `<leader>jq` stops the server when done
 - **HTML preview** — double-click `.html` in neo-tree opens in the default browser via `xdg-open`
@@ -233,7 +233,7 @@ cd ~/myproject && nvim
     │   ├── fortran-tools.lua   — Fortran LSP + DAP        [lazy: FileType fortran]
     │   └── python.lua          — Python LSP + DAP         [lazy: FileType python]
     ├── features/               — homegrown subsystems (no plugin behind them)
-    │   ├── git-workflow.lua    — lazygit, commit/pull/push, branches, ref-diff review, remote-ahead check
+    │   ├── git-workflow.lua    — lazygit, commit/pull/push, branches, diffview review keymaps, remote-ahead check
     │   ├── hscrollbar.lua      — horizontal scrollbar (custom floating bar)
     │   ├── edge-scroll.lua     — mouse edge-hover horizontal scrolling
     │   ├── goto-file-line.lua  — gF / <C-g>f: open file:line from compiler errors

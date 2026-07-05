@@ -244,9 +244,10 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 | `<leader>gs` | Switch branch | `features/git-workflow.lua` |
 | `<leader>gd` | Delete branch | `features/git-workflow.lua` |
 | `<leader>gm` | Merge branch | `features/git-workflow.lua` |
-| `<leader>gf` | Diff current file against a branch, or a typed ref (e.g. `HEAD^1`) — `do`/`dp` to pull hunks | `features/git-workflow.lua` |
-| `<leader>gq` | Load files changed between two refs (default `HEAD^1`..`HEAD`) into the quickfix list | `features/git-workflow.lua` |
-| `<leader>gn` | Done with this file's diff: save, close, delete buffer, advance quickfix, reopen diff on the next file (auto-skips binaries) | `features/git-workflow.lua` |
+| `<leader>gf` | Diff current file against a branch or typed ref (diffview tab; `do`/`dp` to pull hunks, `q` to close) | `features/git-workflow.lua` |
+| `<leader>gv` | Review ALL files changed against a branch/ref in one diffview tab (file panel: `<Tab>`/`<S-Tab>` or Enter to switch files) | `features/git-workflow.lua` |
+| `<leader>gw` | Review current working-tree changes, staged + unstaged (diffview) | `features/git-workflow.lua` |
+| `<leader>gh` | File history — every commit that touched the current file (n) or the selected lines (v) | `features/git-workflow.lua` |
 | `<leader>gx` | Discard all changes in current buffer's file (restores to HEAD; confirmation prompt; refuses on untracked files) | `features/git-workflow.lua` |
 
 > See `doc/selective-merge.md` for the full selective branch-merge workflow these three keys were built for.
