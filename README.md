@@ -287,9 +287,12 @@ cd ~/myproject && nvim
 
 ## Configuration structure
 
+Files in `lua/plugins/` and `lua/features/` are auto-loaded alphabetically
+(plugins first, then features); they are grouped below by purpose for reading.
+
 ```
 ~/.config/nvim/
-├── init.lua                    — entry point; auto-loads lua/plugins/
+├── init.lua                    — entry point; loads core, then lua/plugins/, then lua/features/
 ├── doc/
 │   ├── README.md               — this file
 │   ├── keymaps.md              — full keymap reference with plugin sources
@@ -300,34 +303,45 @@ cd ~/myproject && nvim
     │   ├── options.lua         — editor settings
     │   ├── keymaps.lua         — global keymaps
     │   ├── autocmds.lua        — global autocommands
-    │   └── utils.lua           — shared helpers (find_editor_win)
-    ├── plugins/                — one file per plugin; all auto-loaded
-    │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments
-    │   ├── telescope.lua       — fuzzy finder
-    │   ├── lsp.lua             — mason, lspconfig, fidget
-    │   ├── completion.lua      — blink.cmp + luasnip    [lazy: InsertEnter]
-    │   ├── formatting.lua      — conform.nvim            [lazy: <leader>f]
-    │   ├── treesitter.lua      — syntax highlighting     [lazy: FileType]
-    │   ├── gitsigns.lua        — inline git decorations + hunk ops
+    │   ├── utils.lua           — shared helpers (gh, find_editor_win, is_editor_buf, try, …)
+    │   └── project.lua         — shared project-runner (roots, executable discovery, launch picker)
+    ├── plugins/                — third-party plugin config; one file per plugin, auto-loaded
+    │   ├── ui.lua              — catppuccin, which-key, mini, todo-comments, bufferline, indent-blankline
+    │   ├── snacks.lua          — notifier (floating vim.notify) + floating vim.ui.input
+    │   ├── telescope.lua       — fuzzy finder; overrides vim.ui.select
     │   ├── neo-tree.lua        — file explorer
     │   ├── toggleterm.lua      — persistent terminal
-    │   ├── dap.lua             — DAP core, dapui setup + listeners, all <leader>d* keymaps
     │   ├── markdown.lua        — render-markdown.nvim
-    │   ├── surround.lua        — nvim-surround (ys/cs/ds) [lazy: BufReadPost]
-    │   ├── lint.lua            — nvim-lint + shellcheck   [lazy: FileType sh/bash]
-    │   ├── cmake-tools.lua     — CMake integration        [lazy: DirChanged]
-    │   ├── make-tools.lua      — Make integration         [lazy: DirChanged]
-    │   ├── c-tools.lua         — C/C++ DAP (GDB)          [lazy: FileType c/cpp]
-    │   ├── web-tools.lua       — JS/TS/React DAP          [lazy: FileType js/ts/jsx/tsx]
-    │   ├── java-tools.lua      — Java LSP + DAP (jdtls)   [lazy: FileType java]
-    │   ├── fortran-tools.lua   — Fortran LSP + DAP        [lazy: FileType fortran]
-    │   └── python.lua          — Python LSP + DAP         [lazy: FileType python]
+    │   ├── session.lua         — per-directory session save/restore
+    │   ├── spell.lua           — built-in spell checking (prose filetypes)
+    │   ├── autopairs.lua       — auto-close brackets/quotes   [lazy: InsertEnter]
+    │   ├── surround.lua        — nvim-surround (ys/cs/ds)      [lazy: BufReadPost]
+    │   ├── flash.lua           — jump anywhere on screen (s + chars + label)
+    │   ├── harpoon.lua         — pin a working set of files (<leader>a, <leader>1-4)
+    │   ├── grug-far.lua        — project-wide search & replace (<leader>sR)
+    │   ├── undotree.lua        — visual undo-history browser (<leader>tu)
+    │   ├── gitsigns.lua        — inline git decorations + hunk ops
+    │   ├── diffview.lua        — diff / review UI (drives <leader>gf/gv/gw/gh)
+    │   ├── lsp.lua             — mason, lspconfig, fidget
+    │   ├── completion.lua      — blink.cmp + luasnip           [lazy: InsertEnter]
+    │   ├── formatting.lua      — conform.nvim                  [lazy: <leader>f]
+    │   ├── treesitter.lua      — syntax highlighting           [lazy: FileType]
+    │   ├── lint.lua            — nvim-lint + shellcheck        [lazy: FileType sh/bash]
+    │   ├── dap.lua             — DAP core: dapui, listeners, <leader>d*/F-keys  [lazy: first d-key or lang file]
+    │   ├── cmake-tools.lua     — CMake integration             [lazy: DirChanged]
+    │   ├── make-tools.lua      — Make integration              [lazy: DirChanged]
+    │   ├── c-tools.lua         — C/C++ DAP (GDB)               [lazy: FileType c/cpp]
+    │   ├── web-tools.lua       — JS/TS/React DAP               [lazy: FileType js/ts/jsx/tsx]
+    │   ├── java-tools.lua      — Java LSP + DAP (jdtls)        [lazy: FileType java]
+    │   ├── fortran-tools.lua   — Fortran LSP + DAP             [lazy: FileType fortran]
+    │   └── python.lua          — Python LSP + DAP              [lazy: FileType python]
     ├── features/               — homegrown subsystems (no plugin behind them)
-    │   ├── git-workflow.lua    — lazygit, commit/pull/push, branches, diffview review keymaps, remote-ahead check
-    │   ├── hscrollbar.lua      — horizontal scrollbar (custom floating bar)
-    │   ├── edge-scroll.lua     — mouse edge-hover horizontal scrolling
-    │   ├── goto-file-line.lua  — gF / <C-g>f: open file:line from compiler errors
-    │   └── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
+    │   ├── git-workflow.lua     — lazygit, commit/pull/push, branches, diffview review keymaps, remote-ahead check
+    │   ├── hscrollbar.lua       — horizontal scrollbar (custom floating bar)
+    │   ├── edge-scroll.lua      — mouse edge-hover horizontal scrolling
+    │   ├── goto-file-line.lua   — gF / <C-g>f: open file:line from compiler errors
+    │   ├── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
+    │   └── claude-terminal.lua  — <F9> toggles a Claude Code panel (toggleterm split)
     └── projects/               — shared language configs
         ├── fortran.lua         — sourced by Fortran project .nvim.lua files
         └── python.lua          — sourced by Python project .nvim.lua files
