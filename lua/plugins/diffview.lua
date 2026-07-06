@@ -21,6 +21,13 @@ vim.pack.add { gh 'sindrets/diffview.nvim' }  -- no tagged releases
 
 require('diffview').setup {
   use_icons = vim.g.have_nerd_font,
+  -- winbar_info shows a header on each diff window naming the revision it
+  -- holds: the picked branch/ref on the left, the working copy (LOCAL) on
+  -- the right. Makes it obvious which side is which.
+  view = {
+    default      = { winbar_info = true },
+    file_history = { winbar_info = true },
+  },
   keymaps = {
     -- q closes the whole review tab from anywhere, matching the
     -- lazygit / notification-history convention used elsewhere.
