@@ -69,5 +69,16 @@ vim.api.nvim_create_autocmd('FileType', {
       { buffer = ev.buf, desc = 'Markdown: expand all' })
     vim.keymap.set('n', '<leader>mc', rm.contract,
       { buffer = ev.buf, desc = 'Markdown: collapse all' })
+    vim.keymap.set('n', '<leader>mh', function()
+      local md = vim.api.nvim_buf_get_name(ev.buf)
+      local html = vim.fn.fnamemodify(md, ':r') .. '.html'
+      vim.system({ 'pandoc', '-s', md, '-o', html }, {}, function(out)
+        if out.code == 0 then
+          vim.system { 'xdg-open', html }
+        else
+          vim.schedule(function() vim.notify(out.stderr, vim.log.levels.ERROR) end)
+        end
+      end)
+    end, { buffer = ev.buf, desc = 'Markdown: render to HTML and open browser' })
   end,
 })

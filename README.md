@@ -34,7 +34,7 @@ Claude, Grok, and Gemini in that order.
 - **Linting** — `nvim-lint` with shellcheck for shell scripts (supplements bashls)
 - **Surround** — `nvim-surround` for adding/changing/deleting surrounding pairs (`ys`, `cs`, `ds`)
 - **Spell checking** — built-in spell check; `<leader>tL` picks language (English US/UK, French, German, Spanish, Italian, Portuguese, Dutch, Russian — spell file auto-downloaded); `<leader>ts` toggles on/off; `zg` adds words to a per-language version-controlled personal dictionary; auto-on for Markdown/text/commit messages
-- **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks
+- **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks; `<leader>mh` renders the file to HTML (pandoc) and opens it in the default browser
 - **Navigation** — `flash.nvim` (jump anywhere on screen: `s` + 2 chars + label; enhanced `f`/`t`) and `harpoon` v2 (pin a per-project working set; `<leader>a` to pin, `<leader>1`-`4` to jump, `<leader>0` for the menu)
 - **Search & replace** — `grug-far.nvim` project-wide replace UI with live ripgrep preview (`<leader>sR`)
 - **Undo history** — `undotree` visual browser (`<leader>tu`); pairs with persistent undofile
@@ -97,6 +97,7 @@ sudo pacman -S --needed \
   gcc-fortran gdb \
   nodejs npm python python-pip \
   lazygit wl-clipboard xclip xdg-utils \
+  pandoc-cli \
   ttf-mononoki-nerd
 
 # Fortran LSP — the one server NOT managed by Mason.
@@ -128,7 +129,8 @@ sudo apt install \
   ripgrep fd-find \
   gfortran gdb \
   nodejs npm python3-pip python3-venv pipx \
-  wl-clipboard xclip xdg-utils
+  wl-clipboard xclip xdg-utils \
+  pandoc
 
 # Not packaged by Ubuntu:
 sudo npm install -g tree-sitter-cli   # treesitter parser builds
