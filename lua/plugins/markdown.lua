@@ -73,11 +73,21 @@ vim.api.nvim_create_autocmd('FileType', {
       local md = vim.api.nvim_buf_get_name(ev.buf)
       local html = vim.fn.fnamemodify(md, ':r') .. '.html'
       vim.system({ 'pandoc', '-s', md, '-o', html }, {}, function(out)
-        if out.code == 0 then
-          vim.system { 'xdg-open', html }
-        else
+        if out.code ~= 0 then
           vim.schedule(function() vim.notify(out.stderr, vim.log.levels.ERROR) end)
+          return
         end
+        vim.schedule(function()
+          vim.ui.select({ 'No (default)', 'Yes' }, {
+            prompt = 'Keep ' .. vim.fn.fnamemodify(html, ':t') .. '? (<Enter> = No)',
+          }, function(choice)
+            vim.system { 'xdg-open', html }
+            if choice ~= 'Yes' then
+              -- delay so a cold-starting browser reads the file before it goes
+              vim.defer_fn(function() os.remove(html) end, 5000)
+            end
+          end)
+        end)
       end)
     end, { buffer = ev.buf, desc = 'Markdown: render to HTML and open browser' })
   end,

@@ -34,7 +34,7 @@ Claude, Grok, and Gemini in that order.
 - **Linting** — `nvim-lint` with shellcheck for shell scripts (supplements bashls)
 - **Surround** — `nvim-surround` for adding/changing/deleting surrounding pairs (`ys`, `cs`, `ds`)
 - **Spell checking** — built-in spell check; `<leader>tL` picks language (English US/UK, French, German, Spanish, Italian, Portuguese, Dutch, Russian — spell file auto-downloaded); `<leader>ts` toggles on/off; `zg` adds words to a per-language version-controlled personal dictionary; auto-on for Markdown/text/commit messages
-- **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks; `<leader>mh` renders the file to HTML (pandoc) and opens it in the default browser
+- **Markdown** — `render-markdown.nvim` for rendered tables, headings, and code blocks; `<leader>mh` renders the file to HTML (pandoc), opens it in the default browser, then asks whether to keep the `.html` (default: No — the file is deleted after viewing)
 - **Navigation** — `flash.nvim` (jump anywhere on screen: `s` + 2 chars + label; enhanced `f`/`t`) and `harpoon` v2 (pin a per-project working set; `<leader>a` to pin, `<leader>1`-`4` to jump, `<leader>0` for the menu)
 - **Search & replace** — `grug-far.nvim` project-wide replace UI with live ripgrep preview (`<leader>sR`)
 - **Undo history** — `undotree` visual browser (`<leader>tu`); pairs with persistent undofile
