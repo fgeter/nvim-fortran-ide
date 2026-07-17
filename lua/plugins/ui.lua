@@ -182,3 +182,64 @@ require('bufferline').setup {
     end,
   },
 }
+
+-- ── clickable left truncation arrow ──────────────────────────
+-- bufferline never attaches a click handler to its truncation markers.
+-- The RIGHT one still "works" by accident: buffer tabs are rendered with
+-- an unterminated global click region (ui.lua appends the region opener
+-- instead of %X), so the right marker inherits the last visible buffer's
+-- region — clicking it selects that buffer and the layout, which always
+-- keeps the current buffer in view, reveals more tabs to the right.  The
+-- LEFT marker sits before any click region, so clicks are dropped.  Give
+-- it a real handler: page left by one screenful — select the buffer one
+-- visible-count to the left of the leftmost visible one, which makes the
+-- layout scroll left.
+_G.___bufferline_scroll_left = function()
+  local bstate = require 'bufferline.state'
+  local first_visible = bstate.visible_components[1]
+  if not first_visible then return end
+  for i, comp in ipairs(bstate.components) do
+    if comp.id == first_visible.id then
+      local target = bstate.components[math.max(1, i - #bstate.visible_components)]
+      if not (target and vim.api.nvim_buf_is_valid(target.id)) then return end
+      -- if focus is in a special window (neo-tree, terminal, …) switch a
+      -- regular editor window instead of clobbering the special buffer
+      if vim.bo[vim.api.nvim_get_current_buf()].buftype ~= '' then
+        for _, w in ipairs(vim.api.nvim_list_wins()) do
+          if vim.api.nvim_win_get_config(w).relative == ''
+              and vim.bo[vim.api.nvim_win_get_buf(w)].buftype == '' then
+            vim.api.nvim_set_current_win(w)
+            break
+          end
+        end
+      end
+      if vim.bo[vim.api.nvim_get_current_buf()].buftype == '' then
+        vim.api.nvim_set_current_buf(target.id)
+      end
+      return
+    end
+  end
+end
+
+-- Wrap the tabline renderer installed by setup(): when tabs are hidden on
+-- the left, the rendered left marker (count segment + icon segment, each
+-- prefixed with the TruncMarker highlight) is wrapped in a click region.
+local render = _G.nvim_bufferline
+_G.nvim_bufferline = function()
+  local str = render()
+  local bstate = require 'bufferline.state'
+  local bconfig = require 'bufferline.config'
+  local first_visible, first = bstate.visible_components[1], bstate.components[1]
+  if not (first_visible and first) or first_visible.id == first.id then return str end
+
+  local trunc_hl = '%#' .. bconfig.highlights.trunc_marker.hl_group .. '#'
+  local s = str:find(trunc_hl, 1, true)
+  if not s then return str end
+  local icon_start = str:find(trunc_hl, s + #trunc_hl, true)
+  if not icon_start then return str end
+  local e = icon_start + #trunc_hl + #(bconfig.options.left_trunc_marker .. ' ') - 1
+
+  return str:sub(1, s - 1)
+    .. '%@v:lua.___bufferline_scroll_left@' .. str:sub(s, e) .. '%X'
+    .. str:sub(e + 1)
+end
