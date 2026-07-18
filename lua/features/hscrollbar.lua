@@ -86,7 +86,10 @@ local function refresh(winid)
       width = bar_w, height = 1,
       style = 'minimal',
       focusable = false,
-      zindex = 150,
+      -- Low zindex: floats always render above normal windows, so the
+      -- bar still covers its buffer window, but stays UNDER plugin
+      -- floats (telescope ivy, etc.), which default to zindex 50.
+      zindex = 10,
     })
     vim.wo[win].winblend = 0
     vim.wo[win].winhighlight = 'Normal:PmenuSel'
