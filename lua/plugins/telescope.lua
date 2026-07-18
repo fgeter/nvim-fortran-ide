@@ -78,6 +78,88 @@ vim.keymap.set('n', '<leader>s/', function()
   }
 end, { desc = 'Search: grep in open buffers' })
 
+-- Multi-word AND search: find files containing ALL of the given words,
+-- not necessarily on the same line. Implemented by intersecting
+-- `rg -l` file lists (one pass per word). Words are matched literally
+-- (no regex) and case-insensitively. Results open in a file picker
+-- with preview.
+vim.keymap.set('n', '<leader>sa', function()
+  vim.ui.input({ prompt = 'Files containing ALL of (space-separated): ' }, function(input)
+    if not input or input == '' then return end
+    local terms = vim.split(input, '%s+', { trimempty = true })
+    if #terms == 0 then return end
+
+    -- Commands are passed as argv lists (no shell), so filenames with
+    -- spaces or special characters need no escaping.
+    local files = vim.fn.systemlist { 'rg', '-l', '--fixed-strings', '--ignore-case', '--', terms[1] }
+    if vim.v.shell_error ~= 0 then files = {} end
+    for i = 2, #terms do
+      if #files == 0 then break end
+      local cmd = { 'rg', '-l', '--fixed-strings', '--ignore-case', '--', terms[i] }
+      vim.list_extend(cmd, files)
+      files = vim.fn.systemlist(cmd)
+      if vim.v.shell_error ~= 0 then files = {} end
+    end
+    table.sort(files)
+
+    if #files == 0 then
+      vim.notify('No files contain all of: ' .. table.concat(terms, ', '), vim.log.levels.INFO)
+      return
+    end
+
+    local conf = require('telescope.config').values
+
+    -- Custom previewer: same file preview as file_previewer, but with
+    -- every search word highlighted (window-local matches, so they
+    -- apply to whichever file the preview window shows).
+    local previewer = require('telescope.previewers').new_buffer_previewer {
+      title = 'Preview (matches highlighted)',
+      get_buffer_by_name = function(_, entry) return entry.path or entry.value end,
+      define_preview = function(self, entry)
+        -- \c = ignore case, \V = very nomagic (literal match)
+        local patterns = {}
+        for _, term in ipairs(terms) do
+          table.insert(patterns, '\\c\\V' .. vim.fn.escape(term, '\\'))
+        end
+        conf.buffer_previewer_maker(entry.path or entry.value, self.state.bufnr, {
+          bufname = self.state.bufname,
+          winid   = self.state.winid,
+          -- Runs after the file content is loaded into the preview
+          -- buffer: jump to the first line matching any search word.
+          callback = function()
+            local winid = self.state.winid
+            if winid and vim.api.nvim_win_is_valid(winid) then
+              vim.api.nvim_win_call(winid, function()
+                vim.fn.cursor(1, 1)
+                if vim.fn.search(table.concat(patterns, '\\|'), 'cW') > 0 then
+                  vim.cmd 'normal! zz'
+                end
+              end)
+            end
+          end,
+        })
+        local winid = self.state.winid
+        if winid and vim.api.nvim_win_is_valid(winid) then
+          vim.fn.clearmatches(winid)
+          for _, pattern in ipairs(patterns) do
+            vim.fn.matchadd('Search', pattern, 10, -1, { window = winid })
+          end
+        end
+      end,
+    }
+
+    require('telescope.pickers').new(require('telescope.themes').get_ivy(), {
+      prompt_title = 'Files containing: ' .. table.concat(terms, ' AND '),
+      finder       = require('telescope.finders').new_table {
+        results    = files,
+        entry_maker = require('telescope.make_entry').gen_from_file {},
+      },
+      sorter       = conf.file_sorter {},
+      previewer    = previewer,
+    }):find()
+  end)
+end, { desc = 'Search: files containing ALL words (any lines)' })
+
 -- Recent files (replaces the separate recent-files.lua vim.ui.select picker)
 vim.keymap.set('n', '<leader>rf', builtin.oldfiles, { desc = 'Recent files' })
 
