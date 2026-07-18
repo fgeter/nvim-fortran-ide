@@ -73,6 +73,7 @@
 |-----|--------|--------|
 | `<leader>sf` | Find files (all, including hidden/gitignored) | `plugins/telescope.lua` |
 | `<leader>sg` | Live grep | `plugins/telescope.lua` |
+| `<leader>sa` | Files containing ALL given words (any lines, literal, case-insensitive) | `plugins/telescope.lua` |
 | `<leader>sw` | Grep word under cursor | `plugins/telescope.lua` |
 | `<leader>s/` | Grep in open buffers | `plugins/telescope.lua` |
 | `<leader>sh` | Search help tags | `plugins/telescope.lua` |
