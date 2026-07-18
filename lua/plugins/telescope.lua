@@ -83,28 +83,64 @@ end, { desc = 'Search: grep in open buffers' })
 -- `rg -l` file lists (one pass per word). Words are matched literally
 -- (no regex) and case-insensitively. Results open in a file picker
 -- with preview.
+--
+-- Query syntax:  basin residue      both words, anywhere (substring)
+--                "basin" residue    "basin" as a whole word only, so
+--                                   basin_module does not count
+--                basin !hru         has basin, does NOT contain hru
 vim.keymap.set('n', '<leader>sa', function()
-  vim.ui.input({ prompt = 'Files containing ALL of (space-separated): ' }, function(input)
+  vim.ui.input({ prompt = 'Files with ALL of ("w"=whole word, !w=exclude): ' }, function(input)
     if not input or input == '' then return end
-    local terms = vim.split(input, '%s+', { trimempty = true })
-    if #terms == 0 then return end
+
+    -- Parse tokens: word → substring the file must contain;
+    -- "word" → whole-word match; !word / !"word" → must NOT contain.
+    local includes, excludes = {}, {}
+    for _, tok in ipairs(vim.split(input, '%s+', { trimempty = true })) do
+      local exclude = tok:sub(1, 1) == '!'
+      if exclude then tok = tok:sub(2) end
+      local quoted = tok:match('^"(.*)"$')
+      if (quoted or tok) ~= '' then
+        table.insert(exclude and excludes or includes,
+          { text = quoted or tok, word = quoted ~= nil })
+      end
+    end
+    if #includes == 0 then return end
 
     -- Commands are passed as argv lists (no shell), so filenames with
-    -- spaces or special characters need no escaping.
-    local files = vim.fn.systemlist { 'rg', '-l', '--fixed-strings', '--ignore-case', '--', terms[1] }
-    if vim.v.shell_error ~= 0 then files = {} end
-    for i = 2, #terms do
+    -- spaces or special characters need no escaping. rg exit code 1
+    -- just means "nothing matched"; only >=2 is a real error.
+    local function rg_files(list_flag, term, file_list)
+      local cmd = { 'rg', list_flag, '--fixed-strings', '--ignore-case' }
+      if term.word then table.insert(cmd, '--word-regexp') end
+      vim.list_extend(cmd, { '--', term.text })
+      if file_list then vim.list_extend(cmd, file_list) end
+      local out = vim.fn.systemlist(cmd)
+      return vim.v.shell_error < 2 and out or {}
+    end
+
+    local files = rg_files('--files-with-matches', includes[1])
+    for i = 2, #includes do
       if #files == 0 then break end
-      local cmd = { 'rg', '-l', '--fixed-strings', '--ignore-case', '--', terms[i] }
-      vim.list_extend(cmd, files)
-      files = vim.fn.systemlist(cmd)
-      if vim.v.shell_error ~= 0 then files = {} end
+      files = rg_files('--files-with-matches', includes[i], files)
+    end
+    for _, term in ipairs(excludes) do
+      if #files == 0 then break end
+      files = rg_files('--files-without-match', term, files)
     end
     table.sort(files)
 
     if #files == 0 then
-      vim.notify('No files contain all of: ' .. table.concat(terms, ', '), vim.log.levels.INFO)
+      vim.notify('No files match: ' .. input, vim.log.levels.INFO)
       return
+    end
+
+    -- Highlight/jump patterns for the include terms.
+    -- \c = ignore case, \V = very nomagic (literal), \< \> = word bounds
+    local patterns = {}
+    for _, term in ipairs(includes) do
+      local lit = vim.fn.escape(term.text, '\\')
+      table.insert(patterns,
+        term.word and ('\\c\\V\\<' .. lit .. '\\>') or ('\\c\\V' .. lit))
     end
 
     local conf = require('telescope.config').values
@@ -116,11 +152,6 @@ vim.keymap.set('n', '<leader>sa', function()
       title = 'Preview (matches highlighted)',
       get_buffer_by_name = function(_, entry) return entry.path or entry.value end,
       define_preview = function(self, entry)
-        -- \c = ignore case, \V = very nomagic (literal match)
-        local patterns = {}
-        for _, term in ipairs(terms) do
-          table.insert(patterns, '\\c\\V' .. vim.fn.escape(term, '\\'))
-        end
         conf.buffer_previewer_maker(entry.path or entry.value, self.state.bufnr, {
           bufname = self.state.bufname,
           winid   = self.state.winid,
@@ -149,16 +180,41 @@ vim.keymap.set('n', '<leader>sa', function()
     }
 
     require('telescope.pickers').new(require('telescope.themes').get_ivy(), {
-      prompt_title = 'Files containing: ' .. table.concat(terms, ' AND '),
+      prompt_title = 'Files matching: ' .. input,
       finder       = require('telescope.finders').new_table {
         results    = files,
         entry_maker = require('telescope.make_entry').gen_from_file {},
       },
       sorter       = conf.file_sorter {},
       previewer    = previewer,
+      attach_mappings = function(_, map)
+        -- Jump between highlighted matches inside the preview window,
+        -- like n/N after a / search (wraps around). <C-s>/<C-a> work
+        -- while typing in the prompt; n/N work after <Esc> (the
+        -- prompt's normal mode).
+        local function jump(flags)
+          return function(prompt_bufnr)
+            local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+            local winid = picker.previewer
+              and picker.previewer.state and picker.previewer.state.winid
+            if winid and vim.api.nvim_win_is_valid(winid) then
+              vim.api.nvim_win_call(winid, function()
+                if vim.fn.search(table.concat(patterns, '\\|'), flags) > 0 then
+                  vim.cmd 'normal! zz'
+                end
+              end)
+            end
+          end
+        end
+        map({ 'i', 'n' }, '<C-s>', jump '')   -- next match
+        map({ 'i', 'n' }, '<C-a>', jump 'b')  -- previous match
+        map('n', 'n', jump '')
+        map('n', 'N', jump 'b')
+        return true
+      end,
     }):find()
   end)
-end, { desc = 'Search: files containing ALL words (any lines)' })
+end, { desc = 'Search: files containing ALL words ("w"=whole word, !w=exclude)' })
 
 -- Recent files (replaces the separate recent-files.lua vim.ui.select picker)
 vim.keymap.set('n', '<leader>rf', builtin.oldfiles, { desc = 'Recent files' })
