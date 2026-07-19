@@ -91,6 +91,64 @@ local function open_or_up(state)
   end
 end
 
+-- Move the node under the cursor to the system trash — no confirmation.
+-- Unlike the built-in 'delete' (permanent rm), trashed items land in
+-- ~/.local/share/Trash and can be restored with a file manager or
+-- `gio trash --restore <uri>` (list URIs with `gio trash --list`).
+local function trash_node(state)
+  local node = state.tree:get_node()
+  if not node or node.id == '__nav_up__' then return end
+  if node:get_depth() == 1 then
+    vim.notify('neo-tree: will not trash the root node', vim.log.levels.WARN)
+    return
+  end
+  local path = node.path or node:get_id()
+  local t0 = os.time()
+  vim.fn.system({ 'gio', 'trash', path })
+  if vim.v.shell_error ~= 0 then
+    vim.notify('gio trash failed for ' .. path, vim.log.levels.ERROR)
+    return
+  end
+  -- Wipe buffers for the trashed file (or files under a trashed directory)
+  -- so a stray :w doesn't resurrect it. Windows showing one fall back to
+  -- another buffer automatically.
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    local bname = vim.api.nvim_buf_get_name(buf)
+    if bname == path or vim.startswith(bname, path .. '/') then
+      pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
+  end
+  local events = require('neo-tree.events')
+  events.fire_event(events.FILE_DELETED, path)
+  -- Report where the file landed. gio renames on collisions (name.2.txt),
+  -- so find our entry by matching the original path recorded in the
+  -- .trashinfo files written since the trash call — only those fresh
+  -- entries are read, not the whole trash.
+  local trash = vim.fn.expand('~/.local/share/Trash')
+  local best, best_t
+  for fname in vim.fs.dir(trash .. '/info') do
+    local st = vim.uv.fs_stat(trash .. '/info/' .. fname)
+    local t = st and (st.mtime.sec + st.mtime.nsec / 1e9) or 0
+    if t >= t0 and (not best_t or t > best_t) then
+      for _, line in ipairs(vim.fn.readfile(trash .. '/info/' .. fname, '', 5)) do
+        local p = line:match('^Path=(.*)$')
+        if p then
+          -- Path may be percent-encoded per the freedesktop trash spec
+          p = p:gsub('%%(%x%x)', function(h) return string.char(tonumber(h, 16)) end)
+          if p == path then
+            best, best_t = fname:match('^(.*)%.trashinfo$') or fname, t
+          end
+        end
+      end
+    end
+  end
+  local msg = 'Trashed ' .. node.name
+  if best then
+    msg = msg .. ' → ' .. vim.fn.fnamemodify(trash .. '/files/' .. best, ':~')
+  end
+  vim.notify(msg, vim.log.levels.INFO)
+end
+
 -- The global signcolumn=yes bleeds into the neo-tree window; suppress it.
 -- winfixwidth protects the sidebar from 'equalalways': without it, opening
 -- or (especially) closing splits elsewhere — e.g. the git.lua diff-review
@@ -119,7 +177,7 @@ require('neo-tree').setup {
       ['<BS>']          = 'navigate_up',
       ['.']             = 'set_root',
       ['a']             = { 'add', config = { show_path = 'relative' } },
-      ['d']             = 'delete',
+      ['d']             = trash_node,  -- to trash, no confirm (built-in 'delete' rms permanently)
       ['r']             = 'rename',
       ['c']             = 'copy',
       ['m']             = 'move',
