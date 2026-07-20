@@ -275,6 +275,31 @@ require('neo-tree').setup {
   },
 
   filesystem = {
+    -- Gitignored directories keep the normal directory color instead of
+    -- the grey NeoTreeGitIgnored that the stock name/icon components pick
+    -- for anything gitignored. Ignored FILES stay grey — only directories
+    -- opt out, so untracked/modified colors on dirs are preserved too
+    -- (the swap only fires when the computed highlight is the grey one).
+    components = {
+      name = function(config, node, state)
+        local result = require('neo-tree.sources.common.components').name(config, node, state)
+        local hl = require('neo-tree.ui.highlights')
+        if node.type == 'directory'
+            and (result.highlight == hl.GIT_IGNORED or result.highlight == hl.DIM_TEXT) then
+          result.highlight = hl.DIRECTORY_NAME
+        end
+        return result
+      end,
+      icon = function(config, node, state)
+        local result = require('neo-tree.sources.common.components').icon(config, node, state)
+        local hl = require('neo-tree.ui.highlights')
+        if node.type == 'directory'
+            and (result.highlight == hl.GIT_IGNORED or result.highlight == hl.DIM_TEXT) then
+          result.highlight = hl.DIRECTORY_ICON
+        end
+        return result
+      end,
+    },
     window = {
       mappings = {
         ['H'] = 'toggle_hidden',
