@@ -33,14 +33,17 @@ vim.pack.add {
 require('mason').setup {}
 
 -- LSP servers and Mason tools to auto-install.
--- Non-LSP tools (stylua, debugpy, ruff) are included so Mason installs them;
--- vim.lsp.enable() on an unknown name is a no-op so they don't cause errors.
+-- stylua is a non-LSP tool included so Mason installs it; vim.lsp.enable()
+-- on an unknown name is a no-op so it doesn't cause errors. debugpy is NOT
+-- included here even though it's also non-LSP — unlike stylua, enabling it
+-- picks up a stray config with filetypes but no cmd, so nvim actually tries
+-- (and fails) to start it as an LSP client. It's installed via
+-- extra_mason_tools below instead, which never touches vim.lsp.enable().
 local servers = {
   stylua = {},
 
   -- Python tools (used by plugins/python.lua)
   basedpyright = {},
-  debugpy      = {},
   ruff         = {},
 
   lua_ls = {
@@ -127,6 +130,7 @@ local servers = {
 -- formatters, linters, DAP adapters, and jdtls (managed by nvim-jdtls, not vim.lsp.enable).
 local extra_mason_tools = {
   'jdtls',               -- Java LSP (started by java-tools.lua via nvim-jdtls)
+  'debugpy',             -- Python DAP (used by plugins/python.lua)
   'java-debug-adapter',  -- Java DAP
   'js-debug-adapter',    -- Node / React DAP
   'shfmt',               -- shell formatter
