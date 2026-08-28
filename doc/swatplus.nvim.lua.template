@@ -34,7 +34,10 @@ vim.g.project_build_root = vim.g.project_repo_root .. '/build'
 -- Without it, every executable file in the build tree is offered.
 vim.g.project_executable_pattern = 'swatplus*'
 
--- Output files deleted from the chosen workdata directory before each run
+-- Output file patterns offered for deletion in the chosen run directory
+-- before each run. The matched names are always listed and confirmed
+-- first, so a stray *.txt (CMakeLists.txt, a dataset input) is never
+-- removed without you seeing it.
 -- (readme.txt is always preserved). Remove this line to disable cleaning.
 vim.g.project_clean_output_patterns = { '*.txt', '*.out', '*.csv' }
 

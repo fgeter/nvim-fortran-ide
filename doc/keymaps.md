@@ -181,7 +181,7 @@ Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format,
 | `<leader>cB` | Build single-threaded (`-j 1`) — clean error output | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
-| `<leader>cr` | Run swatplus (pick exe + workdata, cleans output first) | `plugins/cmake-tools.lua` |
+| `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first) | `plugins/cmake-tools.lua` |
 
 ---
 
@@ -194,7 +194,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) | `plugins/make-tools.lua` |
 | `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release | `plugins/make-tools.lua` |
 | `<leader>cx` | Clean (pick debug/release/both) | `plugins/make-tools.lua` |
-| `<leader>cr` | Run executable (pick debug/release, then workdata directory) | `plugins/make-tools.lua` |
+| `<leader>cr` | Run executable (pick debug/release, then run dir — workdata or Browse) | `plugins/make-tools.lua` |
 
 ---
 
@@ -202,7 +202,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/workdata picker; Python/Java/JS/TS: config picker; C/C++: executable prompt) | `plugins/*-tools.lua` |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/run-dir picker; Python/Java/JS/TS: config picker; C/C++: executable prompt) | `plugins/*-tools.lua` |
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
