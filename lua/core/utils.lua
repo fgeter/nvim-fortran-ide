@@ -79,6 +79,46 @@ function M.get_cpu_count()
   return 4
 end
 
+-- Open a one-shot terminal in a bottom split, send shell_cmd to it, and
+-- call on_exit(status, close, buf) once the shell process exits (TermClose).
+-- `close()` tears the terminal down — window closed, buffer wiped, focus
+-- back to the editor window that was active before the split. Whether and
+-- when to call it is the caller's decision, which is the whole point of
+-- the split: builds close immediately, runs ask first.
+local function one_shot_terminal(shell_cmd, on_exit)
+  local origin_win = M.find_editor_win()
+  vim.cmd('botright split')
+  vim.cmd('terminal bash')
+  local buf  = vim.api.nvim_get_current_buf()
+  local chan = vim.bo[buf].channel
+
+  local function close()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_buf(win) == buf then
+        vim.api.nvim_win_close(win, true); break
+      end
+    end
+    if vim.api.nvim_buf_is_valid(buf) then
+      pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
+    local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
+      and origin_win or M.find_editor_win()
+    if target then vim.api.nvim_set_current_win(target) end
+  end
+
+  vim.api.nvim_create_autocmd('TermClose', {
+    buffer   = buf,
+    once     = true,
+    callback = function()
+      local status = vim.v.event.status
+      vim.schedule(function() on_exit(status, close, buf) end)
+    end,
+  })
+
+  pcall(vim.fn.chansend, chan, shell_cmd .. '\n')
+  vim.cmd('startinsert')
+end
+
 -- Run shell_cmd in a one-shot build terminal (botright split).
 -- The window closes automatically and focus returns to the previous
 -- editor window when the terminal process exits (TermClose).
@@ -87,36 +127,42 @@ end
 -- printing "Build succeeded", so this reflects a real success, not just
 -- the terminal being closed).
 function M.run_build_cmd(shell_cmd, on_exit)
-  local origin_win = M.find_editor_win()
-  vim.cmd('botright split')
-  vim.cmd('terminal bash')
-  local build_buf  = vim.api.nvim_get_current_buf()
-  local build_chan = vim.bo[build_buf].channel
+  one_shot_terminal(shell_cmd, function(status, close)
+    close()
+    if on_exit then on_exit(status == 0) end
+  end)
+end
 
-  vim.api.nvim_create_autocmd('TermClose', {
-    buffer   = build_buf,
-    once     = true,
-    callback = function()
-      local success = vim.v.event.status == 0
-      vim.schedule(function()
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          if vim.api.nvim_win_get_buf(win) == build_buf then
-            vim.api.nvim_win_close(win, true); break
-          end
-        end
-        if vim.api.nvim_buf_is_valid(build_buf) then
-          pcall(vim.api.nvim_buf_delete, build_buf, { force = true })
-        end
-        local target = (origin_win and vim.api.nvim_win_is_valid(origin_win))
-          and origin_win or M.find_editor_win()
-        if target then vim.api.nvim_set_current_win(target) end
-        if on_exit then on_exit(success) end
-      end)
-    end,
-  })
-
-  pcall(vim.fn.chansend, build_chan, shell_cmd .. '\n')
-  vim.cmd('startinsert')
+-- Run a program in a one-shot terminal that stays open while it runs, so
+-- its output can be watched, then asks whether to close the window once
+-- the process exits (Y is the default — the usual case is "I've seen it,
+-- get it out of the way"). Answering No keeps the output on screen with a
+-- buffer-local `q` mapping to close it later.
+--   shell_cmd  command line sent to the terminal's bash
+--   label      program name used in the prompt (default: 'Program')
+function M.run_program_cmd(shell_cmd, label)
+  -- `; exit` makes bash quit as soon as the program returns, carrying its
+  -- status through $? — that exit is what fires TermClose, and without it
+  -- the shell would sit at a prompt and the run would never look finished.
+  one_shot_terminal(shell_cmd .. '; exit', function(status, close, buf)
+    local outcome = status == 0 and 'finished' or ('exited with status ' .. status)
+    local answer = vim.fn.confirm(
+      ('%s %s.\nClose the terminal?'):format(label or 'Program', outcome),
+      '&Yes\n&No, keep the output', 1, 'Question')
+    if answer == 1 then
+      close()
+      return
+    end
+    -- Map on `buf` explicitly: focus may have wandered to another window
+    -- while the program ran, so the current buffer is not reliably the
+    -- terminal one.
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.keymap.set('n', 'q', close,
+        { buffer = buf, nowait = true, desc = 'Close run terminal' })
+    end
+    vim.notify('Run output kept — press q to close the terminal.',
+      vim.log.levels.INFO)
+  end)
 end
 
 -- Create a persistent terminal instance with its own buffer/channel state.

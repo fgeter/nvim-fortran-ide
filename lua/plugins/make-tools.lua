@@ -44,7 +44,7 @@ local function activate()
   local REPO_ROOT, BUILD_ROOT = roots.repo, roots.build
 
   local utils = require('core.utils')
-  local term  = utils.make_terminal()
+  local term  = utils.make_terminal()   -- persistent shell, used by `make clean`
 
   ---------------------------------------------------------------------------
   -- Build: make [-jN] in a dedicated terminal (same UX as cmake-tools)
@@ -81,7 +81,11 @@ local function activate()
       vim.notify('Removed ' .. removed .. ' previous output file(s) from '
         .. vim.fn.fnamemodify(cwd, ':t'), vim.log.levels.INFO)
     end
-    term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
+    -- One-shot run terminal: it holds the program's output until the
+    -- process exits, then asks whether to close (see run_program_cmd).
+    utils.run_program_cmd(
+      'cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program),
+      utils.basename(program))
   end
 
   local function pick_and_run()

@@ -181,7 +181,7 @@ Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format,
 | `<leader>cB` | Build single-threaded (`-j 1`) — clean error output | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
-| `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first) | `plugins/cmake-tools.lua` |
+| `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first, and to close the terminal when the run finishes) | `plugins/cmake-tools.lua` |
 
 ---
 
@@ -194,7 +194,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) | `plugins/make-tools.lua` |
 | `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release | `plugins/make-tools.lua` |
 | `<leader>cx` | Clean (pick debug/release/both) | `plugins/make-tools.lua` |
-| `<leader>cr` | Run executable (pick debug/release, then run dir — workdata or Browse) | `plugins/make-tools.lua` |
+| `<leader>cr` | Run executable (pick debug/release, then run dir — workdata or Browse; asks to close the terminal on exit) | `plugins/make-tools.lua` |
 
 ---
 

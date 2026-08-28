@@ -110,7 +110,6 @@ local function activate()
 
   local utils          = require('core.utils')
   local get_editor_win = utils.find_editor_win
-  local term           = utils.make_terminal()
 
   ---------------------------------------------------------------------------
   -- Helper: run a cmake-tools command and restore focus when done
@@ -278,6 +277,8 @@ local function activate()
   -- vim.g.project_executable_pattern), the two-step picker, and the
   -- pre-run output cleaning (vim.g.project_clean_output_patterns) all
   -- live in core/project.lua, shared with make-tools and fortran-tools.
+  -- cmake builds go through cmake-tools' own toggleterm executor, so the
+  -- run terminal below is the only one this file opens itself.
 
   local function launch(program, cwd)
     local removed = project.clean_output_files(cwd)
@@ -285,7 +286,11 @@ local function activate()
       vim.notify('Removed ' .. removed .. ' previous output file(s) from '
         .. vim.fn.fnamemodify(cwd, ':t'), vim.log.levels.INFO)
     end
-    term.run('cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program))
+    -- One-shot run terminal: it holds the program's output until the
+    -- process exits, then asks whether to close (see run_program_cmd).
+    utils.run_program_cmd(
+      'cd ' .. vim.fn.shellescape(cwd) .. ' && ' .. vim.fn.shellescape(program),
+      utils.basename(program))
   end
 
   local function pick_and_run()
