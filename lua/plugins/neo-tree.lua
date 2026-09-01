@@ -35,6 +35,49 @@ if vim.g.have_nerd_font then
 end
 vim.pack.add(plugins)
 
+-- ── JupyterLab helpers ───────────────────────────────────────
+-- `jupyter-lab <file>` starts a BRAND NEW server on every invocation, each on
+-- the next free port and each holding a kernel (~190 MB resident). Six of them
+-- accumulated in one session here and held 1.8 GB, which is enough to push the
+-- browser into the OOM killer while it renders a plot-heavy notebook. So reuse
+-- a running server whenever one already serves a directory containing the file.
+--
+-- Reuse fixes the browser choice too. A fresh `jupyter-lab` hands the browser a
+-- file:// URL to a generated jpserver-<pid>-open.html, so xdg-open routes it by
+-- text/html and NOT by x-scheme-handler/http. Opening the server's own URL
+-- keeps it an http:// URL, which lands in the XDG default browser.
+--
+-- Needs the `jupyter` CLI on PATH. pipx only links jupyter-lab, so this is a
+-- symlink: ~/.local/bin/jupyter -> the jupyterlab venv's bin/jupyter.
+local function jupyter_servers()
+  local out = vim.fn.system({ 'jupyter', 'server', 'list', '--json' })
+  if vim.v.shell_error ~= 0 then return {} end
+  local servers = {}
+  for line in out:gmatch('[^\r\n]+') do
+    local ok, srv = pcall(vim.json.decode, line)
+    if ok and type(srv) == 'table' and srv.url then servers[#servers + 1] = srv end
+  end
+  return servers
+end
+
+-- URL of `path` on an already-running server, or nil if none serves it.
+local function jupyter_url_for(path)
+  for _, srv in ipairs(jupyter_servers()) do
+    local root = srv.root_dir
+    if root then
+      local prefix = (root == '/') and '/' or (root .. '/')
+      if path:sub(1, #prefix) == prefix then
+        -- percent-encode only what actually turns up in notebook paths
+        local rel = path:sub(#prefix + 1):gsub('[ #?%%]',
+          function(c) return string.format('%%%02X', c:byte()) end)
+        local token = (srv.token and srv.token ~= '') and ('?token=' .. srv.token) or ''
+        return srv.url .. 'lab/tree/' .. rel .. token
+      end
+    end
+  end
+  return nil
+end
+
 -- ── Keymaps ──────────────────────────────────────────────────
 vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>',
   { desc = 'Neo-tree: reveal file', silent = true })
@@ -55,19 +98,21 @@ vim.keymap.set('n', '<leader>\\', function()
   end)
 end, { desc = 'Neo-tree: focus buffer list', silent = true })
 
--- Stop all running JupyterLab servers (mirrors File > Shutdown in the browser).
--- Use after closing notebook tabs to prevent the server lingering in the background.
+-- Stop ALL running JupyterLab servers (mirrors File > Shutdown in the browser).
+-- Use after closing notebook tabs so servers do not linger in the background.
+-- `jupyter lab stop` with no argument only stops the one on the default port
+-- (8888), so servers on 8889+ used to survive it and pile up unnoticed.
 vim.keymap.set('n', '<leader>jq', function()
-  vim.fn.jobstart({ 'jupyter', 'lab', 'stop' }, {
-    on_exit = function(_, code)
-      if code == 0 then
-        vim.notify('JupyterLab server stopped', vim.log.levels.INFO)
-      else
-        vim.notify('No running JupyterLab server found', vim.log.levels.WARN)
-      end
-    end,
-  })
-end, { desc = 'Jupyter: stop server' })
+  local servers = jupyter_servers()
+  if #servers == 0 then
+    vim.notify('No running JupyterLab server found', vim.log.levels.WARN)
+    return
+  end
+  for _, srv in ipairs(servers) do
+    vim.fn.system({ 'jupyter', 'server', 'stop', tostring(srv.port) })
+  end
+  vim.notify(('Stopped %d JupyterLab server(s)'):format(#servers), vim.log.levels.INFO)
+end, { desc = 'Jupyter: stop all servers' })
 
 -- ── Helpers ───────────────────────────────────────────────────
 -- On the "← .." nav node call navigate_up.
@@ -78,11 +123,19 @@ local function open_or_up(state)
   if node and node.id == '__nav_up__' then
     require('neo-tree.sources.filesystem.commands').navigate_up(state)
   elseif node and node.type == 'file' and node.name:match('%.ipynb$') then
-    -- BROWSER=xdg-open forces Python's webbrowser module to delegate to
-    -- xdg-open, which respects the XDG default browser (same as html files).
-    -- Without this, jupyter-lab picks its own browser, ignoring the XDG default.
-    vim.fn.jobstart({ 'jupyter-lab', node:get_id() }, { detach = true, env = { BROWSER = 'xdg-open' } })
-    vim.notify('Opening ' .. node.name .. ' in JupyterLab', vim.log.levels.INFO)
+    local path = node:get_id()
+    local url = jupyter_url_for(path)
+    if url then
+      -- an http:// URL, so xdg-open routes it by x-scheme-handler/http
+      vim.fn.jobstart({ 'xdg-open', url }, { detach = true })
+      vim.notify('Opening ' .. node.name .. ' in the running JupyterLab', vim.log.levels.INFO)
+    else
+      -- No server yet. Starting one makes it open a file:// jpserver-*-open.html,
+      -- which xdg-open routes by text/html -- so that mapping has to point at the
+      -- same browser as x-scheme-handler/http (see ~/.config/mimeapps.list).
+      vim.fn.jobstart({ 'jupyter-lab', path }, { detach = true, env = { BROWSER = 'xdg-open' } })
+      vim.notify('Starting JupyterLab for ' .. node.name, vim.log.levels.INFO)
+    end
   elseif node and node.type == 'file' and node.name:match('%.html$') then
     vim.fn.jobstart({ 'xdg-open', node:get_id() }, { detach = true })
     vim.notify('Opening ' .. node.name .. ' in browser', vim.log.levels.INFO)
