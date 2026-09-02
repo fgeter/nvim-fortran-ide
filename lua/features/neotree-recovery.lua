@@ -33,9 +33,14 @@ vim.api.nvim_create_autocmd('WinClosed', {
 
     vim.schedule(function()
       -- If any non-neo-tree window is still open, nothing to recover.
+      -- The menu bar's tab-strip carrier (features/topbar.lua) does not
+      -- count: it is a zero-height window that only renders the buffer
+      -- tabs in its statusline and can never hold the cursor, so a layout
+      -- of "neo-tree + carrier" is just as broken as neo-tree alone.
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         if vim.api.nvim_win_is_valid(win) then
-          if vim.bo[vim.api.nvim_win_get_buf(win)].filetype ~= 'neo-tree' then
+          local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+          if ft ~= 'neo-tree' and ft ~= 'topbar' then
             return
           end
         end
@@ -50,9 +55,11 @@ vim.api.nvim_create_autocmd('WinClosed', {
 
       if #candidates == 0 then return end  -- no buffers left → Neovim can quit
 
-      -- Reopen editor window to the right of the neo-tree panel.
+      -- Reopen editor window to the right of the neo-tree panel. Split
+      -- from neo-tree itself, never from the tab-strip carrier.
       for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_is_valid(win) then
+        if vim.api.nvim_win_is_valid(win)
+            and vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' then
           pcall(vim.api.nvim_open_win, candidates[1].bufnr, true,
             { split = 'right', win = win })
           pcall(vim.api.nvim_win_set_width, win, 35)

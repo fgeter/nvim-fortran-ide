@@ -171,6 +171,39 @@ Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format,
 
 ---
 
+## Menu bar (mouse) — shown in coding project directories only
+
+The menu bar takes the very top screen row and the buffer tabs move down
+one row beneath it (`features/topbar.lua`):
+
+```
+  Compile   Debug   Find   Git        ← menu bar   (the tabline)
+ init.lua │ dap.lua │ ui.lua          ← buffer tabs (bufferline)
+```
+
+Every entry runs the keymap it names, so the menus and the `<leader>`
+prefixes can never drift apart; entries whose keymap does not exist in the
+current context are greyed out and inert. The tabs keep working exactly as
+before — clicking one still switches buffers.
+
+| Action | Result |
+|--------|--------|
+| Left-click `Compile` / `Debug` / `Find` / `Git` | Open that drop-down (same actions as `<leader>c` / `<leader>d` / `<leader>s` / `<leader>g`) |
+| Left-click another title while a menu is open | Switch to that menu |
+| Left-click an entry | Run it (focus returns to the window you came from) |
+| Move the pointer over the drop-down | Highlight follows the pointer |
+| `j` / `k` / `<Up>` / `<Down>`, `<CR>` | Keyboard selection inside a drop-down |
+| `q` / `<Esc>`, or a click outside | Close the drop-down |
+| `:TopbarToggle` | Hide / show the bar |
+| `:lua require('features.topbar').open('g')` | Open a menu without the mouse (`c`, `d`, `s`, `g`) |
+
+The bar appears only when the working directory (or a parent) holds one of
+`.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `GNUmakefile`,
+`pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml`, `go.mod` — and
+it follows `:cd`, so it disappears outside a project and comes back inside one.
+
+---
+
 ## CMake (`<leader>c`) — active in CMake projects (`CMakeLists.txt` found)
 
 | Key | Action | Plugin |
