@@ -224,7 +224,14 @@ require('neo-tree').setup {
       ['\\']            = 'close_window',
       ['<CR>']          = open_or_up,
       ['<2-LeftMouse>'] = open_or_up,
-      ['o']             = open_or_up,
+      -- `o` is deliberately NOT mapped to open: it is the prefix of
+      -- neo-tree's built-in ordering commands (om = by modified, on = by
+      -- name, os = by size, …), and mapping it shadowed all of them —
+      -- window.mapping_options defaults to nowait = true, so `o` fired
+      -- instantly and the second key was never read. Opening is already
+      -- covered twice over by <CR> and a double-click, so the prefix is
+      -- worth more here than a third way to open a node. Press `o` alone
+      -- to get neo-tree's "Order by" popup, which lists the whole set.
       ['s']             = 'open_split',
       ['v']             = 'open_vsplit',
       ['<BS>']          = 'navigate_up',
