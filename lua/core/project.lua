@@ -41,11 +41,20 @@ function M.roots()
 end
 
 -- Shell suffix appended to build commands run through utils.run_build_cmd:
--- prints a success banner, waits for <CR>, and exits 0 so TermClose's
--- status check reflects a real build success (a failed build leaves the
--- shell to exit with the build tool's non-zero status).
+-- prints a success banner and exits 0, so TermClose's status check
+-- reflects a real build success (a failed build never reaches the braces
+-- and leaves the interactive shell sitting at its prompt with the errors
+-- still on screen).
+--
+-- The shell used to wait here on a `read` for the user to press <CR>.
+-- That only works while the terminal still holds focus *in terminal
+-- mode* — and a build long enough to be worth watching is exactly the one
+-- you wander off during. Once focus has moved, no <CR> can reach the
+-- shell: clicking back into a terminal lands in normal mode, where <CR>
+-- just moves the cursor. utils.run_build_cmd asks from Neovim's side
+-- instead, which works wherever focus happens to be.
 M.build_done_suffix =
-  ' && { printf "\\nBuild succeeded — press <CR> to close\\n"; read; exit 0; }'
+  ' && { printf "\\nBuild succeeded\\n"; exit 0; }'
 
 -- Find executable files matching the project pattern.
 --   opts.root     directory to scan (default: roots().build)

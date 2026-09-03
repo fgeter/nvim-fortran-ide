@@ -227,11 +227,11 @@ named after the which-key spec in `plugins/ui.lua`, and open a submenu.
 |-----|--------|--------|
 | `<leader>cp` | Select preset + auto-run Generate | `plugins/cmake-tools.lua` |
 | `<leader>cg` | CMake Generate (configure) | `plugins/cmake-tools.lua` |
-| `<leader>cb` | Build using all CPU cores (detected via `nproc`) | `plugins/cmake-tools.lua` |
+| `<leader>cb` | Build using all CPU cores (detected via `nproc`). The output follows along as it arrives and stays scrollable (wheel / `k` / `<C-u>`; `G` resumes following). On success Neovim asks whether to close the terminal — `<CR>` = yes, from any window; a failed build stays open at the shell prompt with the errors | `plugins/cmake-tools.lua` |
 | `<leader>cB` | Build single-threaded (`-j 1`) — clean error output | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
 | `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
-| `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first, and to close the terminal when the run finishes) | `plugins/cmake-tools.lua` |
+| `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first, and to close the terminal when the run finishes). The output follows along and stays scrollable while the program runs (wheel / `k` / `<C-u>`; `G` resumes following); press `i` if the program wants typed input | `plugins/cmake-tools.lua` |
 
 ---
 
@@ -241,10 +241,10 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`) | `plugins/make-tools.lua` |
+| `<leader>cb` | Build (pick debug/release, all CPU cores via `nproc`). The output follows along as it arrives and stays scrollable (wheel / `k` / `<C-u>`; `G` resumes following). On success Neovim asks whether to close the terminal — `<CR>` = yes, from any window; a failed build stays open at the shell prompt with the errors | `plugins/make-tools.lua` |
 | `<leader>cB` | Build single-threaded (`-j 1`) — pick debug/release | `plugins/make-tools.lua` |
 | `<leader>cx` | Clean (pick debug/release/both) | `plugins/make-tools.lua` |
-| `<leader>cr` | Run executable (pick debug/release, then run dir — workdata or Browse; asks to close the terminal on exit) | `plugins/make-tools.lua` |
+| `<leader>cr` | Run executable (pick debug/release, then run dir — workdata or Browse; asks to close the terminal on exit). Output follows along and stays scrollable while it runs; press `i` if the program wants typed input | `plugins/make-tools.lua` |
 
 ---
 
