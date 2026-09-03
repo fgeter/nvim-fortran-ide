@@ -171,14 +171,14 @@ Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format,
 
 ---
 
-## Menu bar (mouse) — shown in coding project directories only
+## Menu bar (mouse)
 
 The menu bar takes the very top screen row and the buffer tabs move down
 one row beneath it (`features/topbar.lua`):
 
 ```
-  Compile   Debug   Find   Git        ← menu bar   (the tabline)
- init.lua │ dap.lua │ ui.lua          ← buffer tabs (bufferline)
+  Find   Compile   Debug   Git   Other      ← menu bar   (the tabline)
+ init.lua │ dap.lua │ ui.lua                ← buffer tabs (bufferline)
 ```
 
 Every entry runs the keymap it names, so the menus and the `<leader>`
@@ -186,21 +186,38 @@ prefixes can never drift apart; entries whose keymap does not exist in the
 current context are greyed out and inert. The tabs keep working exactly as
 before — clicking one still switches buffers.
 
+### Which titles are shown
+
+| Title | Actions | Shown |
+|-------|---------|-------|
+| `Find` | `<leader>s` | always |
+| `Compile` | `<leader>c` | inside a coding project: `.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `GNUmakefile`, `pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml` or `go.mod` in cwd or a parent |
+| `Debug` | `<leader>d` | inside a coding project (as above) |
+| `Git` | `<leader>g` | inside a git worktree (a `.git` in cwd or a parent) |
+| `Other` | everything else under `<leader>` | always, always last |
+
+Re-evaluated on every `:cd`. `Other` holds what which-key shows when you
+press `<leader>` alone, minus the prefixes that currently have a title of
+their own — so nothing becomes unreachable: outside a git repo the `Git`
+title is gone but `<leader>g` reappears inside `Other` as a group.
+Multi-key prefixes (`<leader>b`, `<leader>t`, …) are listed as groups
+named after the which-key spec in `plugins/ui.lua`, and open a submenu.
+
+### Using it
+
 | Action | Result |
 |--------|--------|
-| Left-click `Compile` / `Debug` / `Find` / `Git` | Open that drop-down (same actions as `<leader>c` / `<leader>d` / `<leader>s` / `<leader>g`) |
+| Left-click a title | Open that drop-down |
 | Left-click another title while a menu is open | Switch to that menu |
 | Left-click an entry | Run it (focus returns to the window you came from) |
-| Move the pointer over the drop-down | Highlight follows the pointer |
-| `j` / `k` / `<Up>` / `<Down>`, `<CR>` | Keyboard selection inside a drop-down |
+| Left-click a group row (`Buffer ›`) | Drill into its submenu |
+| Move the pointer over a drop-down | Highlight follows the pointer |
+| `j` / `k` / `<Up>` / `<Down>`, `<CR>` | Keyboard selection |
+| `<BS>` / `<Left>` | Back out of a submenu to the list it came from |
 | `q` / `<Esc>`, or a click outside | Close the drop-down |
-| `:TopbarToggle` | Hide / show the bar |
-| `:lua require('features.topbar').open('g')` | Open a menu without the mouse (`c`, `d`, `s`, `g`) |
-
-The bar appears only when the working directory (or a parent) holds one of
-`.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `GNUmakefile`,
-`pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml`, `go.mod` — and
-it follows `:cd`, so it disappears outside a project and comes back inside one.
+| Opening/closing a menu while a terminal has focus | The terminal goes back into terminal mode, so a build waiting at *press `<CR>` to close* still takes the `<CR>` |
+| `:TopbarToggle` | Hide / show the bar (bufferline takes the top row back) |
+| `:lua require('features.topbar').open('g')` | Open a menu without the mouse (`s`, `c`, `d`, `g`, `o`) |
 
 ---
 
