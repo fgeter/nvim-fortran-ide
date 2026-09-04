@@ -211,7 +211,12 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, 'TopBar',        { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarFill',    { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarTitle',   { bg = bg, fg = blue, bold = true })
-  vim.api.nvim_set_hl(0, 'TopBarTitleOn', { link = 'PmenuSel' })
+  -- The open menu's title, wearing the same bar as its selected row so the
+  -- title and the panel below it read as one object. Bright fg, not the
+  -- blue of a closed title: when the menu is open the job is to show which
+  -- one, and blue sits only 50 luma above the bar where this sits 100.
+  vim.api.nvim_set_hl(0, 'TopBarTitleOn',
+    { bg = sel, fg = attr('Normal', 'fg') or fg, bold = true })
   vim.api.nvim_set_hl(0, 'TopBarKey',     { bg = bg, fg = blue })
   vim.api.nvim_set_hl(0, 'TopBarItem',    { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarDim',     { bg = bg, fg = dim })
