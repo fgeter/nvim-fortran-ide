@@ -188,6 +188,26 @@ local function setup_highlights()
   local blue = attr('Function', 'fg') or attr('Directory', 'fg')
   local dim  = attr('Comment', 'fg')
 
+  -- Selection bar for the drop-down. PmenuSel is no use here: with a
+  -- transparent background (plugins/ui.lua) the menu floats on the
+  -- terminal's own colour, and catppuccin's PmenuSel is only a shade above
+  -- it — the selected row barely read. Mix the menu's own fg halfway into
+  -- its background instead: light enough to spot at a glance, still dark
+  -- enough to keep the item text (an unchanged extmark fg — extmarks win
+  -- over the cursor line, so only the background is ours to set) legible.
+  -- Raise the 0.65 for a lighter bar, lower it for a quieter one.
+  local function blend(base, over, t)
+    local out = 0
+    for _, shift in ipairs({ 16, 8, 0 }) do
+      local b = math.floor(base / 2 ^ shift) % 256
+      local o = math.floor(over / 2 ^ shift) % 256
+      out = out + math.floor(b + (o - b) * t + 0.5) * 2 ^ shift
+    end
+    return math.floor(out)
+  end
+  local sel = blend(bg or attr('Normal', 'bg') or 0x1e1e2f,
+                    fg or 0x9399b3, 0.65)
+
   vim.api.nvim_set_hl(0, 'TopBar',        { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarFill',    { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarTitle',   { bg = bg, fg = blue, bold = true })
@@ -196,6 +216,7 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, 'TopBarItem',    { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarDim',     { bg = bg, fg = dim })
   vim.api.nvim_set_hl(0, 'TopBarBorder',  { bg = bg, fg = blue })
+  vim.api.nvim_set_hl(0, 'TopBarSel',     { bg = sel, bold = true })
 end
 
 setup_highlights()
@@ -847,7 +868,7 @@ function open_dropdown(spec)
   -- line numbers, so ask for the line itself whatever the global
   -- cursorlineopt happens to be (core/options.lua).
   vim.wo[win].cursorlineopt = 'line'
-  vim.wo[win].winhighlight = 'Normal:TopBar,FloatBorder:TopBarBorder,CursorLine:PmenuSel'
+  vim.wo[win].winhighlight = 'Normal:TopBar,FloatBorder:TopBarBorder,CursorLine:TopBarSel'
 
   menu = vim.tbl_extend('force', spec, { win = win, buf = buf, items = entries })
   pcall(vim.cmd, 'redrawtabline')   -- light up the open title
