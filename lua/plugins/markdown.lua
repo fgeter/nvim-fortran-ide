@@ -71,13 +71,29 @@ vim.api.nvim_create_autocmd('FileType', {
       { buffer = ev.buf, desc = 'Markdown: collapse all' })
     vim.keymap.set('n', '<leader>mh', function()
       local md = vim.api.nvim_buf_get_name(ev.buf)
+      if md == '' then
+        vim.notify('Save the markdown file before rendering to HTML', vim.log.levels.ERROR)
+        return
+      end
+      -- vim.system() throws ENOENT if pandoc is missing, so the notify
+      -- in the callback never ran and <leader>mh looked like a no-op.
+      if vim.fn.executable('pandoc') == 0 then
+        vim.notify(
+          'pandoc is not on PATH.\nUbuntu: sudo apt install pandoc\nArch: sudo pacman -S pandoc-cli',
+          vim.log.levels.ERROR)
+        return
+      end
       local html = vim.fn.fnamemodify(md, ':r') .. '.html'
       vim.system({ 'pandoc', '-s', md, '-o', html }, {}, function(out)
-        if out.code ~= 0 then
-          vim.schedule(function() vim.notify(out.stderr, vim.log.levels.ERROR) end)
-          return
-        end
         vim.schedule(function()
+          if out.code ~= 0 then
+            local err = out.stderr
+            if err == nil or err == '' then
+              err = 'pandoc exited ' .. tostring(out.code)
+            end
+            vim.notify(err, vim.log.levels.ERROR)
+            return
+          end
           vim.ui.select({ 'No (default)', 'Yes' }, {
             prompt = 'Keep ' .. vim.fn.fnamemodify(html, ':t') .. '? (<Enter> = No)',
           }, function(choice)

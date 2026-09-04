@@ -483,6 +483,7 @@ Formatters: Lua → stylua, Python → ruff, C/C++ → clang-format, Java → go
 | `<leader>mr` | Toggle rendering on/off |
 | `<leader>me` | Expand all sections |
 | `<leader>mc` | Collapse all sections |
+| `<leader>mh` | Render to HTML (pandoc) and open in the browser |
 
 ### CMake (`<leader>c`) — activates in CMake projects (`CMakeLists.txt` found)
 
