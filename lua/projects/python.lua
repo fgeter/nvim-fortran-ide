@@ -16,9 +16,6 @@
 --   vim.g.project_python_bin — explicit python binary path override
 -- ============================================================
 
-if vim.g.python_project_loaded then return end
-vim.g.python_project_loaded = true
-
 if not vim.g.project_repo_root then
   vim.notify(
     'projects/python.lua: vim.g.project_repo_root is not set.',
@@ -26,20 +23,16 @@ if not vim.g.project_repo_root then
   return
 end
 
-local name = vim.g.project_name or vim.fn.fnamemodify(vim.g.project_repo_root, ':t')
+-- Gate on repo root, not a boolean, so :cd into another Python project
+-- can load that project's .nvim.lua.
+local root = vim.g.project_repo_root
+if vim.g.python_project_loaded == root then return end
+vim.g.python_project_loaded = root
+
+local name = vim.g.project_name or vim.fn.fnamemodify(root, ':t')
 vim.notify('Loading Python project: ' .. name, vim.log.levels.INFO)
 
--- Reset python_tools_active so python.lua activate() re-runs
--- with the correct project context if switching projects
-vim.g.python_tools_active = nil
-
--- Force activation if a Python buffer is already open
-for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-  if vim.bo[buf].filetype == 'python' then
-    vim.api.nvim_exec_autocmds('FileType', {
-      pattern  = 'python',
-      modeline = false,
-    })
-    break
-  end
-end
+-- get_python_bin / DAP / basedpyright before_init read vim.g at use time.
+-- Just ensure the language layer is activated (idempotent).
+local python = require('plugins.python')
+if python and python.activate then python.activate() end

@@ -23,8 +23,9 @@
 
 ## Horizontal scrolling
 
-> `nowrap` is enabled globally. A floating `▁` bar appears at the bottom of
-> buffer windows when content is wider than the window width.
+> `nowrap` is enabled globally. Clickable scrollbars appear when needed: a
+> strip at the bottom of the pane for wide lines, and a strip on the right of
+> the buffer for long files. Click the track to jump; drag the thumb to scroll.
 
 | Key | Action | Plugin |
 |-----|--------|--------|
@@ -52,8 +53,8 @@
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `]]` | Next tab | `core/keymaps.lua` |
-| `[[` | Previous tab | `core/keymaps.lua` |
+| `gt` / `]t` | Next tab | native / `core/keymaps.lua` |
+| `gT` / `[t` | Previous tab | native / `core/keymaps.lua` |
 
 ---
 
@@ -122,7 +123,7 @@ Inside neo-tree:
 | `y` | Copy to clipboard | `plugins/neo-tree.lua` |
 | `x` | Cut to clipboard | `plugins/neo-tree.lua` |
 | `p` | Paste from clipboard | `plugins/neo-tree.lua` |
-| `H` | Toggle hidden files | `plugins/neo-tree.lua` |
+| `H` | Toggle gitignore / hidden files (off at startup: all files shown; `.git` never shown) | `plugins/neo-tree.lua` |
 | `R` | Refresh tree | `plugins/neo-tree.lua` |
 | `/` | Telescope find files scoped to directory under cursor | `plugins/neo-tree.lua` |
 | `g/` | Telescope live grep scoped to directory under cursor | `plugins/neo-tree.lua` |
@@ -256,7 +257,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
-| `<leader>di` | `<F1>` | Step into | `plugins/dap.lua` |
+| `<leader>di` | `<F1>` (during debug) | Step into (`<F1>` is Help when no session) | `plugins/dap.lua` |
 | `<leader>do` | `<F3>` | Step out | `plugins/dap.lua` |
 | `<leader>dc` | `<F6>` | Run to cursor | `plugins/dap.lua` |
 | `<leader>db` | `<F4>` | Toggle breakpoint | `plugins/dap.lua` |
@@ -277,7 +278,7 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>di` | Organize imports | `plugins/java-tools.lua` |
+| `<leader>oi` | Organize imports | `plugins/java-tools.lua` |
 | `<leader>dv` | Extract variable | `plugins/java-tools.lua` |
 | `<leader>dm` | Extract method | `plugins/java-tools.lua` |
 

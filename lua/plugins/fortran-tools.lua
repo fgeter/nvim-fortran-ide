@@ -9,25 +9,28 @@
 -- agnostic <leader>d* keymaps live in plugins/dap.lua.
 -- This file only adds what is Fortran-specific:
 --   • fortls LSP config
---   • <leader>ds — custom executable/workdata picker
+--   • buffer-local <leader>ds / <F5> — custom executable/workdata picker
 --
--- LAZY: Yes — everything inside activate() runs only on the first
---       FileType fortran event.
+-- LAZY: Yes — LSP/DAP setup inside activate() runs only once.
+--       Start/continue maps are buffer-local so they cannot steal
+--       <F5> / <leader>ds from other languages. Project paths are
+--       read at keypress via core.project.roots() so .nvim.lua wins.
 -- ============================================================
 
 if vim.g.loaded_fortran_tools then return end
 vim.g.loaded_fortran_tools = true
 
+-- Assigned at the end of activate(); FileType maps call through this so
+-- they always hit the current picker rather than a stale closure.
+local start_debug
+
 local function activate()
   if vim.g.fortran_tools_active then return end
   vim.g.fortran_tools_active = true
 
-  -- Resolve paths at activation time so :cd before opening a Fortran file
-  -- gives the right root. vim.g overrides let a .nvim.lua pin these
-  -- (core/project reads them there).
+  -- Do not snapshot roots here: activate() often runs during plugin load,
+  -- before 'exrc' sources .nvim.lua. Call project.roots() at use time.
   local project = require('core.project')
-  local roots   = project.roots()
-  local REPO_ROOT, SRC_DIR, BUILD_ROOT = roots.repo, roots.src, roots.build
 
   require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap   = require('dap')
@@ -61,7 +64,7 @@ local function activate()
   -- Discovery itself (vim.g.project_executable_pattern) is shared via
   -- core/project.lua; this wrapper adds the debug-specific guidance.
   local function get_executables()
-    local debug_dir = BUILD_ROOT .. '/debug'
+    local debug_dir = project.roots().build .. '/debug'
 
     if vim.fn.isdirectory(debug_dir) == 0 then
       vim.notify(
@@ -89,7 +92,7 @@ local function activate()
       request      = 'launch',
       program      = program,
       cwd          = cwd,
-      initCommands = { 'set directories ' .. SRC_DIR },
+      initCommands = { 'set directories ' .. project.roots().src },
     })
     if not ok then
       vim.notify('DAP launch failed: ' .. tostring(err), vim.log.levels.ERROR)
@@ -101,13 +104,14 @@ local function activate()
   -- either build system would run, chosen by whether CMakeLists.txt exists,
   -- matching the detection cmake-tools.lua/make-tools.lua themselves use.
   local function rebuild_debug(on_done)
-    local debug_dir = BUILD_ROOT .. '/debug'
+    local roots = project.roots()
+    local debug_dir = roots.build .. '/debug'
     local j = vim.g.project_build_jobs or utils.get_cpu_count()
     local cmd
-    if vim.fn.filereadable(REPO_ROOT .. '/CMakeLists.txt') == 1 then
+    if vim.fn.filereadable(roots.repo .. '/CMakeLists.txt') == 1 then
       cmd = 'cmake --build ' .. vim.fn.shellescape(debug_dir) .. ' -j ' .. j
     else
-      cmd = 'make -j' .. j .. ' BUILD_TYPE=debug -C ' .. vim.fn.shellescape(REPO_ROOT)
+      cmd = 'make -j' .. j .. ' BUILD_TYPE=debug -C ' .. vim.fn.shellescape(roots.repo)
     end
     vim.notify('Rebuilding debug build...', vim.log.levels.INFO)
     utils.run_build_cmd(cmd .. project.build_done_suffix, on_done)
@@ -121,7 +125,7 @@ local function activate()
   local function is_build_stale(program)
     local exe_mtime = vim.fn.getftime(program)
     if exe_mtime < 0 then return false end
-    for _, f in ipairs(vim.fn.glob(SRC_DIR .. '/*.f90', false, true)) do
+    for _, f in ipairs(vim.fn.glob(project.roots().src .. '/*.f90', false, true)) do
       if vim.fn.getftime(f) > exe_mtime then return true end
     end
     return false
@@ -153,25 +157,35 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- <leader>ds — Fortran-specific start/continue
+  -- <leader>ds / <F5> — Fortran-specific start/continue (bound per buffer)
   ---------------------------------------------------------------------------
-  local _start = function()
+  start_debug = function()
     if dap.session() then dap.continue() else pick_and_launch() end
   end
-  vim.keymap.set('n', '<leader>ds', _start, { desc = 'DAP: start / continue - F5' })
-  vim.keymap.set('n', '<F5>',       _start, { desc = 'DAP: start / continue' })
 
   vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
 
 -- ── Trigger ──────────────────────────────────────────────────
+-- activate() is idempotent; the maps must be set on every Fortran buffer,
+-- not just the first, or later .f90 files would fall through to the global
+-- <F5> from dap.lua (plain continue, no exe/workdata picker).
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'fortran',
-  once     = true,
-  callback = activate,
+  callback = function(ev)
+    activate()
+    if not start_debug then return end
+    local function run() start_debug() end
+    vim.keymap.set('n', '<leader>ds', run,
+      { buffer = ev.buf, desc = 'DAP: start / continue - F5' })
+    vim.keymap.set('n', '<F5>', run,
+      { buffer = ev.buf, desc = 'DAP: start / continue' })
+  end,
 })
 
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'fortran',
   callback = function() vim.opt_local.textwidth = 80 end,
 })
+
+return { activate = activate }

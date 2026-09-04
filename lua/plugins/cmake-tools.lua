@@ -49,18 +49,15 @@ local function is_cmake_project(path)
 end
 
 -- ── activate() ───────────────────────────────────────────────
--- Everything in this function runs exactly once, the first time a
--- CMake project is detected (either at startup or after :cd).
+-- Plugin install, cmake.setup(), and keymaps run exactly once.
+-- Project paths are NOT captured here: core.project.roots() is called
+-- at keypress / cmake-tools callback time so a later .nvim.lua
+-- (sourced via 'exrc' after this file runs) still wins.
 local function activate()
   if vim.g.cmake_tools_active then return end
   vim.g.cmake_tools_active = true
 
-  -- Resolve paths now (at activation time) so :cd before activation gives
-  -- the right root. vim.g overrides let a .nvim.lua pin these (core/project
-  -- reads them there).
   local project = require('core.project')
-  local roots   = project.roots()
-  local REPO_ROOT, BUILD_ROOT = roots.repo, roots.build
 
   -- Install cmake-tools.nvim. vim.pack.add is synchronous for the
   -- download step but the Lua module is required only inside the VimEnter
@@ -78,9 +75,11 @@ local function activate()
     cmake_regenerate_on_save = false,
     cmake_generate_options   = { '-DCMAKE_EXPORT_COMPILE_COMMANDS=1' },
 
-    -- All cmake output goes into the same build/ directory. The actual
+    -- All cmake output goes into the project build directory. The actual
     -- subdirectory (debug/, release/) is determined by the selected preset.
-    cmake_build_directory = function() return 'build' end,
+    -- Function (not a string) so vim.g.project_build_root from .nvim.lua
+    -- is read when cmake-tools asks, not when this table is built.
+    cmake_build_directory = function() return project.roots().build end,
 
     -- Use toggleterm for cmake output so it appears in the same terminal
     -- pane as builds and runs, keeping the layout consistent.
@@ -255,7 +254,7 @@ local function activate()
         '\nRun <leader>cp then <leader>cg to configure.', vim.log.levels.WARN)
       return nil
     end
-    return { path = path_str, label = path_str:gsub(REPO_ROOT .. '/', '') }
+    return { path = path_str, label = path_str:gsub(project.roots().repo .. '/', '') }
   end
 
   ---------------------------------------------------------------------------
@@ -294,9 +293,10 @@ local function activate()
   end
 
   local function pick_and_run()
-    local execs = project.find_executables { root = BUILD_ROOT }
+    local build = project.roots().build
+    local execs = project.find_executables { root = build }
     if #execs == 0 then
-      vim.notify('No executables found under ' .. BUILD_ROOT ..
+      vim.notify('No executables found under ' .. build ..
         '\nBuild first with <leader>cb.', vim.log.levels.ERROR)
       return
     end
@@ -342,6 +342,8 @@ local function activate()
     -- (e.g. after changing a preset or fixing a broken cmake cache).
     -- After deletion you must run <leader>cp + <leader>cb to rebuild.
     vim.keymap.set('n', '<leader>cd', function()
+      local roots = project.roots()
+      local BUILD_ROOT, REPO_ROOT = roots.build, roots.repo
       if vim.fn.isdirectory(BUILD_ROOT) == 0 then
         vim.notify('Build directory does not exist: ' .. BUILD_ROOT,
           vim.log.levels.WARN)
@@ -446,3 +448,7 @@ else
     end,
   })
 end
+
+-- Exported so projects/fortran.lua can ensure activation after .nvim.lua
+-- sets vim.g.project_*. Idempotent: a no-op when already active.
+return { activate = activate }

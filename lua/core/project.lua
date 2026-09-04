@@ -15,6 +15,10 @@
 --   project_src_dir                sources     (default: <repo>/src)
 --   project_executable_pattern     glob for run/debug targets
 --                                  (default: '*' — any executable file)
+--   project_workdir_sort           initial order of the run-directory pick
+--                                  list: 'mtime' (default, most recently
+--                                  changed first) or 'name'. The list's
+--                                  own Sort entry toggles it thereafter.
 --   project_clean_output_patterns  list of globs offered for deletion in
 --                                  the chosen run dir before each run,
 --                                  e.g. { '*.txt', '*.out', '*.csv' }.
@@ -149,7 +153,7 @@ function M.clean_output_files(dir)
   return #targets
 end
 
--- Sentinel entry appended to the run-directory picker. Choosing it opens
+-- Sentinel entry leading the run-directory picker. Choosing it opens
 -- a path prompt so a dataset that lives outside project_work_root can be
 -- used as the run cwd — the workdata dirs are a shortcut, not a limit.
 local BROWSE = { label = '󰉋  Browse for another directory…' }
@@ -157,6 +161,24 @@ local BROWSE = { label = '󰉋  Browse for another directory…' }
 -- Last directory entered through Browse, offered as the prompt default
 -- next time so repeated runs against the same external dataset are cheap.
 local last_browsed = nil
+
+-- Sentinel entry that flips the run-directory ordering. A vim.ui.select
+-- backend is whatever the user has configured (telescope-ui-select here),
+-- so the toggle lives in the list itself rather than in a picker mapping
+-- that only one backend would honor.
+local SORT_TOGGLE = { label = '' }
+
+-- Current run-directory ordering: 'mtime' (most recently changed first,
+-- the default) or 'name' (alphabetical). vim.g.project_workdir_sort lets a
+-- .nvim.lua pick the starting order; the toggle then holds for the session.
+local workdir_sort = nil
+
+local function sort_mode()
+  if not workdir_sort then
+    workdir_sort = vim.g.project_workdir_sort == 'name' and 'name' or 'mtime'
+  end
+  return workdir_sort
+end
 
 -- Prompt for any directory on the filesystem and hand it to `on_dir`.
 -- <Tab> completes path components (snacks.input honors `completion`).
@@ -183,6 +205,8 @@ end
 -- then call launch(program, cwd). The executable step is skipped when
 -- there is only one; the directory step always shows, because Browse is
 -- an option there even when the project has a single workdata dir.
+-- Run directories are listed most-recently-changed first, with a Sort
+-- entry that toggles to alphabetical for the rest of the session.
 --   opts.execs             non-empty list of executable paths
 --   opts.launch            function(program, cwd)
 --   opts.strip_prefix      path prefix removed from executable labels
@@ -194,17 +218,27 @@ function M.pick_and_launch(opts)
   local strip = (opts.strip_prefix or roots.build) .. '/'
 
   local function pick_workdir(program)
-    local dirs = utils.get_workdirs(roots.work)
+    local sort = sort_mode()
+    local dirs, mtimes = utils.get_workdirs(roots.work, sort)
     if #dirs == 0 and opts.workdir_fallback then
-      dirs = { opts.workdir_fallback }
+      dirs, mtimes = { opts.workdir_fallback }, {}
     end
 
-    local items = vim.list_extend({}, dirs)
-    table.insert(items, BROWSE)
+    -- Browse and the sort toggle lead the list: a project with dozens of
+    -- workdata dirs would otherwise push them off the bottom of the
+    -- picker, where they are invisible until you scroll the whole list.
+    -- Nothing to reorder with a single directory, so the toggle only shows
+    -- up when it would change the list.
+    local items = { BROWSE }
+    if #dirs > 1 then table.insert(items, SORT_TOGGLE) end
+    vim.list_extend(items, dirs)
 
     local function choose(choice)
       if not choice then return end
-      if choice == BROWSE then
+      if choice == SORT_TOGGLE then
+        workdir_sort = (sort == 'mtime') and 'name' or 'mtime'
+        pick_workdir(program)
+      elseif choice == BROWSE then
         browse_workdir(function(dir) opts.launch(program, dir) end)
       else
         opts.launch(program, choice)
@@ -213,16 +247,33 @@ function M.pick_and_launch(opts)
 
     -- No workdata dirs and no fallback: go straight to the path prompt
     -- rather than showing a menu with a single entry.
-    if #items == 1 then
+    if #dirs == 0 then
       choose(BROWSE)
       return
     end
 
+    -- Names are padded to a common width so the ages line up in a column;
+    -- the age is what explains the order, so it is shown in both modes.
+    local width = 0
+    for _, dir in ipairs(dirs) do
+      width = math.max(width, vim.fn.strdisplaywidth(utils.basename(dir)))
+    end
+
     vim.ui.select(items, {
-      prompt      = 'Select run directory:',
+      prompt      = sort == 'mtime'
+                    and 'Select run directory (recent first):'
+                    or  'Select run directory (A-Z):',
       format_item = function(item)
         if item == BROWSE then return item.label end
-        return utils.basename(item)
+        if item == SORT_TOGGLE then
+          return sort == 'mtime' and '󰒺  Sort alphabetically'
+                                 or  '󰃰  Sort by most recently changed'
+        end
+        local name = utils.basename(item)
+        local age  = utils.relative_time(mtimes[item])
+        if age == '' then return name end
+        return ('%s%s  %s'):format(
+          name, (' '):rep(width - vim.fn.strdisplaywidth(name)), age)
       end,
     }, choose)
   end

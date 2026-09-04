@@ -51,6 +51,12 @@ require('catppuccin').setup {
         -- (fillchars stl/stlnc are '─' in core/options.lua).
         StatusLine          = { fg = colors.lavender, bg = colors.lavender },
         StatusLineNC        = { fg = colors.lavender, bg = colors.lavender },
+        -- The cursor line, well above catppuccin's default #2a2b3d so the
+        -- band actually reads against the transparent background, with its
+        -- number brighter still (near-white and bold) so the two together
+        -- say "you are here" without hunting.
+        CursorLine   = { bg = colors.surface1 },
+        CursorLineNr = { fg = colors.rosewater, bold = true },
         -- Default DiffChange is only a 7%-blended blue wash — easy to miss
         -- on a dark background, especially when just one character on a
         -- line changed. DiffText (the changed characters themselves) was
@@ -71,7 +77,7 @@ vim.cmd.colorscheme('catppuccin')
 -- The spec table documents key groups so which-key can label them.
 vim.pack.add { { src = gh 'folke/which-key.nvim', version = vim.version.range '3.*' } }
 require('which-key').setup {
-  delay = 0,
+  delay = vim.o.timeoutlen,
   icons = { mappings = vim.g.have_nerd_font },
   spec  = {
     { '<leader>b', group = 'Buffer' },

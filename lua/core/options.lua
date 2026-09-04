@@ -8,9 +8,10 @@
 -- Show absolute line numbers in the gutter
 vim.o.number = true
 
--- Hybrid line numbers: relative on other lines, absolute on the cursor
--- line. Toggle with <leader>tr (core/keymaps.lua).
-vim.o.relativenumber = true
+-- Plain absolute numbers by default. <leader>tr turns on the hybrid
+-- display — relative on other lines, absolute on the cursor line
+-- (core/keymaps.lua).
+vim.o.relativenumber = false
 
 -- Enable mouse support in all modes (useful for resizing splits)
 vim.o.mouse          = 'a'
@@ -79,8 +80,11 @@ vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 -- Preview :substitute replacements live in a split as you type
 vim.o.inccommand = 'split'
 
--- Highlight the line the cursor is on (makes it easier to find in large files)
-vim.o.cursorline = true
+-- Highlight the line the cursor is on (makes it easier to find in large
+-- files): both the line itself and its number, the latter brighter still.
+-- The colours are CursorLine / CursorLineNr in plugins/ui.lua.
+vim.o.cursorline    = true
+vim.o.cursorlineopt = 'both'
 
 -- Keep at least 10 lines of context visible above/below the cursor
 vim.o.scrolloff = 10
@@ -97,7 +101,13 @@ vim.opt.formatoptions:remove('t')
 -- Prompt to save instead of refusing to close an unsaved buffer
 vim.o.confirm = true
 
--- Always show the statusline (required for the line separator effect)
+-- Always show the statusline (required for the line separator effect:
+-- see the StatusLine fg = bg override in plugins/ui.lua). Not a free
+-- choice either: features/topbar.lua renders the buffer-tab strip in the
+-- statusline of a zero-height carrier window pinned across the top, so
+-- laststatus=3 (one global statusline) deletes the tab row outright. A
+-- winbar cannot stand in — it forces a text line, costing a blank row
+-- under the tabs.
 vim.o.laststatus = 2
 
 -- Use box-drawing characters for split separators so they connect properly
