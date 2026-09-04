@@ -1307,6 +1307,19 @@ local function refresh_all()
   end
 end
 
+-- 'wrap' decides whether the horizontal bar is wanted at all, and nothing
+-- else fires when it flips: no scroll, no resize, no cursor move. Without
+-- this, :set wrap left the track sitting under the window (and :set nowrap
+-- left it missing) until the next unrelated event happened to refresh.
+-- :setlocal changes only the current window, :set every window that has no
+-- local value of its own, so both cases just refresh the lot — refresh()
+-- returns immediately for a window that is already in the right state.
+vim.api.nvim_create_autocmd('OptionSet', {
+  group    = group,
+  pattern  = 'wrap',
+  callback = function() vim.schedule(refresh_all) end,
+})
+
 vim.api.nvim_create_autocmd('VimEnter', {
   group    = group,
   once     = true,
