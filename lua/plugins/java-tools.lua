@@ -10,7 +10,7 @@
 --
 -- Keymaps (buffer-local, active only in Java buffers):
 --   <leader>ds — DAP: start / continue
---   <leader>di — jdtls: organize imports
+--   <leader>oi — jdtls: organize imports  (not <leader>di: that is DAP step-into)
 --   <leader>dv — jdtls: extract variable
 --   <leader>dm — jdtls: extract method
 --
@@ -119,7 +119,7 @@ vim.api.nvim_create_autocmd('FileType', {
     end
     map('<leader>ds', function() require('dap').continue() end,
       'DAP: start / continue (Java) - F5')
-    map('<leader>di', function() require('jdtls').organize_imports() end,
+    map('<leader>oi', function() require('jdtls').organize_imports() end,
       'Java: organize imports')
     map('<leader>dv', function() require('jdtls').extract_variable() end,
       'Java: extract variable')

@@ -59,11 +59,6 @@
 if vim.g.loaded_topbar then return end
 vim.g.loaded_topbar = true
 
-local function dbg(msg)
-  local f = io.open('/tmp/claude-1000/-home-fgeter--config-nvim/a4c684df-93ea-4f48-af91-dd529e363b18/scratchpad/tb.log', 'a')
-  if f then f:write(tostring(msg) .. string.char(10)); f:close() end
-end
-
 local utils = require('core.utils')
 
 -- Filetype stamped on the carrier buffer. Other modules key off this to
@@ -297,7 +292,7 @@ end
 
 -- ── Keymap lookup ────────────────────────────────────────────
 -- Resolve an item against the keymaps that actually exist right now.
--- Buffer-local maps (<leader>ds from c-tools/web-tools/java-tools, the
+-- Buffer-local maps (<leader>ds from the language files, the
 -- gitsigns hunk maps, …) only resolve against the *editor* buffer, never
 -- the carrier's scratch buffer, so the lookup runs inside nvim_buf_call.
 local function resolve(item, buf)
@@ -589,7 +584,6 @@ local function create_bar()
 end
 
 local function close_bar(tab)
-  dbg('close_bar win=' .. tostring(bars[tab]) .. string.char(10) .. debug.traceback())
   local win = bars[tab]
   bars[tab] = nil
   if win and vim.api.nvim_win_is_valid(win) then
@@ -600,7 +594,6 @@ end
 -- Hand the top row back to bufferline and undo the global option the
 -- carrier needed. Called whenever the last carrier goes away.
 local function restore_tabline()
-  dbg('restore_tabline bars=' .. vim.inspect(bars) .. string.char(10) .. debug.traceback())
   if next(bars) ~= nil then return end
   if vim.o.tabline == '%!v:lua.___topbar_tabline()' then
     vim.o.tabline = BUFFERLINE_TABLINE
@@ -657,9 +650,6 @@ local function ensure()
         others = others + 1
       end
     end
-    dbg('ensure win=' .. tostring(win) .. ' others=' .. others
-      .. ' wins=' .. vim.inspect(vim.api.nvim_tabpage_list_wins(tab))
-      .. ' exiting=' .. tostring(vim.v.exiting))
     if win and others == 0 then
       -- nvim_win_close refuses on the very last window (E444), which is
       -- exactly the case that matters: the user typed :q on their last
@@ -845,7 +835,7 @@ function open_dropdown(spec)
     height   = height,
     style    = 'minimal',
     border   = 'rounded',
-    zindex   = 200,   -- above the horizontal scrollbar (zindex 150)
+    zindex   = 200,   -- above the horizontal scrollbar (zindex 10)
   }
   if spec.title then
     cfg.title     = ' ' .. spec.title .. ' '

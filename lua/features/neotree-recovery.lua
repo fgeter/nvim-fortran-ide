@@ -40,7 +40,7 @@ vim.api.nvim_create_autocmd('WinClosed', {
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         if vim.api.nvim_win_is_valid(win) then
           local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
-          if ft ~= 'neo-tree' and ft ~= 'topbar' then
+          if ft ~= 'neo-tree' and ft ~= 'topbar' and ft ~= 'hscroll' then
             return
           end
         end

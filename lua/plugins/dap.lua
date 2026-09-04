@@ -52,16 +52,26 @@ local function activate()
     controls = {
       element = 'repl',
       enabled = true,
-      icons = {
-        disconnect = '',
-        pause      = '',
-        play       = '',
-        run_last   = '',
-        step_back  = '',
-        step_into  = '',
-        step_out   = '',
-        step_over  = '',
-        terminate  = '',
+      icons = vim.g.have_nerd_font and {
+        disconnect = '',
+        pause      = '',
+        play       = '',
+        run_last   = '',
+        step_back  = '',
+        step_into  = '',
+        step_out   = '',
+        step_over  = '',
+        terminate  = '',
+      } or {
+        disconnect = '⏏',
+        pause      = '⏸',
+        play       = '▶',
+        run_last   = '↻',
+        step_back  = '←',
+        step_into  = '↓',
+        step_out   = '↑',
+        step_over  = '→',
+        terminate  = '■',
       },
     },
     element_mappings = {},
@@ -71,10 +81,14 @@ local function activate()
       mappings = { close = { 'q', '<Esc>' } },
     },
     force_buffers = true,
-    icons = {
-      collapsed     = '',
-      current_frame = '',
-      expanded      = '',
+    icons = vim.g.have_nerd_font and {
+      collapsed     = '',
+      current_frame = '',
+      expanded      = '',
+    } or {
+      collapsed     = '▸',
+      current_frame = '▸',
+      expanded      = '▾',
     },
     layouts = {
       {
@@ -266,7 +280,8 @@ vim.keymap.set('n', '<F10>', with_dap(function(d) d.terminate() end),         { 
 -- <leader>ds (start) is intentionally absent here — the launch logic
 -- differs per language (Fortran needs an exe/workdata picker; Python
 -- uses dap.continue() which shows the config picker automatically).
--- <leader>ds is defined in fortran-tools.lua and python.lua.
+-- Each language file binds <leader>ds buffer-locally so a mixed
+-- Fortran/Python/C session cannot leave the wrong starter on <F5>.
 
 vim.keymap.set('n', '<leader>dq', with_dap(function(d) d.terminate() end),     { desc = 'DAP: terminate - F10' })
 vim.keymap.set('n', '<leader>dr', with_dap(function(d) d.restart() end),       { desc = 'DAP: restart' })
@@ -376,7 +391,7 @@ vim.keymap.set('n', '<leader>dF', function()
     border    = 'rounded',
     title     = ' DAP keys ',
     title_pos = 'center',
-    zindex    = 200,  -- above scrollbar (zindex 150)
+    zindex    = 200,  -- above the horizontal scrollbar (zindex 10)
   })
   for _, key in ipairs({ 'q', '<Esc>' }) do
     vim.keymap.set('n', key, function()

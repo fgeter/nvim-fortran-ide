@@ -11,7 +11,7 @@
 -- This file only adds what is Python-specific:
 --   • basedpyright LSP config
 --   • debugpy DAP adapter + configurations
---   • <leader>ds  — dap.continue() (shows config picker or resumes)
+--   • buffer-local <leader>ds  — dap.continue() (config picker or resume)
 --   • <leader>pr  — run current file in bottom terminal
 --
 -- LAZY: Yes — activates on FileType python only.
@@ -30,33 +30,31 @@
 if vim.g.loaded_python_tools then return end
 vim.g.loaded_python_tools = true
 
+-- Resolved at call time so vim.g.project_* from a later .nvim.lua wins.
+local function get_python_bin()
+  if vim.g.project_python_bin then
+    return vim.g.project_python_bin
+  end
+  if vim.g.project_venv then
+    local bin = vim.g.project_venv .. '/bin/python'
+    if vim.fn.executable(bin) == 1 then return bin end
+  end
+  local venv = os.getenv('VIRTUAL_ENV')
+  if venv then
+    local bin = venv .. '/bin/python'
+    if vim.fn.executable(bin) == 1 then return bin end
+  end
+  if vim.g.project_repo_root then
+    local bin = vim.g.project_repo_root .. '/.venv/bin/python'
+    if vim.fn.executable(bin) == 1 then return bin end
+  end
+  local py = vim.fn.exepath('python3')
+  return py ~= '' and py or 'python3'
+end
+
 local function activate()
   if vim.g.python_tools_active then return end
   vim.g.python_tools_active = true
-
-  ---------------------------------------------------------------------------
-  -- Helper: resolve the correct Python binary for this project
-  ---------------------------------------------------------------------------
-  local function get_python_bin()
-    if vim.g.project_python_bin then
-      return vim.g.project_python_bin
-    end
-    if vim.g.project_venv then
-      local bin = vim.g.project_venv .. '/bin/python'
-      if vim.fn.executable(bin) == 1 then return bin end
-    end
-    local venv = os.getenv('VIRTUAL_ENV')
-    if venv then
-      local bin = venv .. '/bin/python'
-      if vim.fn.executable(bin) == 1 then return bin end
-    end
-    if vim.g.project_repo_root then
-      local bin = vim.g.project_repo_root .. '/.venv/bin/python'
-      if vim.fn.executable(bin) == 1 then return bin end
-    end
-    local py = vim.fn.exepath('python3')
-    return py ~= '' and py or 'python3'
-  end
 
   ---------------------------------------------------------------------------
   -- LSP: basedpyright
@@ -69,18 +67,26 @@ local function activate()
     settings     = {
       basedpyright = {
         analysis = {
-          typeCheckingMode     = 'standard',
-          autoSearchPaths      = true,
+          typeCheckingMode       = 'standard',
+          autoSearchPaths        = true,
           useLibraryCodeForTypes = true,
-          venvPath             = vim.g.project_venv
-            or (vim.g.project_repo_root and (vim.g.project_repo_root .. '/.venv'))
-            or nil,
         },
       },
-      python = {
-        pythonPath = get_python_bin(),
-      },
     },
+    -- Client start is after 'exrc'; fill venv/pythonPath from current vim.g.
+    before_init = function(_, config)
+      local venv = vim.g.project_venv
+        or (vim.g.project_repo_root and (vim.g.project_repo_root .. '/.venv'))
+        or nil
+      config.settings = config.settings or {}
+      config.settings.python = { pythonPath = get_python_bin() }
+      if venv then
+        config.settings.basedpyright = config.settings.basedpyright or {}
+        config.settings.basedpyright.analysis =
+          config.settings.basedpyright.analysis or {}
+        config.settings.basedpyright.analysis.venvPath = venv
+      end
+    end,
   })
   vim.lsp.enable('basedpyright')
 
@@ -90,11 +96,13 @@ local function activate()
   require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
 
-  dap.adapters.python = {
-    type    = 'executable',
-    command = get_python_bin(),
-    args    = { '-m', 'debugpy.adapter' },
-  }
+  dap.adapters.python = function(cb)
+    cb({
+      type    = 'executable',
+      command = get_python_bin(),
+      args    = { '-m', 'debugpy.adapter' },
+    })
+  end
 
   dap.configurations.python = {
     {
@@ -102,7 +110,7 @@ local function activate()
       request = 'launch',
       name    = 'Launch current file',
       program = '${file}',
-      python  = get_python_bin(),
+      python  = get_python_bin,
       console = 'integratedTerminal',
     },
     {
@@ -112,7 +120,7 @@ local function activate()
       module  = function()
         return vim.fn.input('Module name: ')
       end,
-      python  = get_python_bin(),
+      python  = get_python_bin,
       console = 'integratedTerminal',
     },
     {
@@ -152,16 +160,6 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
-  -- <leader>ds — Python-specific start/continue
-  -- dap.continue() handles both cases: shows the config picker (Launch
-  -- file / Launch module / Attach) when no session is active, or resumes
-  -- at the next breakpoint when a session is already running.
-  -- Common DAP keymaps (<leader>dq, <leader>dn, etc.) are in dap.lua.
-  ---------------------------------------------------------------------------
-  vim.keymap.set('n', '<leader>ds', function() dap.continue() end,
-    { desc = 'DAP: start / continue - F5' })
-
-  ---------------------------------------------------------------------------
   -- <leader>pr — Run current file in bottom terminal
   ---------------------------------------------------------------------------
   vim.keymap.set('n', '<leader>pr', function()
@@ -189,9 +187,16 @@ local function activate()
   vim.notify('✅ Python tools loaded (LSP + DAP + ruff)', vim.log.levels.INFO)
 end
 
--- Lazy: activate on first FileType python event
+-- activate() is idempotent; <leader>ds is buffer-local so a Fortran
+-- session cannot leave its picker bound in Python buffers (and vice versa).
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'python',
-  once     = true,
-  callback = activate,
+  callback = function(ev)
+    activate()
+    vim.keymap.set('n', '<leader>ds', function()
+      require('dap').continue()
+    end, { buffer = ev.buf, desc = 'DAP: start / continue - F5' })
+  end,
 })
+
+return { activate = activate }

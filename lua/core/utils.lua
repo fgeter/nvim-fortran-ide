@@ -19,6 +19,7 @@ function M.is_editor_buf(buf)
   return vim.bo[buf].buftype == ''
     and ft ~= 'neo-tree'
     and ft ~= 'toggleterm'
+    and ft ~= 'hscroll'
     and not ft:match('^dap')
 end
 
@@ -35,7 +36,7 @@ function M.find_editor_win()
 end
 
 -- Raise any floating window that appeared since `before` (a snapshot from
--- vim.api.nvim_list_wins()) above the horizontal scrollbar (zindex 150).
+-- vim.api.nvim_list_wins()) above the horizontal scrollbar (zindex 10).
 -- The 50ms defer is unavoidable here: the floats are opened by async LSP/
 -- DAP responses that offer no completion event to hook.
 function M.raise_new_floats(before)
@@ -298,6 +299,8 @@ end
 function M.basename(path) return vim.fn.fnamemodify(path, ':t') end
 
 -- List immediate subdirectories of work_root.
+-- TODO(run-picker): sort by last-modified, newest first — requested as the
+-- default for <leader>cr / <leader>ds workdata pick lists.
 function M.get_workdirs(work_root)
   local dirs = {}
   for _, path in ipairs(vim.fn.globpath(work_root, '*', false, true)) do

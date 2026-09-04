@@ -340,7 +340,7 @@ Files in `lua/plugins/` and `lua/features/` are auto-loaded alphabetically
     │   └── python.lua          — Python LSP + DAP              [lazy: FileType python]
     ├── features/               — homegrown subsystems (no plugin behind them)
     │   ├── git-workflow.lua     — lazygit, commit/pull/push, branches, diffview review keymaps, remote-ahead check
-    │   ├── hscrollbar.lua       — horizontal scrollbar (custom floating bar)
+    │   ├── hscrollbar.lua       — horizontal + vertical scrollbars (click/drag)
     │   ├── edge-scroll.lua      — mouse edge-hover horizontal scrolling
     │   ├── goto-file-line.lua   — gF / <C-g>f: open file:line from compiler errors
     │   ├── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
@@ -369,8 +369,10 @@ Leader key: `<Space>`
 
 ### Horizontal scrolling
 
-Requires `nowrap` mode (enabled globally). A floating `▁` bar appears at the
-bottom of buffer windows when content is wider than the window.
+Requires `nowrap` mode (enabled globally). Clickable scrollbars appear when
+needed: a one-row strip at the bottom of the pane if a line is wider than
+the window, and a one-column strip on the right of the buffer if the file is
+taller than the window. Click the track to jump; drag the thumb to scroll.
 
 | Key | Action |
 |-----|--------|
@@ -445,7 +447,7 @@ Inside neo-tree:
 | `a` / `d` / `r` | Add / delete / rename |
 | `c` / `m` | Copy / move |
 | `y` / `x` / `p` | Copy / cut / paste |
-| `H` | Toggle hidden files |
+| `H` | Toggle gitignore / hidden files (off at startup: all files shown; `.git` never shown) |
 | `R` | Refresh |
 | `/` | Telescope find files scoped to directory under cursor |
 | `g/` | Telescope live grep scoped to directory under cursor |
@@ -532,7 +534,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 
 Press `K` over any variable during a debug session to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it. Variable values also appear as virtual text inline in the source while stepping.
 
-Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>di` organize imports, `<leader>dv` extract variable, `<leader>dm` extract method.
+Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>oi` organize imports, `<leader>dv` extract variable, `<leader>dm` extract method.
 
 ### Git operations (`<leader>g`)
 

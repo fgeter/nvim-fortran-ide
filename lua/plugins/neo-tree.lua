@@ -4,7 +4,8 @@
 -- Neo-tree provides a sidebar file tree, buffer list, and git
 -- status view. Configured to:
 --   • Follow the current file automatically
---   • Hide dotfiles and gitignored files by default; H toggles them
+--   • Show gitignored and dotfiles at startup; H toggles the filter on
+--     (then only non-ignored, non-dot files remain). .git is never shown.
 --   • Open alongside a file when Neovim starts
 --   • NOT steal focus when toggleterm closes (handled in toggleterm.lua)
 --   • Show "← .." at top of tree for navigating to parent directory
@@ -139,6 +140,10 @@ local function open_or_up(state)
   elseif node and node.type == 'file' and node.name:match('%.html$') then
     vim.fn.jobstart({ 'xdg-open', node:get_id() }, { detach = true })
     vim.notify('Opening ' .. node.name .. ' in browser', vim.log.levels.INFO)
+  elseif node and node.type == 'directory' then
+    -- Toggle expand/collapse (the generic 'open' command is easy to call
+    -- without the filesystem toggle_directory hook).
+    require('neo-tree.sources.filesystem.commands').open(state)
   else
     state.commands['open'](state)
   end
@@ -377,9 +382,14 @@ require('neo-tree').setup {
     hijack_netrw_behavior  = 'open_current',
 
     filtered_items = {
-      visible         = false,  -- truly hide filtered items; H toggles them back
+      -- Start with the filter off so workdata/, build/, etc. are listed.
+      -- H flips `visible`: false then hides gitignored + dotfiles.
+      -- never_show wins even when visible is true, so .git never dumps
+      -- object internals into the tree.
+      visible         = true,
       hide_dotfiles   = true,
       hide_gitignored = true,
+      never_show      = { '.git' },
     },
   },
 
@@ -425,13 +435,13 @@ require('neo-tree').setup {
       last_indent_marker = '└',
       highlight          = 'NeoTreeIndentMarker',
       with_expanders     = true,
-      expander_collapsed = '',
-      expander_expanded  = '',
+      expander_collapsed = '',
+      expander_expanded  = '',
       expander_highlight = 'NeoTreeExpander',
     },
     icon = {
-      folder_closed = '',
-      folder_open   = '',
+      folder_closed = '',
+      folder_open   = '',
       folder_empty  = '󰜌',
     },
     name = {
@@ -441,14 +451,14 @@ require('neo-tree').setup {
     git_status = {
       symbols = {
         added     = '✚',
-        modified  = '',
+        modified  = '',
         deleted   = '✖',
         renamed   = '󰁕',
-        untracked = '',
-        ignored   = '',
+        untracked = '',
+        ignored   = '',
         unstaged  = '󰄱',
-        staged    = '',
-        conflict  = '',
+        staged    = '',
+        conflict  = '',
       },
     },
   },
@@ -518,11 +528,25 @@ end
 -- installation: vim.pack.add fires DirChanged while cloning packages
 -- (before VimEnter), which would otherwise trigger this callback before
 -- the Neotree command is registered.
-vim.api.nvim_create_autocmd('DirChanged', {
-  callback = function()
-    require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
-  end,
-})
+local function on_cwd_change()
+  require('core.utils').try('Neo-tree open', 'Neotree show filesystem left')
+end
+
+local dir_group = vim.api.nvim_create_augroup('neo-tree-cwd', { clear = true })
+if vim.v.vim_did_enter == 1 then
+  vim.api.nvim_create_autocmd('DirChanged', { group = dir_group, callback = on_cwd_change })
+else
+  vim.api.nvim_create_autocmd('VimEnter', {
+    group    = dir_group,
+    once     = true,
+    callback = function()
+      vim.api.nvim_create_autocmd('DirChanged', {
+        group    = dir_group,
+        callback = on_cwd_change,
+      })
+    end,
+  })
+end
 
 -- ── Startup behaviour ─────────────────────────────────────────
 -- UIEnter fires after every VimEnter handler has run — including

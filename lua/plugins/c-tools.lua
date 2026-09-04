@@ -50,14 +50,14 @@ local function activate()
   dap.configurations.cpp = vim.deepcopy(dap.configurations.c)
 end
 
+-- activate() is idempotent; the map must be set on every C/C++ buffer,
+-- not just the first (a `once = true` FileType used to skip later files).
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = { 'c', 'cpp' },
-  once     = true,
-  callback = function()
+  callback = function(ev)
     activate()
-    -- Buffer-local <leader>ds: prompt → launch via the config above
     vim.keymap.set('n', '<leader>ds', function()
       require('dap').continue()
-    end, { buffer = true, desc = 'DAP: start / continue (C/C++) - F5' })
+    end, { buffer = ev.buf, desc = 'DAP: start / continue (C/C++) - F5' })
   end,
 })

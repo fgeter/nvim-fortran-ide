@@ -68,7 +68,7 @@ Homegrown subsystems with no third-party plugin behind them, loaded after `lua/p
 | File | Purpose |
 |------|---------|
 | `git-workflow.lua` | Repo-level git: lazygit launcher, commit/pull/push, branch ops, diffview-driven review (`<leader>gf/gv/gw/gh`), remote-ahead check (startup, `:cd`, periodic, pre-keymap) |
-| `hscrollbar.lua` | Horizontal scrollbar (floating 1-row bar; nvim-scrollview only does vertical) |
+| `hscrollbar.lua` | Horizontal + vertical scrollbars (strips at bottom / right of pane; click/drag) |
 | `edge-scroll.lua` | Mouse edge-hover horizontal scrolling (needs `mousemoveevent`) |
 | `goto-file-line.lua` | `gF` / `<C-g>f` — open `file:line` references from compiler errors |
 | `neotree-recovery.lua` | Reopens an editor window when `:q` leaves only the neo-tree sidebar (pairs with `close_if_last_window = false`) |

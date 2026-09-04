@@ -35,14 +35,13 @@ local function is_make_project(path)
   return false
 end
 
+-- Plugin setup and keymaps run once. Project paths are read at keypress
+-- via core.project.roots() so a later .nvim.lua still wins.
 local function activate()
   if vim.g.make_tools_active then return end
   vim.g.make_tools_active = true
 
   local project = require('core.project')
-  local roots   = project.roots()
-  local REPO_ROOT, BUILD_ROOT = roots.repo, roots.build
-
   local utils = require('core.utils')
   local term  = utils.make_terminal()   -- persistent shell, used by `make clean`
 
@@ -54,7 +53,7 @@ local function activate()
     vim.notify('Building ' .. build_type .. ' with make -j' .. j, vim.log.levels.INFO)
     local make_cmd = 'make -j' .. j
       .. ' BUILD_TYPE=' .. build_type
-      .. ' -C ' .. vim.fn.shellescape(REPO_ROOT)
+      .. ' -C ' .. vim.fn.shellescape(project.roots().repo)
     utils.run_build_cmd(make_cmd .. project.build_done_suffix)
   end
 
@@ -89,10 +88,11 @@ local function activate()
   end
 
   local function pick_and_run()
-    local execs = project.find_executables { root = BUILD_ROOT }
+    local roots = project.roots()
+    local execs = project.find_executables { root = roots.build }
     if #execs == 0 then
       vim.notify(
-        'No executables found under ' .. BUILD_ROOT .. '.\n' ..
+        'No executables found under ' .. roots.build .. '.\n' ..
         'Build first with <leader>cb.',
         vim.log.levels.WARN)
       return
@@ -100,7 +100,7 @@ local function activate()
     project.pick_and_launch {
       execs            = execs,
       launch           = launch,
-      workdir_fallback = REPO_ROOT,
+      workdir_fallback = roots.repo,
     }
   end
 
@@ -119,7 +119,7 @@ local function activate()
       format_item = function(item) return item:sub(1, 1):upper() .. item:sub(2) end,
     }, function(choice)
       if not choice then return end
-      local base = 'make -C ' .. vim.fn.shellescape(REPO_ROOT) .. ' BUILD_TYPE='
+      local base = 'make -C ' .. vim.fn.shellescape(project.roots().repo) .. ' BUILD_TYPE='
       if choice == 'both' then
         term.run(base .. 'debug clean && ' .. base .. 'release clean')
       else
@@ -147,3 +147,5 @@ else
     end,
   })
 end
+
+return { activate = activate }

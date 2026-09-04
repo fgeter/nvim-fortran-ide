@@ -29,9 +29,6 @@
 --                               readme.txt is always preserved.
 -- ============================================================
 
-if vim.g.fortran_project_loaded then return end
-vim.g.fortran_project_loaded = true
-
 -- Validate required paths are set
 local required = {
   'project_repo_root',
@@ -48,37 +45,26 @@ for _, key in ipairs(required) do
   end
 end
 
-local name = vim.g.project_name or vim.fn.fnamemodify(vim.g.project_repo_root, ':t')
+-- Gate on repo root, not a boolean: :cd into a second Fortran project
+-- must be allowed to load that project's .nvim.lua.
+local root = vim.g.project_repo_root
+if vim.g.fortran_project_loaded == root then return end
+vim.g.fortran_project_loaded = root
+
+local name = vim.g.project_name or vim.fn.fnamemodify(root, ':t')
 vim.notify('Loading project: ' .. name, vim.log.levels.INFO)
 
--- ── Activate cmake-tools for this project ─────────────────────────────
--- cmake-tools.lua reads these vim.g variables instead of hardcoded paths
--- so it works correctly for whichever project is open.
--- The DirChanged lazy trigger in cmake-tools.lua will have already fired
--- by the time .nvim.lua is sourced, so we activate directly here.
-vim.g.cmake_tools_active = nil  -- reset so activate() can run again
-local ok, cmake = pcall(require, 'plugins.cmake-tools')
-if not ok then
-  -- cmake-tools.lua guards with vim.g.cmake_tools_active; trigger via DirChanged
-  vim.api.nvim_exec_autocmds('DirChanged', { modeline = false })
+-- cmake-tools / fortran-tools / make-tools now read vim.g.project_* at
+-- keypress, so we only need to ensure they have been activated (install +
+-- keymaps). Do NOT nil the *_active guards: that left the plugins running
+-- with the flag false and never actually re-called activate().
+if vim.fn.filereadable(root .. '/CMakeLists.txt') == 1 then
+  local cmake = require('plugins.cmake-tools')
+  if cmake and cmake.activate then cmake.activate() end
+else
+  local make = require('plugins.make-tools')
+  if make and make.activate then make.activate() end
 end
 
--- ── Activate fortran-tools for this project ───────────────────────────
--- fortran-tools.lua reads vim.g.project_* paths. Reset the active guard
--- so it re-runs with the new project's paths if switching projects.
-vim.g.fortran_tools_active = nil
-
--- Force activation now if a Fortran buffer is already open,
--- otherwise the FileType autocmd in fortran-tools.lua will trigger it
--- when the first Fortran file is opened.
-for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-  if vim.bo[buf].filetype == 'fortran' then
-    vim.g.fortran_tools_active = nil
-    -- Re-fire FileType to trigger fortran-tools activate()
-    vim.api.nvim_exec_autocmds('FileType', {
-      pattern = 'fortran',
-      modeline = false,
-    })
-    break
-  end
-end
+local fortran = require('plugins.fortran-tools')
+if fortran and fortran.activate then fortran.activate() end
