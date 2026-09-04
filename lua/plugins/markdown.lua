@@ -71,24 +71,44 @@ vim.api.nvim_create_autocmd('FileType', {
       { buffer = ev.buf, desc = 'Markdown: collapse all' })
     vim.keymap.set('n', '<leader>mh', function()
       local md = vim.api.nvim_buf_get_name(ev.buf)
+      if md == '' then
+        vim.notify('Markdown: save the buffer first', vim.log.levels.WARN)
+        return
+      end
+      if vim.bo[ev.buf].modified then vim.cmd.write() end
       local html = vim.fn.fnamemodify(md, ':r') .. '.html'
-      vim.system({ 'pandoc', '-s', md, '-o', html }, {}, function(out)
-        if out.code ~= 0 then
-          vim.schedule(function() vim.notify(out.stderr, vim.log.levels.ERROR) end)
-          return
-        end
-        vim.schedule(function()
-          vim.ui.select({ 'No (default)', 'Yes' }, {
-            prompt = 'Keep ' .. vim.fn.fnamemodify(html, ':t') .. '? (<Enter> = No)',
-          }, function(choice)
-            vim.system { 'xdg-open', html }
-            if choice ~= 'Yes' then
-              -- delay so a cold-starting browser reads the file before it goes
-              vim.defer_fn(function() os.remove(html) end, 5000)
-            end
-          end)
+
+      local function open_then_ask()
+        vim.system({ 'xdg-open', html }, { detach = true })
+        vim.ui.select({ 'No (default)', 'Yes' }, {
+          prompt = 'Keep ' .. vim.fn.fnamemodify(html, ':t') .. '? (<Enter> = No)',
+        }, function(choice)
+          if choice ~= 'Yes' then
+            -- delay so a cold-starting browser reads the file before it goes
+            vim.defer_fn(function() os.remove(html) end, 5000)
+          end
         end)
-      end)
+      end
+
+      local function run(args, retried)
+        vim.system(args, {}, function(out)
+          if out.code ~= 0 then
+            local err = (out.stderr or '') .. (out.stdout or '')
+            -- Invalid YAML front matter should not block a preview.
+            if not retried and err:lower():find('yaml', 1, true) then
+              run({ 'pandoc', '-s', '-f', 'markdown-yaml_metadata_block', md, '-o', html }, true)
+              return
+            end
+            vim.schedule(function()
+              vim.notify(err ~= '' and err or 'pandoc failed', vim.log.levels.ERROR)
+            end)
+            return
+          end
+          vim.schedule(open_then_ask)
+        end)
+      end
+
+      run({ 'pandoc', '-s', md, '-o', html }, false)
     end, { buffer = ev.buf, desc = 'Markdown: render to HTML and open browser' })
   end,
 })
