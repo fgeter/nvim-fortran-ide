@@ -1,10 +1,13 @@
 -- ============================================================
--- plugins/python.lua — Python LSP + DAP + formatting
+-- plugins/python.lua — Python LSP + DAP
 --
 -- Configures:
---   basedpyright — Python language server
+--   basedpyright — Python language server (enabled here, not in lsp.lua,
+--                  so venv settings exist before the client starts)
 --   debugpy      — Python debug adapter for nvim-dap
---   ruff         — Fast Python formatter + linter
+--
+-- Ruff is the Python formatter; it lives in formatting.lua (conform)
+-- and is installed by lsp.lua via Mason. It is not started as an LSP.
 --
 -- dapui.setup(), auto open/close listeners, and all language-
 -- agnostic <leader>d* keymaps live in plugins/dap.lua.
@@ -132,34 +135,6 @@ local function activate()
   }
 
   ---------------------------------------------------------------------------
-  -- Formatting: ruff via conform.nvim
-  ---------------------------------------------------------------------------
-  local function register_ruff()
-    local ok, conform = pcall(require, 'conform')
-    if ok then
-      conform.formatters_by_ft = conform.formatters_by_ft or {}
-      conform.formatters_by_ft.python = { 'ruff_format', 'ruff_organize_imports' }
-    end
-  end
-
-  if vim.g.conform_active then
-    register_ruff()
-  else
-    vim.api.nvim_create_autocmd('User', {
-      pattern  = 'ConformActivated',
-      once     = true,
-      callback = register_ruff,
-    })
-    vim.api.nvim_create_autocmd('BufWritePre', {
-      pattern  = '*.py',
-      once     = true,
-      callback = function()
-        vim.schedule(register_ruff)
-      end,
-    })
-  end
-
-  ---------------------------------------------------------------------------
   -- <leader>pr — Run current file in bottom terminal
   ---------------------------------------------------------------------------
   vim.keymap.set('n', '<leader>pr', function()
@@ -184,7 +159,7 @@ local function activate()
     end
   end, { desc = 'Python: run current file' })
 
-  vim.notify('✅ Python tools loaded (LSP + DAP + ruff)', vim.log.levels.INFO)
+  vim.notify('✅ Python tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
 
 -- activate() is idempotent; <leader>ds is buffer-local so a Fortran

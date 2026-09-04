@@ -298,15 +298,69 @@ end
 -- Return the filename component of a path (strips all leading directories).
 function M.basename(path) return vim.fn.fnamemodify(path, ':t') end
 
--- List immediate subdirectories of work_root.
--- TODO(run-picker): sort by last-modified, newest first — requested as the
--- default for <leader>cr / <leader>ds workdata pick lists.
-function M.get_workdirs(work_root)
-  local dirs = {}
-  for _, path in ipairs(vim.fn.globpath(work_root, '*', false, true)) do
-    if vim.fn.isdirectory(path) == 1 then table.insert(dirs, path) end
+-- Newest modification time under `dir`: its own mtime and those of its
+-- immediate entries, whichever is later. The directory's own mtime only
+-- moves when a name is added or removed, so editing an input file in place
+-- would otherwise leave the folder looking untouched. Only one level is
+-- scanned: a run directory holds its inputs and outputs directly, and
+-- walking a finished model run's output tree is not worth the stat calls.
+function M.dir_mtime(dir)
+  local uv = vim.uv or vim.loop
+  local newest = 0
+  local st = uv.fs_stat(dir)
+  if st then newest = st.mtime.sec end
+
+  local handle = uv.fs_scandir(dir)
+  if handle then
+    while true do
+      local name = uv.fs_scandir_next(handle)
+      if not name then break end
+      local entry = uv.fs_stat(dir .. '/' .. name)
+      if entry and entry.mtime.sec > newest then newest = entry.mtime.sec end
+    end
   end
-  return dirs
+  return newest
+end
+
+-- Coarse "3h ago" / "2d ago" label for a unix timestamp, used to justify
+-- the ordering of a recency-sorted pick list. Nil/0 renders as an empty
+-- string so a directory that could not be stat'ed just shows its name.
+function M.relative_time(secs)
+  if not secs or secs <= 0 then return '' end
+  local delta = os.time() - secs
+  if delta < 60        then return 'just now' end
+  if delta < 3600      then return ('%dm ago'):format(math.floor(delta / 60)) end
+  if delta < 86400     then return ('%dh ago'):format(math.floor(delta / 3600)) end
+  if delta < 86400 * 7 then return ('%dd ago'):format(math.floor(delta / 86400)) end
+  return os.date('%Y-%m-%d', secs)
+end
+
+-- List immediate subdirectories of work_root.
+--   sort  'mtime' (default) — most recently changed first, ties by name
+--         'name'            — case-insensitive alphabetical
+-- Returns the sorted paths and a path -> mtime map, so a caller that wants
+-- to show ages in its labels does not have to re-stat every directory.
+function M.get_workdirs(work_root, sort)
+  local dirs, mtimes = {}, {}
+  for _, path in ipairs(vim.fn.globpath(work_root, '*', false, true)) do
+    if vim.fn.isdirectory(path) == 1 then
+      table.insert(dirs, path)
+      mtimes[path] = M.dir_mtime(path)
+    end
+  end
+
+  local function by_name(a, b)
+    return M.basename(a):lower() < M.basename(b):lower()
+  end
+  if sort == 'name' then
+    table.sort(dirs, by_name)
+  else
+    table.sort(dirs, function(a, b)
+      if mtimes[a] ~= mtimes[b] then return mtimes[a] > mtimes[b] end
+      return by_name(a, b)
+    end)
+  end
+  return dirs, mtimes
 end
 
 -- Set a buffer-local K keymap: DAP eval when a session is active,

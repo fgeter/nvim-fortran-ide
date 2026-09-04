@@ -134,7 +134,7 @@ local MENUS = {
       { key = 'dL', label = 'Log point' },
       { key = 'dx', label = 'Clear all breakpoints - Shift-F4' },
       { key = 'dn', label = 'Step over - F2' },
-      { key = 'di', label = 'Step into - F1' },
+      { key = 'di', label = 'Step into - F1 during debug' },
       { key = 'do', label = 'Step out - F3' },
       { key = 'dc', label = 'Run to cursor - F6' },
       { key = 'dr', label = 'Restart' },
@@ -843,6 +843,10 @@ function open_dropdown(spec)
   end
   local win = vim.api.nvim_open_win(buf, true, cfg)
   vim.wo[win].cursorline   = true
+  -- The cursor line IS the selection marker here, and this window has no
+  -- line numbers, so ask for the line itself whatever the global
+  -- cursorlineopt happens to be (core/options.lua).
+  vim.wo[win].cursorlineopt = 'line'
   vim.wo[win].winhighlight = 'Normal:TopBar,FloatBorder:TopBarBorder,CursorLine:PmenuSel'
 
   menu = vim.tbl_extend('force', spec, { win = win, buf = buf, items = entries })

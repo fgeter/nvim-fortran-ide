@@ -34,6 +34,12 @@ vim.g.project_build_root = vim.g.project_repo_root .. '/build'
 -- Without it, every executable file in the build tree is offered.
 vim.g.project_executable_pattern = 'swatplus*'
 
+-- Initial order of the run-directory pick list shown by <leader>cr and
+-- <leader>ds: 'mtime' (default, most recently changed folder first) or
+-- 'name' (alphabetical). The list's own Sort entry toggles it for the
+-- rest of the session, so this only sets where each session starts.
+-- vim.g.project_workdir_sort = 'name'
+
 -- Output file patterns offered for deletion in the chosen run directory
 -- before each run. The matched names are always listed and confirmed
 -- first, so a stray *.txt (CMakeLists.txt, a dataset input) is never

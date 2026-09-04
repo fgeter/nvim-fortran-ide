@@ -1,8 +1,17 @@
 -- ============================================================
 -- features/hscrollbar.lua — Scrollbars for buffer windows
 --
--- Horizontal: zero-height split under the editor (statusline is the
---   track). Shown when wrap=false and a line is wider than the window.
+-- Horizontal: shown when wrap=false and a line is wider than the window.
+--   Two layouts, picked by 'laststatus' (see compact_h):
+--   • laststatus<3 — the editor's own statusline row *is* the track
+--     (___hscroll_track), and the bar window below it is squeezed to zero
+--     height so it contributes only its statusline, which renders the
+--     editor's status (___hscroll_status). Two rows, both carrying
+--     something: track, then status below it. The editor's statusline
+--     would otherwise sit between the text and the track saying nothing.
+--   • laststatus=3 — no window has a statusline to borrow, so the bar is a
+--     1-row split whose *buffer* holds the track, and the single global
+--     status line is already below it.
 -- Vertical: two layers, because a float opened before the TUI attaches
 --   is in the window list (and receives clicks) but is often missing from
 --   the first painted frame — you had to click the empty right edge to
@@ -14,16 +23,16 @@
 --      events). Not torn down after startup, not reconfigured while
 --      dragging.
 --
--- Click/drag: statusline %@ is a completed click, so it cannot drag.
--- A global <LeftMouse> hit-test starts a drag on button-down; MouseMove
+-- Click/drag: a global <LeftMouse> hit-test starts a drag on button-down; MouseMove
 -- (via edge-scroll.lua) and <LeftDrag> update the view until release.
--- Vertical drag scrolls a covering copy of the window. The real cursor
--- stays put. On release the copy stays on screen (click a line to move
--- the cursor there; a key returns to the cursor's line).
+-- Drag (vertical or horizontal) scrolls a covering copy of the window.
+-- The real cursor stays put. Horizontal uses the overlay so leftcol is
+-- not clamped to the cursor line — the range is the file's longest line.
+-- On release the copy stays on screen (click a line to move the cursor
+-- there; a key returns to the cursor's line).
 -- ============================================================
 
 local BAR_FT = 'hscroll'
-local HEXPR = '%!v:lua.___hscroll_bar()'
 -- One cell, one column in from the window edge. The last column of a TUI
 -- window often does not get mouse events, so a 2-col bar looked grab-able
 -- on the far right but that half never started a drag.
@@ -53,7 +62,23 @@ local creating  = false
 local saved_so  = {}  -- parent winid → scrolloff to restore after a vertical drag
 local drag_cul  = {}  -- parent winid → cursorline to restore after a vertical drag
 local cur_hist  = {}  -- winid → { prev = {lnum,col}, last = {lnum,col} }
+local saved_stl = {}  -- parent winid → its local 'statusline' before the swap
 local vbar_ns   = vim.api.nvim_create_namespace('hscroll_vbar')
+local hbar_ns   = vim.api.nvim_create_namespace('hscroll_hbar')
+
+-- Compact layout: the editor's own statusline row *is* the track, and the
+-- bar window is squeezed to zero height so it contributes only its own
+-- statusline, which carries the status. Two rows of chrome, both useful:
+--
+--     text … │ ▄▄▄▄ track │ NORMAL  init.lua  main  1:1
+--
+-- The alternative — track as buffer content in a one-row split — leaves the
+-- editor's statusline stranded between the text and the track with nothing
+-- to say. It is still the layout under laststatus=3, where windows have no
+-- statusline of their own to borrow.
+local function compact_h()
+  return vim.o.laststatus ~= 3
+end
 
 local function flush_win(win)
   if win and vim.api.nvim_win_is_valid(win) then
@@ -210,6 +235,9 @@ local function ensure_viewport(parent)
   vim.wo[win].winbar         = ''
   vim.wo[win].scrolloff      = 0
   vim.wo[win].sidescrolloff  = 0
+  -- virtualedit=all lets leftcol travel the longest line even when the
+  -- cursor sits on a short one. Keep it for the life of the overlay.
+  vim.wo[win].virtualedit    = 'all'
   -- Opaque so the real window (still at the cursor) cannot show through.
   vim.wo[win].winhighlight   = 'Normal:NormalFloat,EndOfBuffer:NormalFloat,SignColumn:NormalFloat'
   local view = vim.api.nvim_win_call(parent, vim.fn.winsaveview)
@@ -228,28 +256,33 @@ local function click_viewport(mp)
   local info = vim.fn.getwininfo(win)[1]
   local buf  = vim.api.nvim_win_get_buf(parent)
   local n    = vim.api.nvim_buf_line_count(buf)
-  local lnum = math.max(1, math.min(n, (info.topline or 1) + (mp.winrow or 1) - 1))
-  local col  = math.max(0, (mp.column or 1) - 1)
+  local lnum = (mp.line and mp.line > 0) and mp.line
+    or math.max(1, math.min(n, (info.topline or 1) + (mp.winrow or 1) - 1))
+  local col  = (mp.column and mp.column > 0) and math.max(0, mp.column - 1)
+    or math.max(0, (mp.wincol or 1) - 1)
   local top  = info.topline
+  local left = info.leftcol or 0
   close_viewport(parent)
   pcall(vim.api.nvim_win_set_cursor, parent, { lnum, col })
   vim.api.nvim_win_call(parent, function()
-    pcall(vim.fn.winrestview, { topline = top, lnum = lnum, col = col })
+    pcall(vim.fn.winrestview, { topline = top, lnum = lnum, col = col, leftcol = left })
   end)
   return true
 end
 
 local function hgeom(parent)
   local bufnr  = vim.api.nvim_win_get_buf(parent)
-  local info   = vim.fn.getwininfo(parent)[1]
-  local text_w = math.max(1, info.width - info.textoff)
+  local pinfo  = vim.fn.getwininfo(parent)[1]
+  local vinfo  = vim.fn.getwininfo(view_win(parent))[1] or pinfo
+  local text_w = math.max(1, pinfo.width - pinfo.textoff)
   local win_w  = vim.api.nvim_win_get_width(parent)
   local ml     = get_maxlen(bufnr)
   local max_left = math.max(0, ml - text_w)
+  local leftcol  = vinfo.leftcol or 0
   local thumb_w  = math.max(1, math.min(win_w, math.floor(win_w * text_w / math.max(ml, 1))))
   local track    = math.max(0, win_w - thumb_w)
   local thumb_off = (max_left > 0 and track > 0)
-    and math.floor(info.leftcol * track / max_left) or 0
+    and math.floor(leftcol * track / max_left) or 0
   thumb_off = math.max(0, math.min(track, thumb_off))
   return {
     text_w = text_w, win_w = win_w, ml = ml, max_left = max_left,
@@ -333,35 +366,43 @@ local function off_to_value(track, max_value, off)
 end
 
 -- Neovim never hides the cursor, so winrestview({leftcol=…}) is clamped to
--- keep virtcol on screen. At column 0 that clamp is leftcol=0 (no scroll
--- right). Move the cursor along the same line into the new viewport first.
-local function set_leftcol(winid, leftcol)
-  vim.api.nvim_win_call(winid, function()
-    local info   = vim.fn.getwininfo(winid)[1]
+-- the current line. Scroll the covering viewport instead: virtualedit=all
+-- keeps virtcol on screen even when that line is short, so the range is
+-- the file's longest line. The parent cursor is not moved.
+local function set_leftcol(parent, leftcol)
+  local win = view_win(parent)
+  vim.api.nvim_win_call(win, function()
+    local info   = vim.fn.getwininfo(win)[1]
     local text_w = math.max(1, info.width - info.textoff)
     local target = math.max(0, leftcol)
-    local so     = vim.wo.sidescrolloff
-    local ve     = vim.wo.virtualedit
+    local topline = info.topline
 
-    local lo = target + so + 1
-    local hi = target + text_w - so
+    vim.wo.virtualedit   = 'all'
+    vim.wo.sidescrolloff = 0
+    vim.wo.scrolloff     = 0
+
+    local lo = target + 1
+    local hi = target + text_w
     if hi < lo then hi = lo end
     local cur = vim.fn.virtcol('.')
     local new_virt = cur
     if cur < lo then new_virt = lo
     elseif cur > hi then new_virt = hi
     end
-
-    vim.wo.virtualedit   = 'all'
-    vim.wo.sidescrolloff = 0
-    vim.cmd('normal! ' .. new_virt .. '|')
-    local v = vim.fn.winsaveview()
-    v.leftcol = target
-    vim.fn.winrestview(v)
-    vim.wo.virtualedit   = ve
-    vim.wo.sidescrolloff = so
+    local lnum = vim.api.nvim_win_get_cursor(0)[1]
+    local ei = vim.go.eventignore
+    vim.go.eventignore = 'all'
+    -- Do not use :normal! N| — vim.cmd treats | as an Ex separator, so
+    -- the virtcol move never ran and leftcol stayed clamped.
+    pcall(vim.fn.winrestview, {
+      lnum    = lnum,
+      col     = 0,
+      coladd  = math.max(0, new_virt - 1),
+      leftcol = target,
+      topline = topline,
+    })
+    vim.go.eventignore = ei
   end)
-  pcall(vim.cmd, 'redrawstatus')
 end
 
 -- Scroll the covering viewport, not the real window. The viewport has
@@ -485,6 +526,47 @@ local function paint_vbar(parent, opts)
   end
 end
 
+-- ─ and █ are both 3-byte UTF-8, one cell wide.
+local function paint_hbar(parent)
+  local e = hbars[parent]
+  if not e or not vim.api.nvim_win_is_valid(e.win) then return end
+  -- Compact layout draws the track from ___hscroll_track on redraw; there is
+  -- no buffer line to repaint, only a statusline to re-evaluate.
+  if compact_h() then
+    e.line = nil
+    pcall(vim.cmd, 'redrawstatus')
+    return
+  end
+  local g = hgeom(parent)
+  local w = math.max(1, vim.api.nvim_win_get_width(e.win))
+  local left_n, mid_n
+  if g.ml <= g.text_w then
+    left_n, mid_n = 0, 0
+  else
+    left_n = math.max(0, math.min(w, g.thumb_off))
+    mid_n  = math.max(1, math.min(w - left_n, g.thumb_w))
+  end
+  local right_n = math.max(0, w - left_n - mid_n)
+  local line = string.rep('─', left_n) .. string.rep('█', mid_n) .. string.rep('─', right_n)
+  if e.line == line then return end
+  e.line = line
+  vim.bo[e.buf].modifiable = true
+  vim.api.nvim_buf_set_lines(e.buf, 0, -1, false, { line })
+  vim.bo[e.buf].modifiable = false
+  pcall(vim.api.nvim_buf_clear_namespace, e.buf, hbar_ns, 0, -1)
+  local b0 = left_n * 3
+  local b1 = (left_n + mid_n) * 3
+  if left_n > 0 then
+    pcall(vim.api.nvim_buf_add_highlight, e.buf, hbar_ns, 'HScrollTrack', 0, 0, b0)
+  end
+  if mid_n > 0 then
+    pcall(vim.api.nvim_buf_add_highlight, e.buf, hbar_ns, 'HScrollThumb', 0, b0, b1)
+  end
+  if right_n > 0 then
+    pcall(vim.api.nvim_buf_add_highlight, e.buf, hbar_ns, 'HScrollTrack', 0, b1, -1)
+  end
+end
+
 local function apply_drag_now()
   if not drag or not vim.api.nvim_win_is_valid(drag.win) then return end
   local mp = vim.fn.getmousepos()
@@ -512,6 +594,7 @@ local function apply_drag_now()
     if g.ml <= g.text_w then return end
     local x = x_in_win(drag.win, mp)
     set_leftcol(drag.win, off_to_value(g.track, g.max_left, x - drag.grab))
+    paint_hbar(drag.win)
   end
 end
 
@@ -576,9 +659,10 @@ local function end_drag()
       pcall(vim.api.nvim_win_set_cursor, parent, { orig_lnum, orig_col or 0 })
     end
     pcall(vim.api.nvim_set_current_win, parent)
-    if kind == 'v' then
+    if kind == 'v' or kind == 'h' then
       raise_viewport(parent)
-      if vbars[parent] then paint_vbar(parent) end
+      if kind == 'v' and vbars[parent] then paint_vbar(parent) end
+      if kind == 'h' and hbars[parent] then paint_hbar(parent) end
     end
   end
 end
@@ -598,7 +682,7 @@ local function start_drag(parent, grab, kind, bar, orig_lnum, orig_col)
     orig_lnum = orig_lnum, orig_col = orig_col,
   }
   vim.g.hscroll_dragging = true
-  if kind == 'v' then
+  if kind == 'v' or kind == 'h' then
     drag_cul[parent] = vim.wo[parent].cursorline
     vim.wo[parent].cursorline = false
   end
@@ -613,6 +697,11 @@ end
 local function begin_h(parent, mp)
   local g = hgeom(parent)
   if g.ml <= g.text_w then return end
+  local orig = cursor_before_mouse(parent)
+  vim.g.hscroll_dragging = true
+  pcall(vim.api.nvim_win_set_cursor, parent, orig)
+  ensure_viewport(parent)
+  g = hgeom(parent)
   local x = x_in_win(parent, mp)
   local grab
   if x >= g.thumb_off and x < g.thumb_off + g.thumb_w then
@@ -620,9 +709,10 @@ local function begin_h(parent, mp)
   else
     grab = math.floor(g.thumb_w / 2)
     set_leftcol(parent, off_to_value(g.track, g.max_left, x - grab))
+    paint_hbar(parent)
   end
   local bar = hbars[parent] and hbars[parent].win
-  start_drag(parent, grab, 'h', bar)
+  start_drag(parent, grab, 'h', bar, orig[1], orig[2])
 end
 
 local function begin_v(parent, mp, bar)
@@ -661,54 +751,47 @@ local function begin_v(parent, mp, bar)
   end
 end
 
-_G.___hscroll_click = function()
-  local mp = vim.fn.getmousepos()
-  local win = mp.winid
-  local parent = (win ~= 0 and parent_of[win]) or nil
-  if not parent or not vim.api.nvim_win_is_valid(parent) then
-    parent = vim.api.nvim_get_current_win()
-  end
-  if not eligible(parent) then return end
-  if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
-  begin_h(parent, mp)
-end
-
-_G.___hscroll_bar = function()
-  local win = vim.g.statusline_winid
-  if type(win) ~= 'number' or win == 0 or not vim.api.nvim_win_is_valid(win) then
-    return ''
-  end
-  local parent = parent_of[win]
-  if not parent or not vim.api.nvim_win_is_valid(parent) then return '' end
-  local g = hgeom(parent)
-  if g.ml <= g.text_w then return '' end
-  local left  = string.rep('─', g.thumb_off)
-  local mid   = string.rep('█', g.thumb_w)
-  local right = string.rep('─', math.max(0, g.win_w - g.thumb_off - g.thumb_w))
-  return '%@v:lua.___hscroll_click@'
-    .. '%#HScrollTrack#' .. left
-    .. '%#HScrollThumb#' .. mid
-    .. '%#HScrollTrack#' .. right
-    .. '%X'
-end
-
 local function on_drag()
   apply_drag()
   return true
 end
 
+-- Hit-test the compact horizontal track, which is an editor window's own
+-- statusline row. getmousepos() reports that row as belonging to the window
+-- above it with "line" and "column" zero (:h getmousepos); winrow one past
+-- the window height is what separates it from the '~' filler rows inside the
+-- window, which also report line = 0.
+local function htrack_hit(mp)
+  if not compact_h() then return nil end
+  local win = mp.winid
+  if win == 0 or not hbars[win] or not vim.api.nvim_win_is_valid(win) then return nil end
+  if (mp.line or 0) ~= 0 then return nil end
+  if (mp.winrow or 0) ~= vim.api.nvim_win_get_height(win) + 1 then return nil end
+  return win
+end
+
 local function press_on_bar()
   local mp = vim.fn.getmousepos()
   local win = mp.winid
+  local htrack = htrack_hit(mp)
+  if htrack then
+    if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
+    begin_h(htrack, mp)
+    return true
+  end
   if win == 0 or not is_bar_win(win) then return false end
   local parent = parent_of[win]
   if not parent or not vim.api.nvim_win_is_valid(parent) then return false end
-  if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
   if kind_of[win] == 'v' then
+    if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
     begin_v(parent, mp, win)
-  else
-    begin_h(parent, mp)
+    return true
   end
+  -- Compact layout: the h-bar window's only row is the status line it
+  -- carries, not the track. Leave that click alone.
+  if compact_h() then return false end
+  if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
+  begin_h(parent, mp)
   return true
 end
 
@@ -767,15 +850,130 @@ end
 -- everything else keeps Neovim's click-count so neo-tree still sees
 -- <2-LeftMouse>. Do not fire the default click on the bar: that would
 -- move the cursor to the right edge (the bar column).
-vim.keymap.set({ 'n', 'x' }, '<LeftMouse>', function()
+-- Insert mode is mapped too: the compact track is the editor's own
+-- statusline row, so it is no longer covered by the bar buffer's own
+-- <LeftMouse> maps (which did include insert mode). press_on_bar leaves
+-- insert mode before starting a drag.
+vim.keymap.set({ 'n', 'x', 'i' }, '<LeftMouse>', function()
   local mp = vim.fn.getmousepos()
-  if (mp.winid ~= 0 and is_bar_win(mp.winid))
-      or (mp.winid ~= 0 and kind_of[mp.winid] == 'view')
-      or vbar_hit(mp) then
+  local kind = mp.winid ~= 0 and kind_of[mp.winid] or nil
+  -- In the compact layout a click on the h-bar window is a click on the
+  -- status line, which keeps its normal behaviour (dragging it resizes).
+  local on_bar = kind == 'v' or kind == 'view' or (kind == 'h' and not compact_h())
+  if on_bar or htrack_hit(mp) or vbar_hit(mp) then
     return '<Cmd>lua require("features.hscrollbar").on_left_mouse()<CR>'
   end
   return '<LeftMouse>'
 end, { expr = true, silent = true, desc = 'Scroll: maybe start drag' })
+
+-- ── Status line placement ────────────────────────────────────
+-- The horizontal bar is a split *below* the editor window, so with
+-- per-window statuslines (laststatus=2, which features/topbar.lua needs —
+-- see core/options.lua) the editor's own statusline would land between the
+-- text and the track, i.e. status line above the scroll bar. Swap the two
+-- chrome rows instead: the editor's statusline becomes the plain separator
+-- rule this config draws everywhere else, and the bar window's statusline
+-- carries the editor's mini.statusline content, so the rows read
+--
+--     text … │ rule │ ▄▄▄▄ track │ NORMAL  init.lua  main  1:1
+--
+-- With laststatus=3 there is no per-window statusline to swap: the single
+-- global one is already below the track, which is where it belongs.
+-- The track, as a statusline for the editor window it belongs to. Recomputed
+-- on every redraw from hgeom, so no painting or invalidation is needed —
+-- during a drag a redrawstatus is enough. Clicks are not %@ regions: a
+-- completed click cannot drag, so the global <LeftMouse> hit-test in
+-- htrack_hit owns this row (that is what press_on_bar does for the vertical
+-- float too).
+function _G.___hscroll_track()
+  local win = tonumber(vim.g.statusline_winid)
+  if not win or not vim.api.nvim_win_is_valid(win) then return '' end
+  if not hbars[win] then return '' end
+  local g = hgeom(win)
+  if g.ml <= g.text_w then return '' end
+  local left  = math.max(0, math.min(g.win_w, g.thumb_off))
+  local mid   = math.max(1, math.min(g.win_w - left, g.thumb_w))
+  local right = math.max(0, g.win_w - left - mid)
+  return '%#HScrollTrack#' .. string.rep('─', left)
+    .. '%#HScrollThumb#' .. string.rep('█', mid)
+    .. '%#HScrollTrack#' .. string.rep('─', right)
+end
+
+-- Statusline expression for a bar window: renders the *parent* editor's
+-- mini.statusline.
+--
+-- Two steps, and both are needed. mini's content is built inside the parent
+-- window so its sections (mode, git head, diagnostics, is_truncated's width
+-- test) read that buffer and width — but the string they return still holds
+-- statusline items like %F and %l, and those expand against whichever window
+-- finally draws them. Returned raw from a %! expression they would resolve
+-- in the bar's own scratch buffer, which is how the file name came out as
+-- "[Scratch]". So the content is rendered to text + highlight ranges in the
+-- parent's context with nvim_eval_statusline, then re-emitted as literal
+-- text (with % escaped) carrying explicit %#group# switches.
+--
+-- Active vs inactive is mini's own test aimed at the parent, but it cannot
+-- borrow mini's g:actual_curwin: that variable is only set while evaluating
+-- a %{} item, and this is a %! expression, where it comes back nil. Under %!
+-- the real focused window is simply the current one (verified: current_win
+-- is the editor, statusline_winid the bar), so compare against that and keep
+-- g:actual_curwin as the fallback for a %{} caller.
+function _G.___hscroll_status()
+  local bar    = tonumber(vim.g.statusline_winid)
+  local parent = bar and parent_of[bar]
+  local ms     = package.loaded['mini.statusline']
+  if not (parent and ms and vim.api.nvim_win_is_valid(parent)) then return ' ' end
+
+  local active = vim.api.nvim_get_current_win() == parent
+    or tonumber(vim.g.actual_curwin) == parent
+  local ok, content = pcall(vim.api.nvim_win_call, parent, function()
+    return active and ms.active() or ms.inactive()
+  end)
+  if not (ok and type(content) == 'string') then return ' ' end
+
+  local rendered
+  ok, rendered = pcall(vim.api.nvim_eval_statusline, content, {
+    winid      = parent,
+    maxwidth   = vim.api.nvim_win_get_width(parent),
+    highlights = true,
+  })
+  if not ok then return ' ' end
+
+  local str, hls = rendered.str, rendered.highlights or {}
+  if #hls == 0 then return (str:gsub('%%', '%%%%')) end
+  local parts = {}
+  for i, hl in ipairs(hls) do
+    local stop = hls[i + 1] and hls[i + 1].start or #str
+    parts[#parts + 1] = '%#' .. (hl.group or 'StatusLine') .. '#'
+      .. str:sub(hl.start + 1, stop):gsub('%%', '%%%%')
+  end
+  return table.concat(parts)
+end
+
+local function adopt_statusline(parent, bar)
+  if not compact_h() then return end
+  if saved_stl[parent] == nil then
+    saved_stl[parent] =
+      vim.api.nvim_get_option_value('statusline', { win = parent, scope = 'local' })
+  end
+  pcall(vim.api.nvim_set_option_value, 'statusline', '%!v:lua.___hscroll_track()',
+    { win = parent, scope = 'local' })
+  pcall(vim.api.nvim_set_option_value, 'statusline', '%!v:lua.___hscroll_status()',
+    { win = bar, scope = 'local' })
+  -- Only the statusline of this window is wanted, never a text row.
+  if vim.o.winminheight > 0 then vim.o.winminheight = 0 end
+  pcall(vim.api.nvim_win_set_height, bar, 0)
+end
+
+-- Give the editor its own statusline back (an empty local value falls back
+-- to mini's global one, which is what it had before the swap).
+local function release_statusline(parent)
+  local saved = saved_stl[parent]
+  saved_stl[parent] = nil
+  if saved == nil or not vim.api.nvim_win_is_valid(parent) then return end
+  pcall(vim.api.nvim_set_option_value, 'statusline', saved,
+    { win = parent, scope = 'local' })
+end
 
 local function close_one(map, parent)
   local e = map[parent]
@@ -791,7 +989,10 @@ local function close_one(map, parent)
   end
 end
 
-local function close_hbar(parent) close_one(hbars, parent) end
+local function close_hbar(parent)
+  close_one(hbars, parent)
+  release_statusline(parent)
+end
 local function close_vbar(parent) close_one(vbars, parent) end
 
 local function style_common(win, buf)
@@ -800,6 +1001,7 @@ local function style_common(win, buf)
   vim.bo[buf].swapfile    = false
   vim.bo[buf].filetype    = BAR_FT
   vim.bo[buf].modifiable  = false
+  vim.b[buf].ministatusline_disable = true
   vim.wo[win].number         = false
   vim.wo[win].relativenumber = false
   vim.wo[win].signcolumn     = 'no'
@@ -815,14 +1017,12 @@ local function style_common(win, buf)
   vim.wo[win].sidescrolloff  = 0
 end
 
--- Buffer-local mouse on the vertical bar: this window can actually receive
--- LeftDrag, unlike the zero-height horizontal strip.
-local function map_vbar_mouse(buf, bar_win)
+local function map_bar_mouse(buf, bar_win, begin)
   local opts = { buffer = buf, nowait = true, silent = true }
   vim.keymap.set({ 'n', 'x', 'i' }, '<LeftMouse>', function()
     local parent = parent_of[bar_win]
     if parent and vim.api.nvim_win_is_valid(parent) then
-      begin_v(parent, vim.fn.getmousepos(), bar_win)
+      begin(parent, vim.fn.getmousepos(), bar_win)
     end
   end, opts)
   vim.keymap.set({ 'n', 'x', 'i' }, '<LeftDrag>', apply_drag, opts)
@@ -832,12 +1032,23 @@ local function map_vbar_mouse(buf, bar_win)
   end, opts)
 end
 
+local function map_vbar_mouse(buf, bar_win)
+  map_bar_mouse(buf, bar_win, begin_v)
+end
+
+local function map_hbar_mouse(buf, bar_win)
+  map_bar_mouse(buf, bar_win, function(parent, mp)
+    begin_h(parent, mp)
+  end)
+end
+
 local function create_hbar(parent)
   if hbars[parent] and vim.api.nvim_win_is_valid(hbars[parent].win) then
-    pcall(vim.api.nvim_win_set_height, hbars[parent].win, 0)
+    pcall(vim.api.nvim_win_set_height, hbars[parent].win, compact_h() and 0 or 1)
+    adopt_statusline(parent, hbars[parent].win)
+    paint_hbar(parent)
     return
   end
-  if vim.o.winminheight > 0 then vim.o.winminheight = 0 end
   local buf = vim.api.nvim_create_buf(false, true)
   creating = true
   local ok, win = pcall(vim.api.nvim_open_win, buf, false, {
@@ -852,15 +1063,21 @@ local function create_hbar(parent)
   end
   style_common(win, buf)
   vim.wo[win].winfixheight = true
-  vim.wo[win].fillchars    = 'stl: ,stlnc: '
-  vim.wo[win].winhighlight =
-    'Normal:HScrollTrack,EndOfBuffer:HScrollTrack,StatusLine:HScrollTrack,StatusLineNC:HScrollTrack'
-  vim.wo[win].statusline   = HEXPR
-  pcall(vim.api.nvim_win_set_height, win, 0)
+  -- Only the end-of-buffer fill is overridden: the track is buffer content
+  -- (Normal), while this window's statusline is a real statusline again —
+  -- it carries the parent's, so it keeps the global stl fillchar and the
+  -- StatusLine groups.
+  vim.wo[win].fillchars    = 'eob: '
+  vim.wo[win].winhighlight = 'Normal:HScrollTrack,EndOfBuffer:HScrollTrack'
   hbars[parent] = { win = win, buf = buf }
   parent_of[win] = parent
   kind_of[win] = 'h'
   creating = false
+  -- Registered above first: ___hscroll_status resolves the parent through
+  -- parent_of when the new statusline is evaluated on the next redraw.
+  adopt_statusline(parent, win)
+  map_hbar_mouse(buf, win)
+  paint_hbar(parent)
 end
 
 local function create_vbar(parent)
@@ -957,8 +1174,9 @@ local function refresh(winid)
     local e = hbars[winid]
     if e and not vim.api.nvim_win_is_valid(e.win) then hbars[winid] = nil; e = nil end
     if not e then create_hbar(winid) else
-      pcall(vim.api.nvim_win_set_height, e.win, 0)
-      pcall(vim.cmd, 'redrawstatus')
+      pcall(vim.api.nvim_win_set_height, e.win, compact_h() and 0 or 1)
+      adopt_statusline(winid, e.win)
+      paint_hbar(winid)
     end
   else
     close_hbar(winid)
@@ -1053,6 +1271,7 @@ vim.api.nvim_create_autocmd('WinClosed', {
       hbars[parent] = nil
       parent_of[id] = nil
       kind_of[id] = nil
+      release_statusline(parent)
     elseif kind == 'v' and parent then
       vbars[parent] = nil
       parent_of[id] = nil

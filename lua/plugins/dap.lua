@@ -257,7 +257,18 @@ local function with_dap(fn)
   end
 end
 
-vim.keymap.set('n', '<F1>',  with_dap(function(d) d.step_into() end),         { desc = 'DAP: step into' })
+-- F1 is Help unless a debug session is already running. Do not require()
+-- dap on a bare F1 — that would steal Help just to load the plugin.
+vim.keymap.set('n', '<F1>', function()
+  if activated then
+    local ok, dap = pcall(require, 'dap')
+    if ok and dap.session() then
+      dap.step_into()
+      return
+    end
+  end
+  vim.cmd.help()
+end, { desc = 'Help / DAP: step into (during session)' })
 vim.keymap.set('n', '<F2>',  with_dap(function(d) d.step_over() end),         { desc = 'DAP: step over' })
 vim.keymap.set('n', '<F3>',  with_dap(function(d) d.step_out() end),          { desc = 'DAP: step out' })
 vim.keymap.set('n', '<F4>',  with_dap(function(d) d.toggle_breakpoint() end), { desc = 'DAP: toggle breakpoint' })
@@ -286,7 +297,7 @@ vim.keymap.set('n', '<F10>', with_dap(function(d) d.terminate() end),         { 
 vim.keymap.set('n', '<leader>dq', with_dap(function(d) d.terminate() end),     { desc = 'DAP: terminate - F10' })
 vim.keymap.set('n', '<leader>dr', with_dap(function(d) d.restart() end),       { desc = 'DAP: restart' })
 vim.keymap.set('n', '<leader>dn', with_dap(function(d) d.step_over() end),     { desc = 'DAP: step over - F2' })
-vim.keymap.set('n', '<leader>di', with_dap(function(d) d.step_into() end),     { desc = 'DAP: step into - F1' })
+vim.keymap.set('n', '<leader>di', with_dap(function(d) d.step_into() end),     { desc = 'DAP: step into - F1 during session' })
 vim.keymap.set('n', '<leader>do', with_dap(function(d) d.step_out() end),      { desc = 'DAP: step out - F3' })
 vim.keymap.set('n', '<leader>dc', with_dap(function(d) d.run_to_cursor() end), { desc = 'DAP: run to cursor - F6' })
 

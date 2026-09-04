@@ -26,9 +26,10 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Focus upper window' })
 vim.keymap.set('n', '<leader>bn', ':bnext<CR>',   { silent = true, desc = 'Buffer: next' })
 vim.keymap.set('n', '<leader>bp', ':bprev<CR>',   { silent = true, desc = 'Buffer: previous' })
 
--- Tab navigation (]] / [[ from init.lua, kept here for discoverability)
-vim.keymap.set('n', ']]', ':tabn<CR>',        { silent = true, desc = 'Tab: next' })
-vim.keymap.set('n', '[[', ':tabprevious<CR>', { silent = true, desc = 'Tab: previous' })
+-- Tab navigation. gt/gT are native; ]t/[t match the unimpaired-style
+-- motion family. [[/]] stay as Vim section jumps (and treesitter later).
+vim.keymap.set('n', ']t', ':tabn<CR>',        { silent = true, desc = 'Tab: next' })
+vim.keymap.set('n', '[t', ':tabprevious<CR>', { silent = true, desc = 'Tab: previous' })
 
 -- Delete the current buffer without destroying the window layout.
 -- If the buffer has unsaved changes, Neovim's built-in prompt appears.
@@ -88,7 +89,7 @@ vim.keymap.set('n', '<leader>tW', function()
 end, { desc = 'Toggle hard text wrap at textwidth (default 80)' })
 
 -- ── Relative line numbers ────────────────────────────────────
--- On by default (see core/options.lua). relativenumber is window-local,
+-- Off by default (see core/options.lua). relativenumber is window-local,
 -- so toggling only `vim.o` leaves it inconsistent across already-open
 -- splits/tabs (each keeps whatever value it had when created) — apply
 -- the change to every real editor window (skipping neo-tree, terminals,

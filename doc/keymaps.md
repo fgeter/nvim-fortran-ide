@@ -53,8 +53,8 @@
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `]]` | Next tab | `core/keymaps.lua` |
-| `[[` | Previous tab | `core/keymaps.lua` |
+| `gt` / `]t` | Next tab | native / `core/keymaps.lua` |
+| `gT` / `[t` | Previous tab | native / `core/keymaps.lua` |
 
 ---
 
@@ -257,7 +257,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |
-| `<leader>di` | `<F1>` | Step into | `plugins/dap.lua` |
+| `<leader>di` | `<F1>` (during debug) | Step into (`<F1>` is Help when no session) | `plugins/dap.lua` |
 | `<leader>do` | `<F3>` | Step out | `plugins/dap.lua` |
 | `<leader>dc` | `<F6>` | Run to cursor | `plugins/dap.lua` |
 | `<leader>db` | `<F4>` | Toggle breakpoint | `plugins/dap.lua` |

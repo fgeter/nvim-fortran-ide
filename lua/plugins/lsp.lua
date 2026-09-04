@@ -42,10 +42,6 @@ require('mason').setup {}
 local servers = {
   stylua = {},
 
-  -- Python tools (used by plugins/python.lua)
-  basedpyright = {},
-  ruff         = {},
-
   lua_ls = {
     on_init = function(client)
       -- Disable lua_ls formatting in favour of stylua (via conform.nvim)
@@ -126,10 +122,14 @@ local servers = {
   eslint        = {},
 }
 
--- Extra Mason packages that are NOT LSP servers:
--- formatters, linters, DAP adapters, and jdtls (managed by nvim-jdtls, not vim.lsp.enable).
+-- Extra Mason packages that are NOT started via vim.lsp.enable here:
+-- formatters, linters, DAP adapters, jdtls (nvim-jdtls), and Python
+-- tools owned by plugins/python.lua (basedpyright is enabled there
+-- with venv settings; ruff is a formatter via conform, not an LSP).
 local extra_mason_tools = {
   'jdtls',               -- Java LSP (started by java-tools.lua via nvim-jdtls)
+  'basedpyright',        -- Python LSP (started by plugins/python.lua)
+  'ruff',                -- Python formatter (conform in formatting.lua)
   'debugpy',             -- Python DAP (used by plugins/python.lua)
   'java-debug-adapter',  -- Java DAP
   'js-debug-adapter',    -- Node / React DAP
@@ -154,6 +154,11 @@ for name, server in pairs(servers) do
   vim.lsp.config(name, server)
   vim.lsp.enable(name)
 end
+
+-- Created once. Recreating 'lsp-detach' with clear=true inside LspAttach
+-- deletes the previous buffer's detach cleanup (classic kickstart leak).
+local highlight_augroup = vim.api.nvim_create_augroup('lsp-highlight', { clear = false })
+local detach_augroup    = vim.api.nvim_create_augroup('lsp-detach',    { clear = true })
 
 -- ── Global LSP keymaps (all languages) ───────────────────────
 -- These attach to every LSP-connected buffer. Language-specific
@@ -198,19 +203,19 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Reference highlighting: when the cursor rests on a symbol, all
     -- other occurrences in the buffer are highlighted. Cleared on move.
     if client and client:supports_method('textDocument/documentHighlight', ev.buf) then
-      local grp = vim.api.nvim_create_augroup('lsp-highlight', { clear = false })
       vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
         buffer   = ev.buf,
-        group    = grp,
+        group    = highlight_augroup,
         callback = vim.lsp.buf.document_highlight,
       })
       vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
         buffer   = ev.buf,
-        group    = grp,
+        group    = highlight_augroup,
         callback = vim.lsp.buf.clear_references,
       })
       vim.api.nvim_create_autocmd('LspDetach', {
-        group    = vim.api.nvim_create_augroup('lsp-detach', { clear = true }),
+        group    = detach_augroup,
+        buffer   = ev.buf,
         callback = function(ev2)
           vim.lsp.buf.clear_references()
           vim.api.nvim_clear_autocmds { group = 'lsp-highlight', buffer = ev2.buf }

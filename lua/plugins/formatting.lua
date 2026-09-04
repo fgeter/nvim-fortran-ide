@@ -45,7 +45,7 @@ local function setup_conform()
 
     formatters_by_ft = {
       lua             = { 'stylua' },
-      python          = { 'ruff' },
+      python          = { 'ruff_format', 'ruff_organize_imports' },
       sh              = { 'shfmt' },
       bash            = { 'shfmt' },
       c               = { 'clang-format' },
@@ -62,6 +62,8 @@ local function setup_conform()
       markdown        = { 'prettier' },
     },
   }
+
+  vim.api.nvim_exec_autocmds('User', { pattern = 'ConformActivated', modeline = false })
 end
 
 -- Register the keymap at startup so it appears in which-key.

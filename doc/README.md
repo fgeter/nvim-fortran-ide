@@ -117,6 +117,7 @@ These are set in `.nvim.lua` and read by `cmake-tools.lua`,
 | `vim.g.project_src_dir` | fortran-tools | Fortran source files directory |
 | `vim.g.project_work_root` | cmake-tools | Workdata dirs offered by the run picker (Browse reaches any other directory) |
 | `vim.g.project_build_root` | cmake-tools | CMake build output directory |
+| `vim.g.project_workdir_sort` | core/project | Initial run-directory order: `'mtime'` (default) or `'name'`; the pick list's Sort entry toggles it (optional) |
 | `vim.g.project_venv` | python | Path to virtualenv (optional) |
 | `vim.g.project_python_bin` | python | Explicit python binary (optional) |
 

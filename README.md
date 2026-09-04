@@ -285,6 +285,7 @@ cd ~/myproject && nvim
 | `vim.g.project_venv` | Virtualenv path (Python, optional) |
 | `vim.g.project_python_bin` | Explicit Python binary (Python, optional) |
 | `vim.g.project_executable_pattern` | Glob for run/debug executables in the build tree, e.g. `'swatplus*'` (optional, default `'*'`) |
+| `vim.g.project_workdir_sort` | Initial run-directory pick-list order: `'mtime'` (default, most recently changed first) or `'name'` (optional) |
 | `vim.g.project_clean_output_patterns` | Globs deleted from the chosen workdata dir before each run, e.g. `{ '*.txt', '*.out', '*.csv' }`; `readme.txt` always kept (optional, default: no cleaning) |
 | `vim.g.project_build_jobs` | Parallel build thread count override (optional, default: all logical cores) |
 
@@ -373,6 +374,9 @@ Requires `nowrap` mode (enabled globally). Clickable scrollbars appear when
 needed: a one-row strip at the bottom of the pane if a line is wider than
 the window, and a one-column strip on the right of the buffer if the file is
 taller than the window. Click the track to jump; drag the thumb to scroll.
+While the horizontal strip is up, the pane's status row becomes the track
+itself and the strip below it carries the status line — so the status line
+sits below the scrollbar, and no row is spent on an empty separator.
 
 | Key | Action |
 |-----|--------|
@@ -396,8 +400,8 @@ taller than the window. Click the track to jump; drag the thumb to scroll.
 
 | Key | Action |
 |-----|--------|
-| `]]` | Next tab |
-| `[[` | Previous tab |
+| `gt` / `]t` | Next tab |
+| `gT` / `[t` | Previous tab |
 
 ### Terminal
 
@@ -517,7 +521,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 | `<leader>dq` | `<F10>` | Terminate session |
 | `<leader>dr` | | Restart session |
 | `<leader>dn` | `<F2>` | Step over |
-| `<leader>di` | `<F1>` | Step into |
+| `<leader>di` | `<F1>` (during debug) | Step into (`<F1>` is Help when no session) |
 | `<leader>do` | `<F3>` | Step out |
 | `<leader>dc` | `<F6>` | Run to cursor |
 | `<leader>db` | `<F4>` | Toggle breakpoint |
