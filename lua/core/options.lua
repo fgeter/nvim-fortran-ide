@@ -21,10 +21,11 @@ vim.o.mousemoveevent = true   -- fire <MouseMove> so edge-hover can scroll
 -- because mini.statusline already shows the mode
 vim.o.showmode = false
 
--- Use OSC 52 only in Kitty (where it works reliably without xclip/wl-clipboard).
--- In other terminals (Konsole, etc.) let Neovim auto-detect the system clipboard
--- provider (wl-clipboard on Wayland, xclip/xsel on X11).
-if vim.env.KITTY_WINDOW_ID then
+-- Use OSC 52 in Kitty (where it works reliably without xclip/wl-clipboard) and
+-- over SSH (so yanks reach the local clipboard from any OSC 52 terminal, e.g.
+-- Ghostty). Elsewhere (local Ghostty, Konsole, etc.) let Neovim auto-detect the
+-- system clipboard provider (wl-clipboard on Wayland, xclip/xsel on X11).
+if vim.env.KITTY_WINDOW_ID or vim.env.SSH_TTY then
   vim.g.clipboard = {
     name  = 'OSC 52',
     copy  = {
