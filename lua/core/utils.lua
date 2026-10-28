@@ -100,7 +100,13 @@ end
 --              Right for a *build*, which reads no input.
 local function one_shot_terminal(shell_cmd, on_exit, opts)
   local origin_win = M.find_editor_win()
-  vim.cmd('botright split')
+  -- Explicit height: a bare split takes a share of whatever space is left
+  -- and can open only a few lines tall. 15 (toggleterm's size) or 30% of
+  -- the screen, whichever is larger; winfixheight keeps later splits and
+  -- 'equalalways' from squeezing it back down.
+  local height = math.max(15, math.floor(vim.o.lines * 0.3))
+  vim.cmd('botright ' .. height .. 'split')
+  vim.wo.winfixheight = true
   vim.cmd('terminal bash')
   local buf  = vim.api.nvim_get_current_buf()
   local chan = vim.bo[buf].channel

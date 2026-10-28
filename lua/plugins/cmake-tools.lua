@@ -11,6 +11,11 @@
 --   • Build via terminal — <leader>cb builds using all CPU cores
 --     (via vim.uv.available_parallelism); <leader>cB builds with
 --     -j 1 for clean single-threaded compile error output
+--   • Static build — <leader>cS configures and builds the selected
+--     preset inside the Ubuntu distrobox named by
+--     vim.g.project_distrobox, into build/ubuntu-<preset>
+--   • Delete picker — <leader>cd offers a checklist of the repo's
+--     build* directories and the preset directories inside build/
 --   • Run picker — <leader>cr shows ALL executables from
 --     build/debug/ and build/release/ so you can choose which
 --     build to run without changing the active preset
@@ -270,6 +275,50 @@ local function activate()
   end
 
   ---------------------------------------------------------------------------
+  -- Static build: same preset, configured and built inside a distrobox
+  ---------------------------------------------------------------------------
+  -- Arch ships no static libgfortran, so a static exe is built in an Ubuntu
+  -- distrobox named by vim.g.project_distrobox (set in .nvim.lua); without it
+  -- this does nothing. The preset chosen with <leader>cp is reused, so a debug
+  -- preset gives a static debug exe. The output goes to its own directory,
+  -- build/ubuntu-<preset>, one level under the build root so <leader>cr finds
+  -- it; it must not share the host build directory, whose CMakeCache.txt names
+  -- the Arch compiler. `distrobox enter <box> -- cmd` runs cmd in the box and
+  -- returns when it finishes, so there is no separate exit step.
+  local function do_static_build(jobs)
+    local box = vim.g.project_distrobox
+    if not box then
+      vim.notify('No static build box for this project.\n'
+        .. 'Set vim.g.project_distrobox in .nvim.lua.', vim.log.levels.WARN)
+      return
+    end
+    if vim.fn.executable('distrobox') == 0 then
+      vim.notify('distrobox is not installed on this machine.', vim.log.levels.WARN)
+      return
+    end
+    local ok, cmake = pcall(require, 'cmake-tools')
+    local preset = ok and cmake.get_configure_preset() or nil
+    if not preset or preset == '' then
+      vim.notify('No preset selected.\nRun <leader>cp to select a preset first.',
+        vim.log.levels.WARN)
+      return
+    end
+    local roots = project.roots()
+    local dir = roots.build .. '/ubuntu-' .. preset
+    local j = jobs or vim.g.project_build_jobs or utils.get_cpu_count()
+    vim.notify('Static build in ' .. box .. ': ' .. preset .. ' (-j ' .. j .. ')',
+      vim.log.levels.INFO)
+    -- cmake --preset has to run from the source directory, where
+    -- CMakePresets.json lives; -B overrides the preset's binaryDir.
+    local inner = 'cd ' .. vim.fn.shellescape(roots.repo)
+      .. ' && cmake --preset ' .. vim.fn.shellescape(preset)
+      .. ' -B ' .. vim.fn.shellescape(dir)
+      .. ' && cmake --build ' .. vim.fn.shellescape(dir) .. ' -j ' .. j
+    utils.run_build_cmd('distrobox enter ' .. vim.fn.shellescape(box)
+      .. ' -- sh -c ' .. vim.fn.shellescape(inner) .. project.build_done_suffix)
+  end
+
+  ---------------------------------------------------------------------------
   -- Run: pick executable → pick workdata → clean outputs → launch
   ---------------------------------------------------------------------------
   -- Discovery (build root + one level of subdirs, filtered by
@@ -336,58 +385,124 @@ local function activate()
       run_cmake_cmd('CMakeClean')
     end, { desc = 'CMake: clean' })
 
-    -- Delete build directory: wipes the entire build/ folder.
-    -- Prompts for confirmation first — this is not undoable.
-    -- Use this when you want a completely fresh configure + build
-    -- (e.g. after changing a preset or fixing a broken cmake cache).
-    -- After deletion you must run <leader>cp + <leader>cb to rebuild.
+    -- Delete build directories: pick which ones from a checklist.
+    -- Offered: every build* directory at the repo root (build/, build-ubuntu/,
+    -- build_dbg/, ...) and, indented under the build root, each preset
+    -- directory inside it (build/debug, build/ubuntu-<preset>, ...), so a
+    -- single static or host build can be wiped without losing the others.
+    -- Selecting an entry toggles it; "Delete N selected" asks for a Y/n
+    -- confirmation — this is not undoable. Afterwards run <leader>cp +
+    -- <leader>cb (or <leader>cS) to rebuild.
     vim.keymap.set('n', '<leader>cd', function()
       local roots = project.roots()
-      local BUILD_ROOT, REPO_ROOT = roots.build, roots.repo
-      if vim.fn.isdirectory(BUILD_ROOT) == 0 then
-        vim.notify('Build directory does not exist: ' .. BUILD_ROOT,
-          vim.log.levels.WARN)
-        return
-      end
+      local repo  = vim.fn.fnamemodify(roots.repo,  ':p'):gsub('/+$', '')
+      local build = vim.fn.fnamemodify(roots.build, ':p'):gsub('/+$', '')
 
-      -- Safety net for the rm -rf below: only ever delete a directory that
+      -- Safety net for the delete below: only ever offer a directory that
       -- lives *inside* the project root. A mistyped vim.g.project_build_root
       -- in a .nvim.lua (or a stale cwd fallback) must not be able to point
       -- this at /, $HOME, or some unrelated directory.
-      local build = vim.fn.fnamemodify(BUILD_ROOT, ':p'):gsub('/+$', '')
-      local repo  = vim.fn.fnamemodify(REPO_ROOT,  ':p'):gsub('/+$', '')
-      if build == '' or build == '/' or build == vim.env.HOME
-          or not vim.startswith(build, repo .. '/') then
-        vim.notify(
-          'Refusing to delete ' .. BUILD_ROOT .. ' — not inside the project root ('
-          .. repo .. ').\nCheck vim.g.project_build_root in .nvim.lua; '
-          .. 'delete the directory manually if this location is intentional.',
-          vim.log.levels.ERROR)
+      local function inside_repo(path)
+        return path ~= '' and path ~= '/' and path ~= vim.env.HOME
+          and vim.startswith(path, repo .. '/')
+      end
+
+      local dirs = {}
+      local function add(path, label)
+        if vim.fn.isdirectory(path) == 1 and inside_repo(path) then
+          table.insert(dirs, { path = path, label = label, selected = false })
+        end
+      end
+      local tops = vim.fn.glob(repo .. '/build*', false, true)
+      if vim.fn.isdirectory(build) == 1 and not vim.tbl_contains(tops, build) then
+        table.insert(tops, build)
+      end
+      table.sort(tops)
+      for _, top in ipairs(tops) do
+        add(top, top:sub(#repo + 2) .. '/')
+        if top == build then
+          local subs = vim.fn.glob(build .. '/*/', false, true)
+          table.sort(subs)
+          for _, sub in ipairs(subs) do
+            sub = sub:gsub('/+$', '')
+            add(sub, '    ' .. sub:sub(#repo + 2) .. '/')
+          end
+        end
+      end
+      if #dirs == 0 then
+        vim.notify('No build directories found in ' .. repo, vim.log.levels.WARN)
         return
       end
 
-      -- Same Y/n convention as the git pull prompt: plain <CR> confirms,
-      -- <Esc> or anything starting with 'n' cancels.
-      vim.ui.input({
-        prompt = 'Delete ALL contents of ' .. BUILD_ROOT .. '? (Y/n): ',
-      }, function(input)
-        if input == nil or input:lower():sub(1, 1) == 'n' then
-          vim.notify('Delete cancelled.', vim.log.levels.INFO)
-          return
-        end
-
-        local result = vim.fn.system('rm -rf ' .. vim.fn.shellescape(BUILD_ROOT))
-        if vim.v.shell_error == 0 then
-          vim.notify('✅ Deleted: ' .. BUILD_ROOT ..
-            '\nRun <leader>cp then <leader>cb to rebuild.', vim.log.levels.INFO)
+      local function delete_selected(chosen)
+        local labels = {}
+        for _, d in ipairs(chosen) do table.insert(labels, '  ' .. vim.trim(d.label)) end
+        -- Same Y/n convention as the git pull prompt: plain <CR> confirms,
+        -- <Esc> or anything starting with 'n' cancels.
+        vim.ui.input({
+          prompt = 'Delete ' .. #chosen .. ' build director'
+            .. (#chosen == 1 and 'y' or 'ies') .. '? (Y/n): ',
+        }, function(input)
+          if input == nil or input:lower():sub(1, 1) == 'n' then
+            vim.notify('Delete cancelled.', vim.log.levels.INFO)
+            return
+          end
+          local done, failed = {}, {}
+          for i, d in ipairs(chosen) do
+            -- A preset directory may already be gone with its parent.
+            if vim.fn.isdirectory(d.path) == 0
+                or vim.fn.delete(d.path, 'rf') == 0 then
+              table.insert(done, labels[i])
+            else
+              table.insert(failed, labels[i])
+            end
+          end
+          if #done > 0 then
+            vim.notify('✅ Deleted:\n' .. table.concat(done, '\n')
+              .. '\nRun <leader>cp then <leader>cb (or <leader>cS) to rebuild.',
+              vim.log.levels.INFO)
+          end
+          if #failed > 0 then
+            vim.notify('Delete failed:\n' .. table.concat(failed, '\n'),
+              vim.log.levels.ERROR)
+          end
           -- Reset cmake-tools' internal state so it doesn't reference
-          -- the now-deleted build directory
+          -- a now-deleted build directory
           pcall(function() require('cmake-tools').cmake_build_directory = nil end)
-        else
-          vim.notify('Delete failed:\n' .. result, vim.log.levels.ERROR)
+        end)
+      end
+
+      -- vim.ui.select is single-choice, so the checklist is re-shown after
+      -- each toggle. vim.schedule lets the previous picker close first.
+      local function checklist()
+        local chosen = {}
+        for _, d in ipairs(dirs) do
+          if d.selected then table.insert(chosen, d) end
         end
-      end)
-    end, { desc = 'CMake: delete build directory (prompts for confirmation)' })
+        local items = {}
+        if #chosen > 0 then
+          table.insert(items, { action = 'delete',
+            text = '▶ Delete ' .. #chosen .. ' selected' })
+        end
+        for _, d in ipairs(dirs) do
+          table.insert(items, { dir = d,
+            text = (d.selected and '[x] ' or '[ ] ') .. d.label })
+        end
+        vim.ui.select(items, {
+          prompt = 'Toggle build directories to delete (<Esc> cancels):',
+          format_item = function(item) return item.text end,
+        }, function(item)
+          if not item then return end
+          if item.action == 'delete' then
+            vim.schedule(function() delete_selected(chosen) end)
+          else
+            item.dir.selected = not item.dir.selected
+            vim.schedule(checklist)
+          end
+        end)
+      end
+      checklist()
+    end, { desc = 'CMake: delete build directories (checklist + confirmation)' })
 
     -- Preset: select a configure preset, then automatically run Generate.
     -- cmake.select_configure_preset(callback) is cmake-tools' own Lua API:
@@ -416,6 +531,11 @@ local function activate()
     pcall(vim.keymap.del, 'n', '<leader>cB')
     vim.keymap.set('n', '<leader>cB', function() do_build(1) end,
       { desc = 'CMake: build single-threaded (debug compile errors)', nowait = true })
+
+    -- <leader>cS  — static build of the selected preset inside the distrobox
+    pcall(vim.keymap.del, 'n', '<leader>cS')
+    vim.keymap.set('n', '<leader>cS', function() do_static_build() end,
+      { desc = 'CMake: static build in distrobox (selected preset)', nowait = true })
 
     -- Run: pick executable and workdata directory, launch in terminal
     pcall(vim.keymap.del, 'n', '<leader>cr')
