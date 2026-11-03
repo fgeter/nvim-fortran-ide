@@ -104,7 +104,7 @@ local MENUS = {
   {
     -- New / open / save / close / quit: <leader>F (features/file.lua), plus
     -- the existing recent-files and close-buffer keymaps.
-    id = 'F', label = 'File', icon = '', when = 'always',
+    id = 'F', label = 'File', mnemonic = 'F', when = 'always',
     items = {
       { key = 'Fn', label = 'New file' },
       { key = 'Fo', label = 'Open… (browse folders)' },
@@ -125,7 +125,7 @@ local MENUS = {
   },
   {
     -- Indentation, language and file format: <leader>E (features/edit.lua).
-    id = 'E', label = 'Edit', icon = '', when = 'always',
+    id = 'E', label = 'Edit', mnemonic = 'E', when = 'always',
     items = {
       { key = 'Ez', label = 'Undo' },
       { key = 'EZ', label = 'Redo' },
@@ -162,7 +162,7 @@ local MENUS = {
   {
     -- Layout and display: <leader>v (features/view.lua) plus the existing
     -- <leader>t toggles, which `covers` keeps out of "Other".
-    id = 'v', label = 'View', icon = '', when = 'always', covers = { 't' },
+    id = 'v', label = 'View', mnemonic = 'V', when = 'always', covers = { 't' },
     items = {
       { key = 've', label = 'File explorer (toggle)' },
       { key = '\\', label = 'Neo-tree: buffer list' },
@@ -192,7 +192,7 @@ local MENUS = {
     },
   },
   {
-    id = 's', label = 'Find', icon = '', when = 'always',
+    id = 's', label = 'Find', mnemonic = 'i', when = 'always',
     items = {
       { key = 'sf', label = 'Files (all, including hidden/ignored)' },
       { key = 'sg', label = 'Live grep' },
@@ -211,7 +211,7 @@ local MENUS = {
   },
   {
     -- Language-server actions: <leader>C (features/code.lua).
-    id = 'C', label = 'Code', icon = '', when = 'always',
+    id = 'C', label = 'Code', mnemonic = 'C', when = 'always',
     items = {
       { key = 'Cd', label = 'Go to definition' },
       { key = 'CD', label = 'Go to declaration' },
@@ -243,7 +243,7 @@ local MENUS = {
     },
   },
   {
-    id = 'c', label = 'Compile', icon = '', when = 'project',
+    id = 'c', label = 'Compile', mnemonic = 'p', when = 'project',
     items = {
       { key = 'cp', label = 'Select preset + generate' },
       { key = 'cg', label = 'Generate' },
@@ -255,7 +255,7 @@ local MENUS = {
     },
   },
   {
-    id = 'd', label = 'Debug', icon = '', when = 'project',
+    id = 'd', label = 'Debug', mnemonic = 'D', when = 'project',
     items = {
       { key = 'ds', label = 'Start / continue - F5' },
       { key = 'db', label = 'Toggle breakpoint - F4' },
@@ -278,7 +278,7 @@ local MENUS = {
     },
   },
   {
-    id = 'g', label = 'Git', icon = '', when = 'git',
+    id = 'g', label = 'Git', mnemonic = 'G', when = 'git',
     items = {
       { key = 'gg', label = 'Open lazygit' },
       { key = 'gc', label = 'Commit' },
@@ -297,7 +297,7 @@ local MENUS = {
     },
   },
   -- Built from the live keymap table rather than a list (see other_items).
-  { id = 'o', label = 'Other', icon = '', when = 'always', dynamic = true },
+  { id = 'o', label = 'Other', mnemonic = 'O', when = 'always', dynamic = true },
 }
 
 -- ── Highlights ───────────────────────────────────────────────
@@ -346,6 +346,10 @@ local function setup_highlights()
   -- one, and blue sits only 50 luma above the bar where this sits 100.
   vim.api.nvim_set_hl(0, 'TopBarTitleOn',
     { bg = sel, fg = attr('Normal', 'fg') or fg, bold = true })
+  -- The Alt+letter of each title, underlined (closed and open title).
+  vim.api.nvim_set_hl(0, 'TopBarTitleKey', { bg = bg, fg = blue, bold = true, underline = true })
+  vim.api.nvim_set_hl(0, 'TopBarTitleOnKey',
+    { bg = sel, fg = attr('Normal', 'fg') or fg, bold = true, underline = true })
   vim.api.nvim_set_hl(0, 'TopBarKey',     { bg = bg, fg = blue })
   vim.api.nvim_set_hl(0, 'TopBarItem',    { bg = bg, fg = fg })
   vim.api.nvim_set_hl(0, 'TopBarDim',     { bg = bg, fg = dim })
@@ -666,12 +670,24 @@ local function build_tabline()
   segments = {}
   for i, m in ipairs(MENUS) do
     if menu_visible(m) then
-      local text  = ' ' .. (vim.g.have_nerd_font and (m.icon .. '  ') or '') .. m.label .. ' '
+      -- Text only: icons beside the titles were distracting (2026-11-03).
+      local lead  = ' '
+      local text  = lead .. m.label .. ' '
       local width = vim.fn.strdisplaywidth(text)
       table.insert(segments,
         { idx = i, menu = m, disp_start = disp, disp_end = disp + width - 1 })
+      local on = menu and menu.id == m.id
+      local hl = on and 'TopBarTitleOn' or 'TopBarTitle'
+      -- Underline the Alt+letter: first occurrence of it in the label.
+      local label = m.label
+      local at = m.mnemonic and label:find(m.mnemonic, 1, true)
+      if at then
+        label = label:sub(1, at - 1)
+          .. ('%%#%s#%s%%#%s#'):format(on and 'TopBarTitleOnKey' or 'TopBarTitleKey', label:sub(at, at), hl)
+          .. label:sub(at + 1)
+      end
       parts[#parts + 1] = ('%%#%s#%%%d@v:lua.___topbar_click@%s%%X'):format(
-        (menu and menu.id == m.id) and 'TopBarTitleOn' or 'TopBarTitle', i, text)
+        hl, i, lead .. label .. ' ')
       disp = disp + width
     end
   end
@@ -909,6 +925,15 @@ local function close_menu(restore)
     pcall(vim.api.nvim_buf_delete, m.buf, { force = true })
   end
   if restore and origin.term then restore_terminal_mode(origin.win) end
+  if restore and origin.insert then
+    local win, pos = origin.win, origin.insert
+    vim.schedule(function()
+      if win and vim.api.nvim_win_is_valid(win) then
+        pcall(vim.api.nvim_set_current_win, win)
+        _G.___topbar_resume_insert(win, pos)
+      end
+    end)
+  end
   pcall(vim.cmd, 'redrawtabline')   -- drop the open title's highlight
 end
 
@@ -949,6 +974,18 @@ local function run_item(entry)
 
   local keys = entry.lhs
   if m and m.from_mode and m.from_mode:match('^[vV\22]') then keys = 'gv' .. keys end
+  -- Started from typing: once the action has finished (SafeState: no
+  -- keys pending, no prompt open), go back to typing — but only if focus
+  -- is still in that window in normal mode (a picker that took focus, or
+  -- a selection the action made, wins). Not done by appending keys: a
+  -- prompt the action opens (Save as…, save/discard?) would read them.
+  if origin.insert and target == origin.win then
+    local pos = origin.insert
+    vim.api.nvim_create_autocmd('SafeState', {
+      once = true,
+      callback = function() _G.___topbar_resume_insert(target, pos) end,
+    })
+  end
   vim.api.nvim_feedkeys(
     vim.api.nvim_replace_termcodes(keys, true, false, true), 'mt', false)
 end
@@ -1088,14 +1125,28 @@ function open_dropdown(spec)
   end)
   for _, k in ipairs({ 'q', '<Esc>' }) do map(k, function() close_menu(true) end) end
   -- Back out of a group into the list it came from.
-  for _, k in ipairs({ '<BS>', '<Left>' }) do
-    map(k, function()
-      local parent = menu and menu.parent
-      if not parent then return end
+  map('<BS>', function()
+    local parent = menu and menu.parent
+    if not parent then return end
+    close_menu(false)
+    open_dropdown(parent)
+  end)
+  -- Left: out of a group, else the menu to the left. Right: into a group
+  -- under the cursor, else the menu to the right.
+  map('<Left>', function()
+    local parent = menu and menu.parent
+    if parent then
       close_menu(false)
       open_dropdown(parent)
-    end)
-  end
+      return
+    end
+    vim.schedule(function() _G.___topbar_neighbour(-1) end)
+  end)
+  map('<Right>', function()
+    local entry = menu and menu.items[vim.api.nvim_win_get_cursor(win)[1]]
+    if entry and entry.group then run_item(entry) return end
+    vim.schedule(function() _G.___topbar_neighbour(1) end)
+  end)
   map('<LeftMouse>', function()
     local mp   = vim.fn.getmousepos()
     local lnum = menu_entry_at(mp)
@@ -1178,12 +1229,18 @@ end
 -- still the same visit, so where it started stays where it started.
 function toggle_menu(seg, keep_origin)
   local open_id = menu and menu.id
+  -- Switching from one open menu to another: the mode the visit began in
+  -- (a visual selection) carries over; the drop-down itself is normal mode.
+  local prev_mode = keep_origin and menu and menu.from_mode
 
   -- Remember where this visit began. Closing the menu without running
   -- anything hands focus — and terminal mode — back there.
   if not keep_origin and menu == nil then
     local cur = vim.api.nvim_get_current_win()
     origin = { win = cur, term = was_terminal_mode(cur) }
+    -- Opened while typing (Alt+letter in insert mode): note where, so
+    -- closing the menu or finishing the action puts the user back to typing.
+    if vim.fn.mode():match('^i') then origin.insert = vim.api.nvim_win_get_cursor(cur) end
   end
 
   if vim.fn.mode():match('^i') then vim.cmd('stopinsert') end
@@ -1217,8 +1274,68 @@ function toggle_menu(seg, keep_origin)
     col       = math.max(0, seg.disp_start - 1),
     items     = menu_items(seg.menu, from_win and vim.api.nvim_win_get_buf(from_win) or nil, from_win),
     from_win  = from_win,
-    from_mode = vim.fn.mode(),
+    from_mode = prev_mode or vim.fn.mode(),
   })
+end
+
+-- ── Back to typing ───────────────────────────────────────────
+-- Leaving insert mode with stopinsert moves the cursor one left. If the
+-- cursor is still where the user stopped typing, put it back exactly
+-- (appending at end of line); if the action moved it (go to definition,
+-- go to line), start typing where it now is.
+_G.___topbar_resume_insert = function(win, pos)
+  if not (win and vim.api.nvim_win_is_valid(win)) then return end
+  if vim.api.nvim_get_current_win() ~= win or vim.fn.mode() ~= 'n' then return end
+  local buf = vim.api.nvim_win_get_buf(win)
+  local cur = vim.api.nvim_win_get_cursor(win)
+  local row, col = cur[1], cur[2]
+  if pos and pos[1] == row and math.abs(cur[2] - pos[2]) <= 1 then col = pos[2] end
+  local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ''
+  if col >= #line and #line > 0 then
+    pcall(vim.api.nvim_win_set_cursor, win, { row, #line - 1 })
+    vim.api.nvim_feedkeys('a', 'n', false)
+  else
+    pcall(vim.api.nvim_win_set_cursor, win, { row, col })
+    vim.api.nvim_feedkeys('i', 'n', false)
+  end
+end
+
+-- ── Alt+letter ───────────────────────────────────────────────
+-- Alt+<underlined letter> opens that menu from normal, insert and visual
+-- mode; again closes it, another switches. Not in terminal mode: shells
+-- use Alt+F / Alt+B / Alt+D to move by word.
+local function open_by_index(i)
+  if #segments == 0 then build_tabline() end
+  local seg = segment_by_idx(i)
+  if not seg then
+    vim.notify(MENUS[i].label .. ' is not available here', vim.log.levels.INFO)
+    return
+  end
+  toggle_menu(seg, menu ~= nil)
+end
+
+for i, m in ipairs(MENUS) do
+  if m.mnemonic then
+    vim.keymap.set({ 'n', 'i', 'x' }, '<M-' .. m.mnemonic:lower() .. '>', function()
+      -- Not from inside a drop-down's visual/insert edge cases: schedule so
+      -- the mapping has finished before windows change.
+      vim.schedule(function() open_by_index(i) end)
+    end, { desc = 'Menu: ' .. m.label, silent = true })
+  end
+end
+
+-- Left / Right inside an open drop-down: the neighbouring menu (Left still
+-- backs out of a group first). Installed per drop-down in open_dropdown.
+_G.___topbar_neighbour = function(step)
+  if not menu then return end
+  if #segments == 0 then build_tabline() end
+  for k, seg in ipairs(segments) do
+    if seg.menu.id == menu.id then
+      local nxt = segments[(k - 1 + step) % #segments + 1]
+      if nxt then toggle_menu(nxt, true) end
+      return
+    end
+  end
 end
 
 -- ── Autocmds ─────────────────────────────────────────────────
