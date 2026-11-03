@@ -4,7 +4,7 @@
 -- A menu bar across the very top of the screen, above the buffer tabs,
 -- whose titles open left-click drop-down menus:
 --
---     File   Edit   View   Find   Compile   Debug   Git   Other   ← screen row 0 (tabline)
+--     File   Edit   View   Find   Code   Compile   Debug   Git   Other   ← row 0 (tabline)
 --    init.lua │ dap.lua │ ui.lua                ← screen row 1 (bufferline)
 --
 -- File / Edit / View / Find / Compile / Debug / Git list the same actions as
@@ -19,6 +19,7 @@
 --   File     always — new, open, save, close, quit (features/file.lua)
 --   Edit     always — indentation, language, file format (features/edit.lua)
 --   View     always — layout and display toggles (features/view.lua)
+--   Code     always — language-server actions (features/code.lua)
 --   Find     always — searching is never out of place
 --   Compile  only inside a coding project (PROJECT_MARKERS below)
 --   Debug    only inside a coding project
@@ -126,15 +127,33 @@ local MENUS = {
     -- Indentation, language and file format: <leader>E (features/edit.lua).
     id = 'E', label = 'Edit', icon = '', when = 'always',
     items = {
+      { key = 'Ez', label = 'Undo' },
+      { key = 'EZ', label = 'Redo' },
+      { sep = true },
+      { key = 'Ek', label = 'Cut (line, or selection)' },
+      { key = 'Ey', label = 'Copy (line, or selection)' },
+      { key = 'EV', label = 'Paste (replaces a selection)' },
+      { key = 'Ea', label = 'Select all' },
+      { key = 'E/', label = 'Comment / uncomment' },
+      { sep = true },
+      { key = 'Es', label = 'Find in file…' },
+      { key = 'En', label = 'Find next' },
+      { key = 'EN', label = 'Find previous' },
+      { key = 'Er', label = 'Replace all in file…' },
+      { key = 'ER', label = 'Replace one by one…' },
+      { key = 'Eg', label = 'Go to line…' },
+      { sep = true },
       { key = 'Ew', label = 'Tab width…' },
       { key = 'Et', label = 'Indent with spaces (toggle)' },
       { key = 'Ec', label = 'Convert indentation to current setting' },
       { key = 'Ed', label = 'Detect indentation from file' },
+      { key = 'Ex', label = 'Trim trailing whitespace' },
+      { sep = true },
       { key = 'El', label = 'Language / syntax…' },
       { key = 'Eh', label = 'Syntax highlighting (toggle)' },
       { key = 'Ee', label = 'Line endings LF / CRLF' },
       { key = 'Eu', label = 'File encoding…' },
-      { key = 'Ex', label = 'Trim trailing whitespace' },
+      { sep = true },
       { key = 'Ep', label = 'Auto-close brackets (toggle)' },
       { key = 'f',  label = 'Format buffer' },
       { key = 'Ef', label = 'Format on save (toggle)' },
@@ -188,6 +207,39 @@ local MENUS = {
       { key = 'sc', label = 'Commands' },
       { key = 'ss', label = 'Telescope pickers' },
       { key = 'sr', label = 'Resume last picker' },
+    },
+  },
+  {
+    -- Language-server actions: <leader>C (features/code.lua).
+    id = 'C', label = 'Code', icon = '', when = 'always',
+    items = {
+      { key = 'Cd', label = 'Go to definition' },
+      { key = 'CD', label = 'Go to declaration' },
+      { key = 'Ct', label = 'Go to type definition' },
+      { key = 'Ci', label = 'Go to implementation' },
+      { key = 'Cr', label = 'Find references' },
+      { key = 'Cb', label = 'Go back' },
+      { key = 'CB', label = 'Go forward' },
+      { sep = true },
+      { key = 'Cs', label = 'Symbols in this file' },
+      { key = 'CS', label = 'Symbols in the project' },
+      { key = 'Ch', label = 'Hover documentation' },
+      { key = 'Cg', label = 'Signature help' },
+      { sep = true },
+      { key = 'Cn', label = 'Rename symbol…' },
+      { key = 'Ca', label = 'Code actions…' },
+      { key = 'f',  label = 'Format buffer' },
+      { sep = true },
+      { key = 'Ce', label = 'Problem at cursor' },
+      { key = 'C]', label = 'Next problem' },
+      { key = 'C[', label = 'Previous problem' },
+      { key = 'Cq', label = 'Problems in this file' },
+      { key = 'CQ', label = 'Problems in the project' },
+      { key = 'vd', label = 'Inline diagnostics (toggle)' },
+      { key = 'th', label = 'Inlay hints (toggle)' },
+      { sep = true },
+      { key = 'Cl', label = 'Language server info' },
+      { key = 'CL', label = 'Restart language server' },
     },
   },
   {
@@ -396,7 +448,7 @@ end
 -- ── Keymap lookup ────────────────────────────────────────────
 -- On/off state for toggles comes from features/view.lua (loaded after
 -- this file, hence looked up lazily). nil for anything that isn't a toggle.
-local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme' }
+local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code' }
 local function menu_state(key, win, buf)
   for _, name in ipairs(STATE_MODULES) do
     local ok, mod = pcall(require, name)
@@ -434,7 +486,7 @@ local function resolve(item, buf, win)
   -- in the label would only repeat it.
   local state
   if menu_state then state = menu_state(item.key, win, buf) end
-  if state ~= nil then
+  if state ~= nil and type(state) ~= 'table' then
     label = label:gsub('%s*%(toggle[^)]*%)', ''):gsub('^[Tt]oggle:?%s+', '')
     label = label:sub(1, 1):upper() .. label:sub(2)
   end
@@ -591,7 +643,14 @@ end
 local function menu_items(m, ctx_buf, ctx_win)
   if m.dynamic then return other_items(ctx_buf) end
   local items = {}
-  for _, item in ipairs(m.items) do table.insert(items, resolve(item, ctx_buf, ctx_win)) end
+  for _, item in ipairs(m.items) do
+    if item.sep then
+      -- { sep = true }: a divider line between groups; never selectable.
+      table.insert(items, { sep = true, key = '', disp = '', label = '', available = false })
+    else
+      table.insert(items, resolve(item, ctx_buf, ctx_win))
+    end
+  end
   return items
 end
 
@@ -860,7 +919,7 @@ local open_dropdown
 -- with gv so the visual-mode variants (<leader>sR, <leader>de, …) behave
 -- exactly as they do from the keyboard.
 local function run_item(entry)
-  if not entry then return end
+  if not entry or entry.sep then return end
   local m = menu
 
   -- A group heading drills into its own list rather than running.
@@ -925,6 +984,7 @@ function open_dropdown(spec)
   -- State column: 'on' / 'off' for toggles, the value for settings.
   local function state_text(e)
     if e.state == true then return 'on' elseif e.state == false then return 'off' end
+    if type(e.state) == 'table' then return e.state.text or '' end
     return type(e.state) == 'string' and e.state or ''
   end
   local has_state, STATE_W = false, 3
@@ -943,12 +1003,16 @@ function open_dropdown(spec)
   end
   local lines = {}
   for _, e in ipairs(entries) do
-    local state = ''
-    if has_state then
-      state = pad(state_text(e), STATE_W) .. '  '
+    if e.sep then
+      lines[#lines + 1] = ' ' .. string.rep('─', width - 2) .. ' '
+    else
+      local state = ''
+      if has_state then
+        state = pad(state_text(e), STATE_W) .. '  '
+      end
+      lines[#lines + 1] = '  ' .. pad(e.disp or e.key or '', key_w)
+        .. '  ' .. pad(e.label, label_w) .. '  ' .. state
     end
-    lines[#lines + 1] = '  ' .. pad(e.disp or e.key or '', key_w)
-      .. '  ' .. pad(e.label, label_w) .. '  ' .. state
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -957,6 +1021,10 @@ function open_dropdown(spec)
   vim.bo[buf].bufhidden  = 'wipe'
 
   for i, e in ipairs(entries) do
+    if e.sep then
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { end_col = #lines[i], hl_group = 'TopBarDim' })
+      goto continue
+    end
     local key_bytes = #(e.disp or e.key or '')
     vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 2, {
       end_col  = 2 + key_bytes,
@@ -972,10 +1040,12 @@ function open_dropdown(spec)
       local s = #lines[i] - 2 - (STATE_W + #word - vim.fn.strdisplaywidth(word))
       vim.api.nvim_buf_set_extmark(buf, ns, i - 1, s, {
         end_col  = s + #word,
-        hl_group = (e.available and e.state ~= false) and 'TopBarKey' or 'TopBarDim',
+        hl_group = (e.available and e.state ~= false and not (type(e.state) == 'table' and e.state.dim))
+          and 'TopBarKey' or 'TopBarDim',
         priority = 4200,
       })
     end
+    ::continue::
   end
 
   -- The menu bar is the tabline (screen row 0), so the drop-down hangs
@@ -1065,8 +1135,28 @@ function open_dropdown(spec)
   -- only while the menu is open.
   map('<MouseMove>', function()
     local lnum = menu_entry_at(vim.fn.getmousepos())
-    if lnum then pcall(vim.api.nvim_win_set_cursor, win, { lnum, 0 }) end
+    if lnum and not (menu.items[lnum] or {}).sep then pcall(vim.api.nvim_win_set_cursor, win, { lnum, 0 }) end
   end)
+
+  -- Keyboard: step over separators in the direction of travel.
+  local last_lnum = 1
+  vim.api.nvim_create_autocmd('CursorMoved', {
+    buffer   = buf,
+    callback = function()
+      if not (menu and vim.api.nvim_win_is_valid(win)) then return end
+      local lnum = vim.api.nvim_win_get_cursor(win)[1]
+      local n = #menu.items
+      if (menu.items[lnum] or {}).sep then
+        local step = (lnum >= last_lnum) and 1 or -1
+        local to = lnum + step
+        while menu.items[to] and menu.items[to].sep do to = to + step end
+        if to < 1 or to > n then to = lnum - step end
+        lnum = math.max(1, math.min(n, to))
+        pcall(vim.api.nvim_win_set_cursor, win, { lnum, 0 })
+      end
+      last_lnum = lnum
+    end,
+  })
 
   -- Any other route out of the menu (a :command, <C-w>, a plugin stealing
   -- focus) closes it too. Scoped to *this* drop-down: drilling into a

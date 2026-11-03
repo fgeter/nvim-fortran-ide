@@ -113,6 +113,7 @@ require('which-key').setup {
     { '<leader>s', group = 'Search',  mode = { 'n', 'v' } },
     { '<leader>t', group = 'Toggle' },
     { '<leader>F', group = 'File' },
+    { '<leader>C', group = 'Code' },
     { '<leader>E', group = 'Edit' },
     { '<leader>v', group = 'View' },
     { 'gr',        group = 'LSP actions' },
