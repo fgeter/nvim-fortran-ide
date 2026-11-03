@@ -25,6 +25,32 @@ if vim.fn.executable('make') == 1 then
   table.insert(telescope_plugins, gh 'nvim-telescope/telescope-fzf-native.nvim')
 end
 
+-- vim.pack only downloads; the C library has to be compiled with `make`.
+-- Rebuild it whenever the plugin is installed or updated. (Registered
+-- before vim.pack.add, which is what fires PackChanged on a first install.)
+local FZF = 'telescope-fzf-native.nvim'
+local function build_fzf(path, on_done)
+  vim.system({ 'make' }, { cwd = path, text = true }, function(res)
+    vim.schedule(function() on_done(res.code == 0, res.stderr or res.stdout or '') end)
+  end)
+end
+vim.api.nvim_create_autocmd('PackChanged', {
+  desc     = 'Compile telescope-fzf-native after install/update',
+  group    = vim.api.nvim_create_augroup('fzf-native-build', { clear = true }),
+  callback = function(ev)
+    local d = ev.data
+    if d and d.spec and d.spec.name == FZF and (d.kind == 'install' or d.kind == 'update') then
+      build_fzf(d.path, function(ok, err)
+        if ok then
+          pcall(require('telescope').load_extension, 'fzf')
+        else
+          vim.notify('telescope-fzf-native: build failed:\n' .. err, vim.log.levels.WARN)
+        end
+      end)
+    end
+  end,
+})
+
 vim.pack.add(telescope_plugins)
 
 require('telescope').setup {
@@ -38,14 +64,23 @@ require('telescope').setup {
 
 -- Load extensions. fzf is optional (requires compiled C); warn if the build
 -- is missing so the user knows they are on the slower Lua matcher.
+-- If the library was never compiled (as happened before the PackChanged
+-- hook above existed), build it in the background and switch over when
+-- it's ready; the Lua matcher covers the meantime. Warn only if the build
+-- itself fails.
 if vim.fn.executable('make') == 1 then
   local ok = pcall(require('telescope').load_extension, 'fzf')
   if not ok then
-    vim.notify(
-      'telescope-fzf-native: native sorter failed to load.\n' ..
-      'Falling back to Lua matcher (slower on large projects).\n' ..
-      'Try deleting ~/.local/share/nvim/site/pack/core/opt/telescope-fzf-native.nvim and restarting.',
-      vim.log.levels.WARN)
+    local path = vim.fn.stdpath('data') .. '/site/pack/core/opt/' .. FZF
+    if vim.fn.isdirectory(path) == 1 then
+      build_fzf(path, function(built, err)
+        if built and pcall(require('telescope').load_extension, 'fzf') then return end
+        vim.notify(
+          'telescope-fzf-native: could not build the native sorter; using the slower Lua matcher.\n'
+            .. 'To retry: cd ' .. path .. ' && make\n' .. err,
+          vim.log.levels.WARN)
+      end)
+    end
   end
 end
 pcall(require('telescope').load_extension, 'ui-select')
