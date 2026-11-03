@@ -39,11 +39,17 @@ vim.pack.add { { src = gh 'catppuccin/nvim', version = vim.version.range '2.*' }
 -- mini.statusline's ColorScheme hook only defines its own MiniStatusline*
 -- groups as defaults — it never touches StatusLine/StatusLineNC or the
 -- separators, verified against mini/statusline.lua H.create_default_hl.)
-require('catppuccin').setup {
+-- transparent_background is one setting for all flavours, and latte is a
+-- light theme: transparent, it puts its dark text on the terminal's dark
+-- background. So it is set per flavour, just before each one loads (see
+-- the ColorSchemePre autocmd below): solid for latte, transparent for the
+-- dark flavours. catppuccin recompiles when its options change.
+local catppuccin_opts = {
   flavour              = 'mocha',
   transparent_background = true,
+  -- `all`: every flavour (View › Theme can switch to latte, frappe, …).
   highlight_overrides = {
-    mocha = function(colors)
+    all = function(colors)
       return {
         WinSeparator        = { fg = colors.lavender },
         NeoTreeWinSeparator = { fg = colors.lavender },
@@ -70,6 +76,23 @@ require('catppuccin').setup {
   },
 }
 
+require('catppuccin').setup(catppuccin_opts)
+
+vim.api.nvim_create_autocmd('ColorSchemePre', {
+  desc     = 'catppuccin: solid background for latte, transparent for dark flavours',
+  group    = vim.api.nvim_create_augroup('catppuccin-transparency', { clear = true }),
+  pattern  = 'catppuccin*',
+  callback = function(ev)
+    local flavour = ev.match:match('^catppuccin%-(%a+)$')
+    if flavour == 'nvim' or not flavour then flavour = catppuccin_opts.flavour end
+    local transparent = flavour ~= 'latte'
+    if catppuccin_opts.transparent_background ~= transparent then
+      catppuccin_opts.transparent_background = transparent
+      require('catppuccin').setup(catppuccin_opts)
+    end
+  end,
+})
+
 vim.cmd.colorscheme('catppuccin')
 
 -- ── which-key ────────────────────────────────────────────────
@@ -89,6 +112,9 @@ require('which-key').setup {
     { '<leader>r', group = 'Recent / Rename' },
     { '<leader>s', group = 'Search',  mode = { 'n', 'v' } },
     { '<leader>t', group = 'Toggle' },
+    { '<leader>F', group = 'File' },
+    { '<leader>E', group = 'Edit' },
+    { '<leader>v', group = 'View' },
     { 'gr',        group = 'LSP actions' },
   },
 }
@@ -166,25 +192,12 @@ require('bufferline').setup {
         separator  = true,
       },
     },
-    -- When closing a buffer, switch every window that is currently showing it
-    -- to another listed regular-file buffer before deleting.  Checking only
-    -- the focused window (get_current_buf) misses the case where focus is in
-    -- neo-tree, leaving the editor window orphaned and causing Neovim to
-    -- close it and show only neo-tree.
+    -- The tab's close button: same as <leader>bd / File › Close file —
+    -- asks about unsaved changes (highlighted), and every window showing
+    -- the file switches to another open file instead of closing (which
+    -- used to leave only neo-tree when focus was there).
     close_command = function(bufnr)
-      local others = vim.tbl_filter(function(b)
-        return b.bufnr ~= bufnr and vim.bo[b.bufnr].buftype == ''
-      end, vim.fn.getbufinfo({ buflisted = 1 }))
-
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_is_valid(win)
-            and vim.api.nvim_win_get_buf(win) == bufnr
-            and #others > 0 then
-          vim.api.nvim_win_set_buf(win, others[1].bufnr)
-        end
-      end
-
-      vim.api.nvim_buf_delete(bufnr, { force = false })
+      require('features.file').close_buffer(bufnr)
     end,
   },
 }

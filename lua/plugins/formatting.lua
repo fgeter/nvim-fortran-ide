@@ -33,7 +33,8 @@ local function setup_conform()
       local enabled = {
         -- lua = true,
       }
-      if enabled[vim.bo[bufnr].filetype] then
+      -- Edit › Format on save (<leader>Ef) turns it on for every filetype.
+      if vim.g.format_on_save or enabled[vim.bo[bufnr].filetype] then
         return { timeout_ms = 500 }
       end
     end,
@@ -72,3 +73,11 @@ vim.keymap.set({ 'n', 'v' }, '<leader>f', function()
   setup_conform()
   require('conform').format { async = true }
 end, { desc = 'Format buffer / selection' })
+
+-- <leader>Ef: format on save for all files (Edit menu). conform only reads
+-- format_on_save once it is set up, so turning this on sets it up.
+vim.keymap.set('n', '<leader>Ef', function()
+  vim.g.format_on_save = not vim.g.format_on_save
+  if vim.g.format_on_save then setup_conform() end
+  vim.notify('Format on save ' .. (vim.g.format_on_save and 'on' or 'off'), vim.log.levels.INFO)
+end, { desc = 'Edit: format on save (toggle)' })

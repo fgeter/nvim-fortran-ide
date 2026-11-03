@@ -4,16 +4,21 @@
 -- A menu bar across the very top of the screen, above the buffer tabs,
 -- whose titles open left-click drop-down menus:
 --
---     Find   Compile   Debug   Git   Other      ← screen row 0 (tabline)
+--     File   Edit   View   Find   Compile   Debug   Git   Other   ← screen row 0 (tabline)
 --    init.lua │ dap.lua │ ui.lua                ← screen row 1 (bufferline)
 --
--- Find / Compile / Debug / Git list the same actions as their <leader>
--- prefix (<leader>s / <leader>c / <leader>d / <leader>g).  Choosing an
+-- File / Edit / View / Find / Compile / Debug / Git list the same actions as
+-- their <leader> prefix (<leader>F / <leader>E / <leader>v / <leader>s /
+-- <leader>c / <leader>d / <leader>g; View also takes in the <leader>t display
+-- toggles).  Choosing an
 -- entry feeds that keymap, so there is exactly one implementation of
 -- every action — the bar is a second door onto the existing keymaps,
 -- never a copy of their logic.
 --
 -- ── Which titles are shown ───────────────────────────────────
+--   File     always — new, open, save, close, quit (features/file.lua)
+--   Edit     always — indentation, language, file format (features/edit.lua)
+--   View     always — layout and display toggles (features/view.lua)
 --   Find     always — searching is never out of place
 --   Compile  only inside a coding project (PROJECT_MARKERS below)
 --   Debug    only inside a coding project
@@ -95,6 +100,78 @@ local PROJECT_MARKERS = {
 -- `when` decides whether the title is shown at all: 'always', 'project'
 -- (inside a coding project) or 'git' (inside a git worktree).
 local MENUS = {
+  {
+    -- New / open / save / close / quit: <leader>F (features/file.lua), plus
+    -- the existing recent-files and close-buffer keymaps.
+    id = 'F', label = 'File', icon = '', when = 'always',
+    items = {
+      { key = 'Fn', label = 'New file' },
+      { key = 'Fo', label = 'Open… (browse folders)' },
+      { key = 'Ff', label = 'Find file in project' },
+      { key = 'rf', label = 'Recent files' },
+      { key = 'Fe', label = 'Show in file explorer' },
+      { key = 'Fs', label = 'Save' },
+      { key = 'FS', label = 'Save as…' },
+      { key = 'Fa', label = 'Save all' },
+      { key = 'FR', label = 'Reload from disk' },
+      { key = 'Fm', label = 'Rename / move file…' },
+      { key = 'Fp', label = 'Copy file path' },
+      { key = 'bd', label = 'Close file', fixed_label = true },
+      { key = 'FC', label = 'Close all files (asks about unsaved)' },
+      { key = 'Fr', label = 'Restart Neovim (asks about unsaved)' },
+      { key = 'Fq', label = 'Quit (asks about unsaved files)' },
+    },
+  },
+  {
+    -- Indentation, language and file format: <leader>E (features/edit.lua).
+    id = 'E', label = 'Edit', icon = '', when = 'always',
+    items = {
+      { key = 'Ew', label = 'Tab width…' },
+      { key = 'Et', label = 'Indent with spaces (toggle)' },
+      { key = 'Ec', label = 'Convert indentation to current setting' },
+      { key = 'Ed', label = 'Detect indentation from file' },
+      { key = 'El', label = 'Language / syntax…' },
+      { key = 'Eh', label = 'Syntax highlighting (toggle)' },
+      { key = 'Ee', label = 'Line endings LF / CRLF' },
+      { key = 'Eu', label = 'File encoding…' },
+      { key = 'Ex', label = 'Trim trailing whitespace' },
+      { key = 'Ep', label = 'Auto-close brackets (toggle)' },
+      { key = 'f',  label = 'Format buffer' },
+      { key = 'Ef', label = 'Format on save (toggle)' },
+    },
+  },
+  {
+    -- Layout and display: <leader>v (features/view.lua) plus the existing
+    -- <leader>t toggles, which `covers` keeps out of "Other".
+    id = 'v', label = 'View', icon = '', when = 'always', covers = { 't' },
+    items = {
+      { key = 've', label = 'File explorer (toggle)' },
+      { key = '\\', label = 'Neo-tree: buffer list' },
+      { key = 'vt', label = 'Terminal at the bottom (toggle)' },
+      { key = 'vT', label = 'Terminal on the right (toggle)' },
+      { key = 'vf', label = 'Floating terminal (toggle)' },
+      { key = 'vv', label = 'Split side by side (vertical)' },
+      { key = 'vs', label = 'Split stacked (horizontal)' },
+      { key = 'vq', label = 'Close this split' },
+      { key = 'vo', label = 'Close the other editor splits' },
+      { key = 'v=', label = 'Make splits equal size' },
+      { key = 'vz', label = 'Zoom this split (toggle)' },
+      { key = 'vh', label = 'Neovim help (toggle)' },
+      { key = 'vC', label = 'Theme…' },
+      { key = 'vn', label = 'Line numbers (toggle)' },
+      { key = 'tr', label = 'Relative line numbers (toggle)' },
+      { key = 'vw', label = 'Soft line wrap (toggle)' },
+      { key = 'tW', label = 'Hard wrap at textwidth (toggle)' },
+      { key = 'vi', label = 'Show whitespace (toggle)' },
+      { key = 'vc', label = 'Cursor line + column guide (toggle)' },
+      { key = 'vd', label = 'Inline diagnostics (toggle)' },
+      { key = 'th', label = 'Inlay hints (toggle, LSP)' },
+      { key = 'ts', label = 'Spell check (toggle)' },
+      { key = 'tL', label = 'Spell check language' },
+      { key = 'tu', label = 'Undo history (undotree)' },
+      { key = 'tn', label = 'Notification history' },
+    },
+  },
   {
     id = 's', label = 'Find', icon = '', when = 'always',
     items = {
@@ -317,11 +394,25 @@ local function menu_visible(m)
 end
 
 -- ── Keymap lookup ────────────────────────────────────────────
+-- On/off state for toggles comes from features/view.lua (loaded after
+-- this file, hence looked up lazily). nil for anything that isn't a toggle.
+local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme' }
+local function menu_state(key, win, buf)
+  for _, name in ipairs(STATE_MODULES) do
+    local ok, mod = pcall(require, name)
+    if ok and type(mod) == 'table' and mod.state then
+      local v = mod.state(key, win, buf)
+      if v ~= nil then return v end
+    end
+  end
+  return nil
+end
+
 -- Resolve an item against the keymaps that actually exist right now.
 -- Buffer-local maps (<leader>ds from the language files, the
 -- gitsigns hunk maps, …) only resolve against the *editor* buffer, never
 -- the carrier's scratch buffer, so the lookup runs inside nvim_buf_call.
-local function resolve(item, buf)
+local function resolve(item, buf, win)
   local lhs = leader() .. item.key
   local map
   if buf and vim.api.nvim_buf_is_valid(buf) then
@@ -334,9 +425,21 @@ local function resolve(item, buf)
   end
 
   local available = type(map) == 'table' and not vim.tbl_isempty(map)
-  local label     = (available and strip_prefix(map.desc)) or item.label
+  -- fixed_label: the menu's own wording wins over the keymap's desc (the
+  -- same keymap can read differently in a different menu).
+  local label     = (available and not item.fixed_label and strip_prefix(map.desc)) or item.label
+
+  -- Toggles show whether they are on, and settings their current value
+  -- (tab width, language, …), in a column of their own, so "(toggle)"
+  -- in the label would only repeat it.
+  local state
+  if menu_state then state = menu_state(item.key, win, buf) end
+  if state ~= nil then
+    label = label:gsub('%s*%(toggle[^)]*%)', ''):gsub('^[Tt]oggle:?%s+', '')
+    label = label:sub(1, 1):upper() .. label:sub(2)
+  end
   return { key = item.key, disp = item.key, lhs = lhs,
-           label = label, available = available }
+           label = label, available = available, state = state }
 end
 
 -- ── The "Other" menu ─────────────────────────────────────────
@@ -425,7 +528,10 @@ local function other_items(ctx_buf)
   -- is hidden (no git repo, no project) its keys show up here instead.
   local covered = {}
   for _, m in ipairs(MENUS) do
-    if not m.dynamic and menu_visible(m) then covered[m.id] = true end
+    if not m.dynamic and menu_visible(m) then
+      covered[m.id] = true
+      for _, p in ipairs(m.covers or {}) do covered[p] = true end
+    end
   end
 
   local L       = leader()
@@ -482,10 +588,10 @@ local function other_items(ctx_buf)
   return entries
 end
 
-local function menu_items(m, ctx_buf)
+local function menu_items(m, ctx_buf, ctx_win)
   if m.dynamic then return other_items(ctx_buf) end
   local items = {}
-  for _, item in ipairs(m.items) do table.insert(items, resolve(item, ctx_buf)) end
+  for _, item in ipairs(m.items) do table.insert(items, resolve(item, ctx_buf, ctx_win)) end
   return items
 end
 
@@ -816,7 +922,19 @@ function open_dropdown(spec)
     key_w   = math.max(key_w,   vim.fn.strdisplaywidth(e.disp or e.key or ''))
     label_w = math.max(label_w, vim.fn.strdisplaywidth(e.label))
   end
-  local width = 2 + key_w + 2 + label_w + 2
+  -- State column: 'on' / 'off' for toggles, the value for settings.
+  local function state_text(e)
+    if e.state == true then return 'on' elseif e.state == false then return 'off' end
+    return type(e.state) == 'string' and e.state or ''
+  end
+  local has_state, STATE_W = false, 3
+  for _, e in ipairs(entries) do
+    if e.state ~= nil then
+      has_state = true
+      STATE_W = math.max(STATE_W, vim.fn.strdisplaywidth(state_text(e)))
+    end
+  end
+  local width = 2 + key_w + 2 + label_w + 2 + (has_state and (STATE_W + 2) or 0)
 
   -- %-Ns pads by bytes, and both icons and multi-byte keys break that;
   -- pad by display width instead.
@@ -825,8 +943,12 @@ function open_dropdown(spec)
   end
   local lines = {}
   for _, e in ipairs(entries) do
+    local state = ''
+    if has_state then
+      state = pad(state_text(e), STATE_W) .. '  '
+    end
     lines[#lines + 1] = '  ' .. pad(e.disp or e.key or '', key_w)
-      .. '  ' .. pad(e.label, label_w) .. '  '
+      .. '  ' .. pad(e.label, label_w) .. '  ' .. state
   end
 
   local buf = vim.api.nvim_create_buf(false, true)
@@ -844,6 +966,16 @@ function open_dropdown(spec)
       end_col  = #lines[i],
       hl_group = e.available and 'TopBarItem' or 'TopBarDim',
     })
+    -- The state column: "on" and values in the title blue, "off" dimmed.
+    if e.state ~= nil then
+      local word = state_text(e)
+      local s = #lines[i] - 2 - (STATE_W + #word - vim.fn.strdisplaywidth(word))
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, s, {
+        end_col  = s + #word,
+        hl_group = (e.available and e.state ~= false) and 'TopBarKey' or 'TopBarDim',
+        priority = 4200,
+      })
+    end
   end
 
   -- The menu bar is the tabline (screen row 0), so the drop-down hangs
@@ -993,7 +1125,7 @@ function toggle_menu(seg, keep_origin)
     id        = seg.menu.id,
     idx       = seg.idx,
     col       = math.max(0, seg.disp_start - 1),
-    items     = menu_items(seg.menu, from_win and vim.api.nvim_win_get_buf(from_win) or nil),
+    items     = menu_items(seg.menu, from_win and vim.api.nvim_win_get_buf(from_win) or nil, from_win),
     from_win  = from_win,
     from_mode = vim.fn.mode(),
   })

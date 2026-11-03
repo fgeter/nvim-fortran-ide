@@ -31,20 +31,13 @@ vim.keymap.set('n', '<leader>bp', ':bprev<CR>',   { silent = true, desc = 'Buffe
 vim.keymap.set('n', ']t', ':tabn<CR>',        { silent = true, desc = 'Tab: next' })
 vim.keymap.set('n', '[t', ':tabprevious<CR>', { silent = true, desc = 'Tab: previous' })
 
--- Delete the current buffer without destroying the window layout.
--- If the buffer has unsaved changes, Neovim's built-in prompt appears.
--- If saved, switches to the previous buffer first so the window stays open.
+-- Close the current file without destroying the window layout. Unsaved
+-- changes get the File menu's Save / Discard / Review / Cancel prompt with
+-- the changes highlighted (features/file.lua, loaded after this file —
+-- hence required at call time).
 vim.keymap.set('n', '<leader>bd', function()
-  local buf = vim.api.nvim_get_current_buf()
-  if vim.api.nvim_get_option_value('modified', { buf = buf }) then
-    -- Let Neovim show its "save?" dialog
-    local ok = pcall(vim.cmd, 'bdelete ' .. buf)
-    if not ok then return end   -- user cancelled
-  else
-    vim.cmd('bprevious')
-    pcall(vim.cmd, 'bdelete ' .. buf)
-  end
-end, { silent = true, desc = 'Buffer: delete (keep layout)' })
+  require('features.file').close_buffer(0)
+end, { silent = true, desc = 'Buffer: close file (keep layout)' })
 
 -- ── Terminal ─────────────────────────────────────────────────
 -- <Esc><Esc> exits terminal insert mode. The default <C-\><C-n> is
