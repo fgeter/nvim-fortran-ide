@@ -390,9 +390,13 @@ local function activate()
     -- build_dbg/, ...) and, indented under the build root, each preset
     -- directory inside it (build/debug, build/ubuntu-<preset>, ...), so a
     -- single static or host build can be wiped without losing the others.
-    -- Selecting an entry toggles it; "Delete N selected" asks for a Y/n
-    -- confirmation — this is not undoable. Afterwards run <leader>cp +
+    -- Browse… (or b) adds a build directory from anywhere else, but only a
+    -- real CMake build tree (see is_build_tree / refused below).
+    -- Space or a mouse click toggles an entry; Enter or the Delete button
+    -- asks for a Y/n confirmation — this is not undoable. Afterwards run <leader>cp +
     -- <leader>cb (or <leader>cS) to rebuild.
+    -- Last directory added through Browse, so the prompt starts next to it.
+    local last_browsed_build = nil
     vim.keymap.set('n', '<leader>cd', function()
       local roots = project.roots()
       local repo  = vim.fn.fnamemodify(roots.repo,  ':p'):gsub('/+$', '')
@@ -428,10 +432,6 @@ local function activate()
             add(sub, '    ' .. sub:sub(#repo + 2) .. '/')
           end
         end
-      end
-      if #dirs == 0 then
-        vim.notify('No build directories found in ' .. repo, vim.log.levels.WARN)
-        return
       end
 
       local function delete_selected(chosen)
@@ -472,36 +472,93 @@ local function activate()
         end)
       end
 
-      -- vim.ui.select is single-choice, so the checklist is re-shown after
-      -- each toggle. vim.schedule lets the previous picker close first.
-      local function checklist()
-        local chosen = {}
-        for _, d in ipairs(dirs) do
-          if d.selected then table.insert(chosen, d) end
-        end
-        local items = {}
-        if #chosen > 0 then
-          table.insert(items, { action = 'delete',
-            text = '▶ Delete ' .. #chosen .. ' selected' })
-        end
-        for _, d in ipairs(dirs) do
-          table.insert(items, { dir = d,
-            text = (d.selected and '[x] ' or '[ ] ') .. d.label })
-        end
-        vim.ui.select(items, {
-          prompt = 'Toggle build directories to delete (<Esc> cancels):',
-          format_item = function(item) return item.text end,
-        }, function(item)
-          if not item then return end
-          if item.action == 'delete' then
-            vim.schedule(function() delete_selected(chosen) end)
-          else
-            item.dir.selected = not item.dir.selected
-            vim.schedule(checklist)
-          end
-        end)
+      -- Browse: add a build directory that lives anywhere (another
+      -- checkout, an out-of-tree build, ...). The inside_repo() net cannot
+      -- apply to these, so a browsed directory must prove it is a CMake build
+      -- tree instead: CMakeCache.txt in it, or in one of its immediate
+      -- subdirectories (a build root holding preset dirs, like build/).
+      -- /, $HOME, the project root and anything above them are refused
+      -- outright, CMakeCache.txt or not.
+      local function is_build_tree(path)
+        if vim.fn.filereadable(path .. '/CMakeCache.txt') == 1 then return true end
+        return #vim.fn.glob(path .. '/*/CMakeCache.txt', false, true) > 0
       end
-      checklist()
+      local function refused(path)
+        local home = vim.fn.resolve(vim.env.HOME or '')
+        for _, p in ipairs({ repo, home }) do
+          -- path equals p, or p lives inside path
+          if p ~= '' and (path == p or vim.startswith(p .. '/', path .. '/')) then
+            return true
+          end
+        end
+        return path == '' or path == '/'
+      end
+
+      local opts  -- the checklist options, defined below; browse reopens it
+      local function reopen() require('core.checklist').open(opts) end
+      -- Validate a browsed directory, add it ticked, and reopen the list.
+      local function add_browsed(path)
+        path = vim.fn.resolve(vim.fn.fnamemodify(path, ':p')):gsub('/+$', '')
+        if path == '' then path = '/' end
+        local err
+        if vim.fn.isdirectory(path) == 0 then
+          err = 'Not a directory: ' .. path
+        elseif refused(path) then
+          err = 'Refusing to delete ' .. path .. ' (it is /, your home, '
+            .. 'the project root, or contains one of them).'
+        elseif not is_build_tree(path) then
+          err = 'Not a CMake build directory (no CMakeCache.txt in it or in '
+            .. 'a direct subdirectory): ' .. path
+        end
+        if err then
+          vim.notify(err, vim.log.levels.ERROR)
+          return reopen()
+        end
+        last_browsed_build = path
+        local found = false
+        for _, d in ipairs(dirs) do
+          if d.path == path then d.selected, found = true, true end
+        end
+        if not found then
+          table.insert(dirs, { path = path, label = vim.fn.fnamemodify(path, ':~') .. '/',
+                               selected = true })
+        end
+        reopen()
+      end
+
+      -- Folder browser (core/folder_picker.lua), starting at the project
+      -- root — or next to the last browsed directory — with build trees
+      -- tagged so it is clear where to stop.
+      local function browse()
+        require('core.folder_picker').open {
+          title     = 'Pick a build directory to delete',
+          start     = last_browsed_build and vim.fn.fnamemodify(last_browsed_build, ':h') or repo,
+          tag       = function(path) return is_build_tree(path) and 'CMake build' or nil end,
+          on_select = add_browsed,
+          on_cancel = reopen,
+        }
+      end
+
+      -- Floating checklist (core/checklist.lua): Space or a click toggles an
+      -- entry, Enter or the Delete button confirms, Browse (or b) adds a
+      -- directory from elsewhere, Esc cancels.
+      opts = {
+        title  = 'Delete build directories',
+        items  = dirs,
+        action = function(n)
+          return n == 0 and 'Delete…' or ('Delete ' .. n .. ' selected')
+        end,
+        extra  = { label = 'Browse…', key = 'b', run = browse },
+        on_confirm = delete_selected,
+        empty  = '(no build directories here: Browse… to pick one)',
+      }
+      -- Nothing under the project: go straight to the path prompt.
+      if #dirs == 0 then
+        vim.notify('No build directories found in ' .. repo .. ': browse for one.',
+          vim.log.levels.INFO)
+        return browse()
+      end
+      require('core.checklist').open(opts)
     end, { desc = 'CMake: delete build directories (checklist + confirmation)' })
 
     -- Preset: select a configure preset, then automatically run Generate.

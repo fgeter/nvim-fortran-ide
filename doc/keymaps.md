@@ -233,7 +233,7 @@ named after the which-key spec in `plugins/ui.lua`, and open a submenu.
 | `<leader>cb` | Build using all CPU cores (detected via `nproc`). The output follows along as it arrives and stays scrollable (wheel / `k` / `<C-u>`; `G` resumes following). On success Neovim asks whether to close the terminal — `<CR>` = yes, from any window; a failed build stays open at the shell prompt with the errors | `plugins/cmake-tools.lua` |
 | `<leader>cB` | Build single-threaded (`-j 1`) — clean error output | `plugins/cmake-tools.lua` |
 | `<leader>cx` | Clean active preset | `plugins/cmake-tools.lua` |
-| `<leader>cd` | Delete build directory (prompts confirmation) | `plugins/cmake-tools.lua` |
+| `<leader>cd` | Delete build directories: floating checklist — Space or click toggles an entry, `a` toggles all, `b` or the Browse… button opens a folder browser at the project root (click/Enter opens a folder, `..`/`h` goes up, `s` or [ Select this folder ] picks the one shown, Space picks the folder under the cursor; CMake build trees are tagged) to add a build directory from anywhere (it must contain `CMakeCache.txt` itself or in a direct subdirectory; `/`, `$HOME`, the project root and their parents are refused), Enter or the Delete button confirms (then a Y/n prompt), Esc cancels | `plugins/cmake-tools.lua`, `core/checklist.lua` |
 | `<leader>cr` | Run swatplus (pick exe + run dir — a workdata dir or Browse to any folder; offers to delete previous output first, and to close the terminal when the run finishes). The output follows along and stays scrollable while the program runs (wheel / `k` / `<C-u>`; `G` resumes following); press `i` if the program wants typed input | `plugins/cmake-tools.lua` |
 
 ---
