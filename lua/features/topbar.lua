@@ -100,6 +100,8 @@ local PROJECT_MARKERS = {
 --
 -- `when` decides whether the title is shown at all: 'always', 'project'
 -- (inside a coding project) or 'git' (inside a git worktree).
+local function not_in_repo() return not require('features.github').in_repo() end
+
 local MENUS = {
   {
     -- New / open / save / close / quit: <leader>F (features/file.lua), plus
@@ -298,6 +300,31 @@ local MENUS = {
       { key = 'gR', label = 'Check if origin is ahead' },
     },
   },
+  {
+    -- features/github.lua. `when` on an item hides it where it makes no
+    -- sense (Clone inside a repository, Publish once it is on GitHub).
+    id = 'G', label = 'GitHub', mnemonic = 'H', when = 'always',
+    items = {
+      { key = 'GC', label = 'Clone a repository…', when = not_in_repo },
+      { sep = true, when = not_in_repo },
+      { key = 'Go', label = 'Open repository on GitHub (browser)' },
+      { key = 'Gi', label = 'Repository info (address, clone URLs, …)' },
+      { key = 'Gf', label = 'Open this file on GitHub' },
+      { key = 'Gy', label = 'Copy GitHub link to this line' },
+      { sep = true },
+      { key = 'Gp', label = 'Pull requests…' },
+      { key = 'Gv', label = "This branch's pull request" },
+      { key = 'GP', label = 'Create pull request…' },
+      { sep = true },
+      { key = 'Gs', label = 'Issues…' },
+      { key = 'GI', label = 'New issue… (browser)' },
+      { key = 'Ga', label = 'Actions: recent workflow runs…' },
+      { sep = true },
+      { key = 'GR', label = 'Publish this folder to GitHub…',
+        when = function() local g = require('features.github') return g.in_repo() and not g.has_github() end },
+      { key = 'GA', label = 'GitHub account / sign in' },
+    },
+  },
   -- Built from the live keymap table rather than a list (see other_items).
   { id = 'o', label = 'Other', mnemonic = 'O', when = 'always', dynamic = true },
 }
@@ -462,7 +489,7 @@ end
 -- ── Keymap lookup ────────────────────────────────────────────
 -- On/off state for toggles comes from features/view.lua (loaded after
 -- this file, hence looked up lazily). nil for anything that isn't a toggle.
-local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code', 'features.vimkeys' }
+local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code', 'features.vimkeys', 'features.github' }
 local function menu_state(key, win, buf)
   for _, name in ipairs(STATE_MODULES) do
     local ok, mod = pcall(require, name)
@@ -658,7 +685,9 @@ local function menu_items(m, ctx_buf, ctx_win)
   if m.dynamic then return other_items(ctx_buf) end
   local items = {}
   for _, item in ipairs(m.items) do
-    if item.sep then
+    if item.when and not item.when() then
+      -- hidden here (item-level `when`)
+    elseif item.sep then
       -- { sep = true }: a divider line between groups; never selectable.
       table.insert(items, { sep = true, key = '', disp = '', label = '', available = false })
     else

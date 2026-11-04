@@ -107,6 +107,7 @@ require('which-key').setup {
     { '<leader>c', group = 'CMake' },
     { '<leader>d', group = 'Debug (DAP)' },
     { '<leader>g', group = 'Git' },
+    { '<leader>G', group = 'GitHub' },
     { '<leader>h', group = 'Git hunks' },
     { '<leader>j', group = 'Jupyter' },
     { '<leader>r', group = 'Recent / Rename' },
