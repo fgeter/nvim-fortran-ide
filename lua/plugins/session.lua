@@ -27,7 +27,12 @@ end
 -- UIEnter handler (plugins/neo-tree.lua) does not take it for a bare start
 -- and run its 'enew' + delete step, which wiped the restored current
 -- buffer. :restart! means "no session", so it keeps the normal path.
-if vim.v.startreason == 'restart' then
+-- v:startreason is newer than :restart itself (absent in 0.12.4, where it
+-- reads as nil): there a restart cannot be told from a fresh start, so
+-- these fixes simply do not apply and startup behaves as before.
+local startreason = vim.v.startreason or 'normal'
+
+if startreason == 'restart' then
   vim.g.session_loaded = true
 end
 
@@ -57,7 +62,7 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
   end,
 })
 
-if vim.v.startreason:match('^restart') then
+if startreason:match('^restart') then
   vim.api.nvim_create_autocmd('UIEnter', {
     once     = true,
     callback = function()
@@ -98,7 +103,7 @@ vim.api.nvim_create_autocmd('VimEnter', {
   callback = function()
     if vim.fn.argc() ~= 0 then return end
     -- Already restored by :restart (see above); sourcing again is redundant.
-    if vim.v.startreason == 'restart' then return end
+    if startreason == 'restart' then return end
     local sf = session_file()
     if vim.fn.filereadable(sf) == 1 then
       -- A corrupted session file used to fail silently here, leaving every
