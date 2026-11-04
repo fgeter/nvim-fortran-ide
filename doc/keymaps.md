@@ -173,6 +173,12 @@ Formatters by language: Lua → stylua, Python → ruff, C/C++ → clang-format,
 
 ---
 
+## Resize pointer over borders
+
+`features/border-pointer.lua`: with the mouse on a vertical window separator the pointer becomes ↔ (`ew-resize`); on a window's status line (drag to change its height) it becomes ↕ (`ns-resize`). Not on the buffer-tab row or a horizontal-scrollbar track, which do not resize. Uses OSC 22, so only in kitty and Ghostty. `:BorderPointerToggle` turns it off for the session; `vim.g.border_pointer_shapes = { vsep = …, status = …, reset = … }` changes the shapes.
+
+---
+
 ## Menu bar (mouse)
 
 The menu bar takes the very top screen row and the buffer tabs move down

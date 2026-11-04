@@ -1369,4 +1369,8 @@ return {
   on_drag = on_drag,
   is_bar_win = is_bar_win,
   on_left_mouse = on_left_mouse,
+  -- true when getmousepos() result `mp` is on a compact horizontal track
+  -- (an editor statusline that scrolls rather than resizes); used by
+  -- features/border-pointer.lua to keep the resize pointer off it.
+  is_htrack = function(mp) return htrack_hit(mp) ~= nil end,
 }
