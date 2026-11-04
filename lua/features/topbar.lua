@@ -255,6 +255,7 @@ local MENUS = {
       { key = 'cg', label = 'Generate' },
       { key = 'cb', label = 'Build (all CPU cores)' },
       { key = 'cB', label = 'Build single-threaded' },
+      { key = 'cS', label = 'Static build in distrobox (selected preset)' },
       { key = 'cx', label = 'Clean' },
       { key = 'cd', label = 'Delete build directory' },
     },
