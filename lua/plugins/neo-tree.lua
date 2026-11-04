@@ -231,6 +231,8 @@ vim.api.nvim_create_autocmd('FileType', {
 --   Collapse — the clicked folder, or the folder a clicked file is in
 --     (neo-tree's default C).
 --   Collapse all — everything but the top level.
+--   Sort by last modified — toggle (✓ when on) between newest first and
+--     by name.
 -- Elsewhere right-click
 -- keeps Neovim's usual menu. A global mapping, not a neo-tree one: the
 -- click has to be caught even when focus is in another window (typing in
@@ -241,18 +243,52 @@ vim.api.nvim_create_autocmd('FileType', {
 _G.___neotree_menu_key = function(key)
   vim.schedule(function() vim.api.nvim_feedkeys(key, 'm', false) end)
 end
-vim.cmd([[
-  nnoremenu <silent> ]NeoTree.Cut      <Cmd>lua require('features.tree-select').menu('cut', 'x')<CR>
-  nnoremenu <silent> ]NeoTree.Copy     <Cmd>lua require('features.tree-select').menu('copy', 'y')<CR>
-  nnoremenu <silent> ]NeoTree.Paste    <Cmd>lua _G.___neotree_menu_key('p')<CR>
-  nnoremenu <silent> ]NeoTree.Rename…  <Cmd>lua _G.___neotree_menu_key('r')<CR>
-  nnoremenu <silent> ]NeoTree.-1-      <Nop>
-  nnoremenu <silent> ]NeoTree.Collapse      <Cmd>lua _G.___neotree_menu_key('C')<CR>
-  nnoremenu <silent> ]NeoTree.Collapse\ all <Cmd>lua _G.___neotree_collapse_all()<CR>
-  nnoremenu <silent> ]NeoTree.-2-      <Nop>
-  nnoremenu <silent> ]NeoTree.Delete\ (to\ trash)  <Cmd>lua require('features.tree-select').menu('delete', 'd')<CR>
-  nnoremenu <silent> ]NeoTreeUp.Paste\ into\ parent\ folder  <Cmd>lua _G.___neotree_paste_parent()<CR>
-]])
+-- Rebuilt on every right-click (build_tree_menu, below): menu labels are
+-- fixed text, and the sort entry shows a ✓ while the tree is sorted by
+-- last modified.
+local function build_tree_menu(by_modified)
+  local sort_label = by_modified and 'Sort\\ by\\ last\\ modified\\ \\ ✓' or 'Sort\\ by\\ last\\ modified'
+  vim.cmd(table.concat({
+    'silent! aunmenu ]NeoTree',
+    [[nnoremenu <silent> ]NeoTree.Cut      <Cmd>lua require('features.tree-select').menu('cut', 'x')<CR>]],
+    [[nnoremenu <silent> ]NeoTree.Copy     <Cmd>lua require('features.tree-select').menu('copy', 'y')<CR>]],
+    [[nnoremenu <silent> ]NeoTree.Paste    <Cmd>lua _G.___neotree_menu_key('p')<CR>]],
+    [[nnoremenu <silent> ]NeoTree.Rename…  <Cmd>lua _G.___neotree_menu_key('r')<CR>]],
+    [[nnoremenu <silent> ]NeoTree.-1-      <Nop>]],
+    [[nnoremenu <silent> ]NeoTree.Collapse      <Cmd>lua _G.___neotree_menu_key('C')<CR>]],
+    [[nnoremenu <silent> ]NeoTree.Collapse\ all <Cmd>lua _G.___neotree_collapse_all()<CR>]],
+    'nnoremenu <silent> ]NeoTree.' .. sort_label .. [[ <Cmd>lua _G.___neotree_toggle_sort()<CR>]],
+    [[nnoremenu <silent> ]NeoTree.-2-      <Nop>]],
+    [[nnoremenu <silent> ]NeoTree.Delete\ (to\ trash)  <Cmd>lua require('features.tree-select').menu('delete', 'd')<CR>]],
+  }, '\n'))
+end
+build_tree_menu(false)
+vim.cmd([[nnoremenu <silent> ]NeoTreeUp.Paste\ into\ parent\ folder  <Cmd>lua _G.___neotree_paste_parent()<CR>]])
+
+local function sorted_by_modified(state)
+  return state and state.sort and state.sort.label == 'Last Modified' or false
+end
+
+-- Sort by last modified (newest first, neo-tree's own order_by_modified,
+-- its "o m") ⇄ the tree's normal order by name.
+_G.___neotree_toggle_sort = function()
+  vim.schedule(function()
+    local ok, state = pcall(require('neo-tree.sources.manager').get_state_for_window)
+    if not ok or not state or not state.tree then return end
+    local cmds = require('neo-tree.sources.common.commands')
+    if sorted_by_modified(state) then
+      -- Back to the tree's normal order (A→Z, folders first). Not
+      -- order_by_name: it starts descending, Z→A.
+      state.sort = nil
+      state.sort_field_provider = nil
+      require('neo-tree.sources.manager').refresh(state.name)
+      vim.notify('File tree: sorted by name', vim.log.levels.INFO)
+    else
+      cmds.order_by_modified(state)
+      vim.notify('File tree: sorted by last modified, newest first', vim.log.levels.INFO)
+    end
+  end)
+end
 
 -- The "← .." line stands for the folder above the tree, but neo-tree's
 -- paste took its id (__nav_up__) for a folder name: it made a folder
@@ -346,6 +382,7 @@ _G.___neotree_rclick = function(win, line)
   local ok, st = pcall(require('neo-tree.sources.manager').get_state_for_window, win)
   local node = ok and st and st.tree and st.tree:get_node(line)
   local name = (node and node.id == '__nav_up__') and ']NeoTreeUp' or ']NeoTree'
+  if name == ']NeoTree' then build_tree_menu(sorted_by_modified(ok and st or nil)) end
   -- Bordered, like the other right-click menu (core/autocmds.lua).
   local border = vim.o.pumborder
   vim.o.pumborder = 'rounded'
