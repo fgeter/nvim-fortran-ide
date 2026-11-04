@@ -92,7 +92,13 @@ local function is_git_repo()
 end
 
 -- Open lazygit in a new tab with a clean terminal buffer.
--- The tab is wiped when lazygit exits so it leaves no orphan buffers.
+--
+-- The menu bar takes the tabline row, so nothing shows that a new tab is
+-- open: a winbar across the top of the lazygit window says what it is and
+-- how to leave. When lazygit exits (q), the tab closes at once — before,
+-- the terminal sat at "[Process exited 0]" until a second q, hence "qq".
+-- A non-zero exit (lazygit missing, a crash) keeps the tab so the error
+-- can be read; q then closes it.
 local function open_lazygit()
   if not is_git_repo() then
     vim.notify('Not inside a Git repository.\nCurrent dir: ' .. vim.fn.getcwd(), vim.log.levels.WARN)
@@ -101,8 +107,32 @@ local function open_lazygit()
   vim.cmd('tabnew')
   vim.cmd('terminal lazygit')
   local buf = vim.api.nvim_get_current_buf()
+  local win = vim.api.nvim_get_current_win()
   vim.cmd('setlocal bufhidden=wipe nobuflisted nonumber norelativenumber signcolumn=no nocursorline')
+  vim.wo[win].winbar = '%#DiagnosticWarn# ' .. (vim.g.have_nerd_font and '󰊢 ' or '') .. 'lazygit %*'
+    .. '%#Comment#  q: quit and return to the editor  ·  Esc: close a lazygit popup  ·  ?: lazygit keys%*'
   vim.keymap.set('n', 'q', '<cmd>q<CR>', { buffer = buf, silent = true, nowait = true })
+  vim.api.nvim_create_autocmd('TermClose', {
+    buffer = buf, once = true,
+    callback = function()
+      local status = vim.v.event and vim.v.event.status or 0
+      if status ~= 0 then
+        vim.wo[win].winbar = '%#DiagnosticError# lazygit exited with status ' .. status
+          .. ' %*%#Comment#  q: close this tab%*'
+        return
+      end
+      vim.schedule(function()
+        if not vim.api.nvim_buf_is_valid(buf) then return end
+        -- Wiping the buffer closes its window, and with it the tab. If it
+        -- was the only tab, put an empty buffer in the window instead.
+        if #vim.api.nvim_list_tabpages() == 1 and vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_win_set_buf(win, vim.api.nvim_create_buf(true, false))
+          vim.wo[win].winbar = ''
+        end
+        pcall(vim.api.nvim_buf_delete, buf, { force = true })
+      end)
+    end,
+  })
   vim.cmd('startinsert')
 end
 

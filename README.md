@@ -545,7 +545,7 @@ Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>
 
 | Key | Action |
 |-----|--------|
-| `<leader>gg` | Open lazygit |
+| `<leader>gg` | Open lazygit (one `q` quits and returns to the editor) |
 | `<leader>gc` | Commit (with file picker) |
 | `<leader>gb` | Create branch |
 | `<leader>gp` | Pull (async) |

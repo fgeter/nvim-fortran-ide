@@ -299,7 +299,7 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>gg` | Open lazygit | `features/git-workflow.lua` |
+| `<leader>gg` | Open lazygit in its own tab, titled with how to leave; one `q` quits lazygit and closes the tab (the tab stays open if lazygit exits with an error) | `features/git-workflow.lua` |
 | `<leader>gc` | Commit (with file picker) | `features/git-workflow.lua` |
 | `<leader>gb` | Create branch | `features/git-workflow.lua` |
 | `<leader>gp` | Pull (async) | `features/git-workflow.lua` |
