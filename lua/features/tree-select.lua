@@ -29,9 +29,18 @@ local expect_line = nil -- our own cursor move, which must not clear
 
 local function t(k) return vim.api.nvim_replace_termcodes(k, true, false, true) end
 
+-- Only while the state's tree belongs to the buffer shown in `win`. Right
+-- after neo-tree is closed and reopened, the window already shows a new
+-- buffer while state.tree still belongs to the old, closed one: nui's
+-- tree:get_node() then finds no window for it and nvim_win_get_cursor(nil)
+-- throws ("Invalid 'win': Expected Lua number") from CursorMoved.
 local function state_for(win)
   local ok, state = pcall(require('neo-tree.sources.manager').get_state_for_window, win)
-  if ok and state and state.tree and state.name == 'filesystem' then return state end
+  if not (ok and state and state.tree and state.name == 'filesystem') then return nil end
+  if not vim.api.nvim_win_is_valid(win) or state.tree.bufnr ~= vim.api.nvim_win_get_buf(win) then
+    return nil
+  end
+  return state
 end
 
 local function is_tree_win(win)
