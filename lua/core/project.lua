@@ -87,6 +87,83 @@ function M.find_executables(opts)
   return execs
 end
 
+-- Whether an ELF executable is statically linked: a dynamic one carries a
+-- PT_INTERP program header (the loader to use), a static one does not.
+-- Read straight from the file header (LuaJIT has no string.unpack, hence
+-- the byte arithmetic). nil when the file is not a 64-bit little-endian ELF.
+function M.is_static(path)
+  local f = io.open(path, 'rb')
+  if not f then return nil end
+  local hdr = f:read(64)
+  if not hdr or #hdr < 64 or hdr:sub(1, 4) ~= '\127ELF'
+      or hdr:byte(5) ~= 2 or hdr:byte(6) ~= 1 then
+    f:close()
+    return nil
+  end
+  local function le(s, i, n)
+    local v = 0
+    for k = n, 1, -1 do v = v * 256 + s:byte(i + k - 1) end
+    return v
+  end
+  local phoff, phentsize, phnum = le(hdr, 33, 8), le(hdr, 55, 2), le(hdr, 57, 2)
+  local static = true
+  for i = 0, phnum - 1 do
+    f:seek('set', phoff + i * phentsize)
+    local ph = f:read(4)
+    if ph and #ph == 4 and le(ph, 1, 4) == 3 then static = false break end   -- PT_INTERP
+  end
+  f:close()
+  return static
+end
+
+-- The short commit hash of HEAD, to flag executables built from an older
+-- commit (SWAT+ exe names embed `git describe`: ...-83-g6e03bb9-...).
+local function head_hash()
+  local out = vim.fn.systemlist({ 'git', '-C', M.roots().repo, 'rev-parse', '--short=7', 'HEAD' })
+  if vim.v.shell_error ~= 0 or not out[1] then return nil end
+  return out[1]
+end
+
+-- Picker rows for a list of executables, so look-alike names can be told
+-- apart: the folder (preset), static or dynamic, the commit in the name,
+-- and how long ago it was built; older-commit builds are marked. Returns
+-- the executables sorted newest first, and a label function.
+function M.describe_executables(execs, strip)
+  local head = head_hash()
+  local rows = {}
+  for _, path in ipairs(execs) do
+    local rel = (strip and path:sub(1, #strip) == strip) and path:sub(#strip + 1) or path
+    local folder = vim.fn.fnamemodify(rel, ':h')
+    local name = vim.fn.fnamemodify(path, ':t')
+    local static = M.is_static(path)
+    local kind = name:match('%-Dbg$') and 'debug' or name:match('%-Rel$') and 'release' or ''
+    rows[path] = {
+      folder = (folder == '.' and '' or folder .. '/'),
+      link   = static == nil and '' or (static and 'static' or 'dynamic'),
+      kind   = kind,
+      commit = name:match('%-g(%x+)%-') or '',
+      mtime  = vim.fn.getftime(path),
+    }
+  end
+  local sorted = vim.deepcopy(execs)
+  table.sort(sorted, function(a, b) return rows[a].mtime > rows[b].mtime end)
+
+  local w = { folder = 0, link = 0, kind = 0, commit = 0 }
+  for _, r in pairs(rows) do
+    for k in pairs(w) do w[k] = math.max(w[k], vim.fn.strdisplaywidth(r[k])) end
+  end
+  local function pad(s, n) return s .. (' '):rep(n - vim.fn.strdisplaywidth(s)) end
+  local function label(path)
+    local r = rows[path]
+    if not r then return path end
+    local old = (head and r.commit ~= '' and not vim.startswith(head, r.commit)
+                 and not vim.startswith(r.commit, head)) and '  (older commit)' or ''
+    return ('%s  %s  %s  %s  built %s%s'):format(pad(r.folder, w.folder), pad(r.kind, w.kind),
+      pad(r.link, w.link), pad(r.commit, w.commit), utils.relative_time(r.mtime), old)
+  end
+  return sorted, label
+end
+
 -- True when `dir` is project_work_root or one of its subdirectories —
 -- i.e. a scratch run directory rather than a folder the user browsed to.
 -- Only used to pick the safer default button in the cleaning prompt.
@@ -282,11 +359,12 @@ function M.pick_and_launch(opts)
     pick_workdir(opts.execs[1])
     return
   end
-  vim.ui.select(opts.execs, {
-    prompt      = 'Select executable:',
-    format_item = function(item)
-      return item:sub(1, #strip) == strip and item:sub(#strip + 1) or item
-    end,
+  -- Rows say where each exe is from (folder, static/dynamic, commit, age),
+  -- newest first: SWAT+ names differ only in the commit hash otherwise.
+  local execs, label = M.describe_executables(opts.execs, strip)
+  vim.ui.select(execs, {
+    prompt      = opts.exec_prompt or 'Select executable (newest first):',
+    format_item = label,
   }, function(choice)
     if choice then pick_workdir(choice) end
   end)

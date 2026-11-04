@@ -261,7 +261,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 
 | Key | Alt key | Action | Plugin |
 |-----|---------|--------|--------|
-| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/run-dir picker; Python/Java/JS/TS: config picker; C/C++: executable prompt) | `plugins/*-tools.lua` |
+| `<leader>ds` | `<F5>` | Start / continue (Fortran: exe/run-dir picker over every debug build under build/, static distrobox ones included, each labelled folder · static/dynamic · commit · age, newest first; Python/Java/JS/TS: config picker; C/C++: executable prompt) | `plugins/*-tools.lua` |
 | `<leader>dq` | `<F10>` | Terminate session | `plugins/dap.lua` |
 | `<leader>dr` | | Restart session | `plugins/dap.lua` |
 | `<leader>dn` | `<F2>` | Step over | `plugins/dap.lua` |

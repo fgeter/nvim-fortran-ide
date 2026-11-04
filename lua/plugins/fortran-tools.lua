@@ -61,25 +61,32 @@ local function activate()
 
   -- Only debug builds are offered — release builds strip debug symbols
   -- so gdb cannot map instructions back to source lines meaningfully.
-  -- Discovery itself (vim.g.project_executable_pattern) is shared via
-  -- core/project.lua; this wrapper adds the debug-specific guidance.
+  -- Offered: everything in build/debug (the host Debug preset), plus any
+  -- other debug executable under the build root (one level down, e.g. the
+  -- static distrobox build in build/ubuntu-gfortran_debug_linux): a name
+  -- ending in -Dbg (SWAT+'s naming) or a folder with "debug" in its name.
+  -- The picker labels each one (folder, static/dynamic, commit, age;
+  -- core/project.lua), since the names otherwise differ only by commit.
   local function get_executables()
-    local debug_dir = project.roots().build .. '/debug'
-
-    if vim.fn.isdirectory(debug_dir) == 0 then
-      vim.notify(
-        'No debug build found — ' .. debug_dir .. ' does not exist.\n' ..
-        'Build a debug version first: <leader>cb → select Debug.',
-        vim.log.levels.WARN)
-      return {}
+    local build = project.roots().build
+    local debug_dir = build .. '/debug'
+    local execs, seen = {}, {}
+    local function add(path)
+      if not seen[path] then seen[path] = true table.insert(execs, path) end
     end
-
-    local execs = project.find_executables { root = debug_dir, subdirs = false }
+    if vim.fn.isdirectory(debug_dir) == 1 then
+      for _, p in ipairs(project.find_executables { root = debug_dir, subdirs = false }) do add(p) end
+    end
+    for _, p in ipairs(project.find_executables { root = build }) do
+      local folder = vim.fn.fnamemodify(p, ':h:t'):lower()
+      if p:match('%-Dbg$') or folder:find('debug', 1, true) then add(p) end
+    end
 
     if #execs == 0 then
       vim.notify(
-        'Debug directory exists but no executable found in ' .. debug_dir .. '.\n' ..
-        'Build a debug version first: <leader>cb → select Debug.',
+        'No debug build found under ' .. build .. '.\n' ..
+        'Build one first: <leader>cp → a Debug preset, then <leader>cb\n' ..
+        '(or <leader>cS for a static debug build).',
         vim.log.levels.WARN)
     end
     return execs
@@ -134,6 +141,17 @@ local function activate()
   local function launch(program, cwd)
     if not is_build_stale(program) then
       do_launch(program, cwd)
+      return
+    end
+    -- rebuild_debug can only redo the host build/debug: any other build
+    -- (a static distrobox one) was configured with a different compiler.
+    local debug_dir = project.roots().build .. '/debug'
+    if vim.fn.fnamemodify(program, ':h') ~= debug_dir then
+      vim.ui.input(
+        { prompt = 'This build looks older than the source (rebuild it with Build → Static build). Debug it anyway? (y/N): ' },
+        function(answer)
+          if answer and answer:lower():sub(1, 1) == 'y' then do_launch(program, cwd) end
+        end)
       return
     end
     vim.ui.input(
