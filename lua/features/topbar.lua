@@ -339,9 +339,17 @@ local function setup_highlights()
   local sel = blend(bg or attr('Normal', 'bg') or 0x1e1e2f,
                     fg or 0x9399b3, 0.65)
 
+  -- The menu bar row itself gets a shade of its own, so it stands apart
+  -- from the buffer tabs right under it (with a transparent theme both
+  -- would otherwise be the bare terminal background). ColorColumn is a
+  -- subtle raised shade in most themes (catppuccin: surface0); CursorLine
+  -- if a theme leaves it unset. Only the bar: the drop-downs keep `bg`.
+  local bar_bg = attr('ColorColumn', 'bg') or attr('CursorLine', 'bg') or bg
+
   vim.api.nvim_set_hl(0, 'TopBar',        { bg = bg, fg = fg })
-  vim.api.nvim_set_hl(0, 'TopBarFill',    { bg = bg, fg = fg })
-  vim.api.nvim_set_hl(0, 'TopBarTitle',   { bg = bg, fg = blue, bold = true })
+  vim.api.nvim_set_hl(0, 'TopBarFill',    { bg = bar_bg, fg = fg })
+  vim.api.nvim_set_hl(0, 'TopBarTitle',   { bg = bar_bg, fg = blue, bold = true })
+  vim.api.nvim_set_hl(0, 'TopBarIconDim', { bg = bar_bg, fg = dim })   -- undo / redo with nothing to do
   -- The open menu's title, wearing the same bar as its selected row so the
   -- title and the panel below it read as one object. Bright fg, not the
   -- blue of a closed title: when the menu is open the job is to show which
@@ -349,7 +357,7 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, 'TopBarTitleOn',
     { bg = sel, fg = attr('Normal', 'fg') or fg, bold = true })
   -- The Alt+letter of each title, underlined (closed and open title).
-  vim.api.nvim_set_hl(0, 'TopBarTitleKey', { bg = bg, fg = blue, bold = true, underline = true })
+  vim.api.nvim_set_hl(0, 'TopBarTitleKey', { bg = bar_bg, fg = blue, bold = true, underline = true })
   vim.api.nvim_set_hl(0, 'TopBarTitleOnKey',
     { bg = sel, fg = attr('Normal', 'fg') or fg, bold = true, underline = true })
   vim.api.nvim_set_hl(0, 'TopBarKey',     { bg = bg, fg = blue })
@@ -755,7 +763,7 @@ local function build_tabline()
     for n, b in ipairs({ { UNDO_ICON, can_undo }, { REDO_ICON, can_redo } }) do
       local text = ' ' .. b[1] .. ' '
       parts[#parts + 1] = ('%%#%s#%%%d@v:lua.___topbar_undo@%s%%X'):format(
-        b[2] and 'TopBarTitle' or 'TopBarDim', n, text)
+        b[2] and 'TopBarTitle' or 'TopBarIconDim', n, text)
       disp = disp + vim.fn.strdisplaywidth(text)
     end
   end
