@@ -269,6 +269,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>do` | `<F3>` | Step out | `plugins/dap.lua` |
 | `<leader>dc` | `<F6>` | Run to cursor | `plugins/dap.lua` |
 | `<leader>db` | `<F4>` | Toggle breakpoint | `plugins/dap.lua` |
+| click gutter | | Toggle breakpoint on the clicked line (sign column, line numbers: anything left of the text, in a file window). `:GutterBreakpointToggle` turns it off | `features/gutter-breakpoint.lua` |
 | `<leader>dB` | `<F8>` | Conditional breakpoint | `plugins/dap.lua` |
 | `<leader>dL` | | Log point | `plugins/dap.lua` |
 | `<leader>dx` | `<F16>` (Shift-F4) | Clear all breakpoints | `plugins/dap.lua` |
