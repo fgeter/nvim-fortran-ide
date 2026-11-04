@@ -274,6 +274,8 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | `<leader>dL` | | Log point | `plugins/dap.lua` |
 | `<leader>dx` | `<F16>` (Shift-F4) | Clear all breakpoints | `plugins/dap.lua` |
 | `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |
+| right-click | | While debugging: **Add to watches: <expr>** at the top of the right-click menu, for the selection or the expression under the click (Fortran: the whole `a(i)%b%c` reference; elsewhere `a.b`, `a[i]`, `a->b`) | `features/dap-watch-menu.lua` |
+| right-click in Watches | | On a watch (or any line of its expanded children): **Remove watch**, **Edit watch**, plus **Remove all watches** | `features/dap-watch-menu.lua` |
 | `<leader>dU` | `<F7>` | Toggle DAP UI | `plugins/dap.lua` |
 | `<leader>dC` | | Open console in floating window | `plugins/dap.lua` |
 | `<leader>de` | | Eval expression / selection — cursor enters float; `q` or jump to another window to close | `plugins/dap.lua` |
