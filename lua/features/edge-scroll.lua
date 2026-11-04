@@ -9,8 +9,14 @@
 -- updates (see features/hscrollbar.lua).
 -- ============================================================
 
+--
+-- An expr mapping that hands the plain <MouseMove> back when no drag is
+-- going on: a right-click menu reads mouse moves to highlight the item
+-- under the pointer, and a mapping that ran Lua instead made it close on
+-- the first move (2026-11-03).
 vim.keymap.set('n', '<MouseMove>', function()
   if vim.g.hscroll_dragging then
-    require('features.hscrollbar').on_drag()
+    return "<Cmd>lua require('features.hscrollbar').on_drag()<CR>"
   end
-end)
+  return '<MouseMove>'
+end, { expr = true, silent = true })

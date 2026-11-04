@@ -153,8 +153,7 @@ end
 -- Unlike the built-in 'delete' (permanent rm), trashed items land in
 -- ~/.local/share/Trash and can be restored with a file manager or
 -- `gio trash --restore <uri>` (list URIs with `gio trash --list`).
-local function trash_node(state)
-  local node = state.tree:get_node()
+local function trash_one(node)
   if not node or node.id == '__nav_up__' then return end
   if node:get_depth() == 1 then
     vim.notify('neo-tree: will not trash the root node', vim.log.levels.WARN)
@@ -162,11 +161,9 @@ local function trash_node(state)
   end
   local path = node.path or node:get_id()
   local t0 = os.time()
-  vim.fn.system({ 'gio', 'trash', path })
-  if vim.v.shell_error ~= 0 then
-    vim.notify('gio trash failed for ' .. path, vim.log.levels.ERROR)
-    return
-  end
+  -- Through the file history, so undo can restore it from the trash
+  -- (features/file-history.lua, loaded after this file).
+  if not require('features.file-history').trash(path) then return end
   -- Wipe buffers for the trashed file (or files under a trashed directory)
   -- so a stray :w doesn't resurrect it. Windows showing one fall back to
   -- another buffer automatically.
@@ -207,6 +204,11 @@ local function trash_node(state)
   vim.notify(msg, vim.log.levels.INFO)
 end
 
+-- d: the node under the cursor. trash_one is also used for several
+-- selected nodes at once (features/tree-select.lua).
+local function trash_node(state) trash_one(state.tree:get_node()) end
+_G.___neotree_trash_node = trash_one
+
 -- The global signcolumn=yes bleeds into the neo-tree window; suppress it.
 -- winfixwidth protects the sidebar from 'equalalways': without it, opening
 -- or (especially) closing splits elsewhere — e.g. the git.lua diff-review
@@ -219,6 +221,147 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.wo.winfixwidth = true
   end,
 })
+
+-- ── Right-click menu ─────────────────────────────────────────
+-- Right-clicking a file or folder in the tree selects it and offers:
+--   Cut / Copy / Paste / Rename / Delete — the tree's own x / y / p / r / d
+--     below (pressed as keys, so they run whatever those keys are mapped
+--     to; d moves to the trash). Paste goes into the clicked folder, or
+--     the folder of the clicked file.
+--   Collapse — the clicked folder, or the folder a clicked file is in
+--     (neo-tree's default C).
+--   Collapse all — everything but the top level.
+-- Elsewhere right-click
+-- keeps Neovim's usual menu. A global mapping, not a neo-tree one: the
+-- click has to be caught even when focus is in another window (typing in
+-- a file), before Neovim moves there and opens its own menu.
+-- Each entry presses its key once the menu has fully closed: run from
+-- inside the menu, rename's name prompt opened without typing at the end
+-- of the name, so what was typed went astray.
+_G.___neotree_menu_key = function(key)
+  vim.schedule(function() vim.api.nvim_feedkeys(key, 'm', false) end)
+end
+vim.cmd([[
+  nnoremenu <silent> ]NeoTree.Cut      <Cmd>lua require('features.tree-select').menu('cut', 'x')<CR>
+  nnoremenu <silent> ]NeoTree.Copy     <Cmd>lua require('features.tree-select').menu('copy', 'y')<CR>
+  nnoremenu <silent> ]NeoTree.Paste    <Cmd>lua _G.___neotree_menu_key('p')<CR>
+  nnoremenu <silent> ]NeoTree.Rename…  <Cmd>lua _G.___neotree_menu_key('r')<CR>
+  nnoremenu <silent> ]NeoTree.-1-      <Nop>
+  nnoremenu <silent> ]NeoTree.Collapse      <Cmd>lua _G.___neotree_menu_key('C')<CR>
+  nnoremenu <silent> ]NeoTree.Collapse\ all <Cmd>lua _G.___neotree_collapse_all()<CR>
+  nnoremenu <silent> ]NeoTree.-2-      <Nop>
+  nnoremenu <silent> ]NeoTree.Delete\ (to\ trash)  <Cmd>lua require('features.tree-select').menu('delete', 'd')<CR>
+  nnoremenu <silent> ]NeoTreeUp.Paste\ into\ parent\ folder  <Cmd>lua _G.___neotree_paste_parent()<CR>
+]])
+
+-- The "← .." line stands for the folder above the tree, but neo-tree's
+-- paste took its id (__nav_up__) for a folder name: it made a folder
+-- called __nav_up__ and moved the files into it. Its own menu pastes into
+-- the real parent folder instead (a name already there gets neo-tree's
+-- usual rename prompt).
+-- Run as a key (<Plug>), not from a delayed callback: a name prompt
+-- (the name already exists there) opened from a callback started with the
+-- cursor one short of the end, like Rename did.
+_G.___neotree_paste_parent = function()
+  _G.___neotree_menu_key(vim.api.nvim_replace_termcodes('<Plug>(NeoTreePasteParent)', true, false, true))
+end
+
+vim.keymap.set('n', '<Plug>(NeoTreePasteParent)', function()
+  do
+    local ok, state = pcall(require('neo-tree.sources.manager').get_state_for_window)
+    if not ok or not state or not state.path then return end
+    local items = vim.tbl_values(state.clipboard or {})
+    if #items == 0 then
+      vim.notify('Nothing to paste: cut or copy something first', vim.log.levels.INFO)
+      return
+    end
+    local parent = vim.fn.fnamemodify(state.path, ':h')
+    state.clipboard = {}
+    local events = require('neo-tree.events')
+    events.fire_event(events.NEO_TREE_CLIPBOARD_CHANGED, { state = state })
+    local fs_actions = require('neo-tree.sources.filesystem.lib.fs_actions')
+    local done = 0
+    local function next_item()
+      local item = table.remove(items)
+      if not item then
+        require('neo-tree.sources.manager').refresh('filesystem')
+        vim.notify(('Pasted %d item%s into %s'):format(done, done == 1 and '' or 's',
+          vim.fn.fnamemodify(parent, ':~')), vim.log.levels.INFO)
+        return
+      end
+      local act = item.action == 'copy' and fs_actions.copy_node or fs_actions.move_node
+      act(item.node.path, parent .. '/' .. item.node.name, function()
+        done = done + 1
+        next_item()
+      end, parent)
+    end
+    next_item()
+  end
+end, { desc = 'File tree: paste into the parent folder' })
+
+-- Collapse all, keeping the top level in view. neo-tree's own z
+-- (close_all_nodes) folds the root folder too, leaving only its path.
+_G.___neotree_collapse_all = function()
+  vim.schedule(function()
+    local ok, state = pcall(require('neo-tree.sources.manager').get_state_for_window)
+    if not ok or not state or not state.tree then return end
+    require('neo-tree.sources.common.commands').close_all_nodes(state)
+    -- By path: the first top-level node is the "← .." line, not the root.
+    local root = state.path and state.tree:get_node(state.path)
+    if root and root.type == 'directory' then
+      root:expand()
+      require('neo-tree.ui.renderer').redraw(state)
+    end
+  end)
+end
+
+_G.___neotree_rclick = function(win, line)
+  if not vim.api.nvim_win_is_valid(win) then return end
+  vim.api.nvim_set_current_win(win)
+  -- Right-clicking outside the current multi-selection drops it, as in a
+  -- file manager; inside it, Cut / Copy / Delete act on all of it.
+  pcall(function() require('features.tree-select').on_right_click(win, line) end)
+  -- :popup opens at the cursor, so put it where the clicked line's text
+  -- starts: the menu lines up with that entry's indentation level.
+  -- The entry starts at its icon, past the indent, the tree's guide
+  -- lines (│ └ ├ ─) and a folder's open / closed arrow. The menu's left
+  -- border sits one column left of the cursor, so aim at the character
+  -- after the icon: the border then lines up with it.
+  local text = vim.api.nvim_buf_get_lines(0, line - 1, line, false)[1] or ''
+  local GUIDE = { [' '] = true, ['│'] = true, ['└'] = true, ['├'] = true, ['─'] = true, ['▏'] = true,
+                  ['\239\145\160'] = true, ['\239\145\188'] = true }
+  local ok, cfg = pcall(function() return require('neo-tree').config.default_component_configs.indent end)
+  if ok and cfg then
+    for _, k in ipairs({ 'expander_collapsed', 'expander_expanded' }) do
+      if type(cfg[k]) == 'string' and cfg[k] ~= '' then GUIDE[cfg[k]] = true end
+    end
+  end
+  local col, pos = 0, 1
+  for ch in text:gmatch('[%z\1-\127\194-\244][\128-\191]*') do
+    if not GUIDE[ch] then col = pos - 1 + #ch break end
+    pos = pos + #ch
+  end
+  pcall(vim.api.nvim_win_set_cursor, win, { line, col })
+  -- The "← .." line: only Paste into the parent folder makes sense there.
+  local ok, st = pcall(require('neo-tree.sources.manager').get_state_for_window, win)
+  local node = ok and st and st.tree and st.tree:get_node(line)
+  local name = (node and node.id == '__nav_up__') and ']NeoTreeUp' or ']NeoTree'
+  -- Bordered, like the other right-click menu (core/autocmds.lua).
+  local border = vim.o.pumborder
+  vim.o.pumborder = 'rounded'
+  pcall(vim.cmd, 'popup ' .. name)    -- waits until the menu closes
+  vim.o.pumborder = border
+end
+
+vim.keymap.set({ 'n', 'i' }, '<RightMouse>', function()
+  local mp = vim.fn.getmousepos()
+  if mp.winid ~= 0 and mp.line > 0 and vim.api.nvim_win_is_valid(mp.winid)
+    and vim.bo[vim.api.nvim_win_get_buf(mp.winid)].filetype == 'neo-tree' then
+    -- Out of typing first: the menu is a normal-mode one (E328 otherwise).
+    return ('<C-\\><C-n><Cmd>lua _G.___neotree_rclick(%d, %d)<CR>'):format(mp.winid, mp.line)
+  end
+  return '<RightMouse>'
+end, { expr = true, desc = 'Right-click: file actions in the tree, usual menu elsewhere' })
 
 -- ── Setup ────────────────────────────────────────────────────
 require('neo-tree').setup {
@@ -250,6 +393,12 @@ require('neo-tree').setup {
       ['x']             = 'cut_to_clipboard',
       ['p']             = 'paste_from_clipboard',
       ['R']             = 'refresh',
+      -- Undo / redo file operations: rename, move, copy, new, delete
+      -- (features/file-history.lua; also the menu bar's undo / redo icons).
+      ['u']             = function() require('features.file-history').undo() end,
+      ['<C-z>']         = function() require('features.file-history').undo() end,
+      ['U']             = function() require('features.file-history').redo() end,
+      ['<C-y>']         = function() require('features.file-history').redo() end,
       ['?']             = 'show_help',
 
       -- Execute the selected file if it has the executable bit set.

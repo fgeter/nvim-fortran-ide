@@ -157,6 +157,8 @@ local MENUS = {
       { key = 'Ep', label = 'Auto-close brackets (toggle)' },
       { key = 'f',  label = 'Format buffer' },
       { key = 'Ef', label = 'Format on save (toggle)' },
+      { sep = true },
+      { key = 'Em', label = 'Vim keybindings' },
     },
   },
   {
@@ -452,7 +454,7 @@ end
 -- ── Keymap lookup ────────────────────────────────────────────
 -- On/off state for toggles comes from features/view.lua (loaded after
 -- this file, hence looked up lazily). nil for anything that isn't a toggle.
-local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code' }
+local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code', 'features.vimkeys' }
 local function menu_state(key, win, buf)
   for _, name in ipairs(STATE_MODULES) do
     local ok, mod = pcall(require, name)
@@ -665,6 +667,54 @@ end
 -- current.  %N@fn@…%X wraps each title in a click region carrying its
 -- MENUS index, so Neovim delivers the click to ___topbar_click with no
 -- coordinate maths.
+-- ── Undo / redo buttons ──────────────────────────────────────
+-- Two icons after the menus. They act on the file window the user is in
+-- (or was last in, when focus is in a terminal), and are dimmed when that
+-- file has nothing to undo / redo. With the file tree focused they undo /
+-- redo file operations instead (features/file-history.lua).
+local function editor_target()
+  local cur = vim.api.nvim_get_current_win()
+  for _, w in ipairs({ cur, last_win }) do
+    if w and vim.api.nvim_win_is_valid(w) and not is_bar_win(w)
+      and vim.api.nvim_win_get_config(w).relative == ''
+      and utils.is_editor_buf(vim.api.nvim_win_get_buf(w)) then
+      return w
+    end
+  end
+  return utils.find_editor_win()
+end
+
+local UNDO_ICON = vim.g.have_nerd_font and '󰕌' or '↶'
+local REDO_ICON = vim.g.have_nerd_font and '󰑎' or '↷'
+
+_G.___topbar_undo = function(minwid, _, button)
+  if button ~= 'l' then return end
+  local cur = vim.api.nvim_get_current_win()
+  local term = was_terminal_mode(cur)
+  vim.schedule(function()
+    local redo = minwid == 2
+    -- In the file tree: undo / redo file operations (features/file-history.lua).
+    if vim.bo[vim.api.nvim_win_get_buf(cur)].filetype == 'neo-tree' then
+      local h = require('features.file-history')
+      if redo then h.redo() else h.undo() end
+      pcall(vim.cmd, 'redrawtabline')
+      return
+    end
+    local win = editor_target()
+    if win then
+      if win == cur and vim.fn.mode():match('^i') then
+        -- While typing: close the current typing step first, as Ctrl+Z does.
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(
+          redo and '<C-o><C-r>' or '<C-g>u<C-o>u', true, false, true), 'n', false)
+      else
+        vim.api.nvim_win_call(win, function() pcall(vim.cmd, redo and 'redo' or 'undo') end)
+      end
+    end
+    if term then restore_terminal_mode(cur) end
+    pcall(vim.cmd, 'redrawtabline')
+  end)
+end
+
 local function build_tabline()
   local parts, disp = {}, 1
   segments = {}
@@ -689,6 +739,24 @@ local function build_tabline()
       parts[#parts + 1] = ('%%#%s#%%%d@v:lua.___topbar_click@%s%%X'):format(
         hl, i, lead .. label .. ' ')
       disp = disp + width
+    end
+  end
+  do
+    local win = editor_target()
+    local can_undo, can_redo = false, false
+    local cur = vim.api.nvim_get_current_win()
+    if vim.bo[vim.api.nvim_win_get_buf(cur)].filetype == 'neo-tree' then
+      local ok, h = pcall(require, 'features.file-history')
+      if ok then can_undo, can_redo = h.can_undo(), h.can_redo() end
+    elseif win then
+      local u = vim.fn.undotree(vim.api.nvim_win_get_buf(win))
+      can_undo, can_redo = u.seq_cur > 0, u.seq_cur < u.seq_last
+    end
+    for n, b in ipairs({ { UNDO_ICON, can_undo }, { REDO_ICON, can_redo } }) do
+      local text = ' ' .. b[1] .. ' '
+      parts[#parts + 1] = ('%%#%s#%%%d@v:lua.___topbar_undo@%s%%X'):format(
+        b[2] and 'TopBarTitle' or 'TopBarDim', n, text)
+      disp = disp + vim.fn.strdisplaywidth(text)
     end
   end
   -- The bar's empty stretch is a click region too (index 0, matching no
@@ -973,7 +1041,7 @@ local function run_item(entry)
   if target then pcall(vim.api.nvim_set_current_win, target) end
 
   local keys = entry.lhs
-  if m and m.from_mode and m.from_mode:match('^[vV\22]') then keys = 'gv' .. keys end
+  if m and m.from_mode and m.from_mode:match('^[vV\22sS\19]') then keys = 'gv' .. keys end
   -- Started from typing: once the action has finished (SafeState: no
   -- keys pending, no prompt open), go back to typing — but only if focus
   -- is still in that window in normal mode (a picker that took focus, or
@@ -983,7 +1051,11 @@ local function run_item(entry)
     local pos = origin.insert
     vim.api.nvim_create_autocmd('SafeState', {
       once = true,
-      callback = function() _G.___topbar_resume_insert(target, pos) end,
+      callback = function()
+        -- An action can ask not to (Edit › Vim keybindings turning them on).
+        if vim.g.topbar_skip_resume then vim.g.topbar_skip_resume = nil return end
+        _G.___topbar_resume_insert(target, pos)
+      end,
     })
   end
   vim.api.nvim_feedkeys(
@@ -1283,6 +1355,11 @@ end
 -- cursor is still where the user stopped typing, put it back exactly
 -- (appending at end of line); if the action moved it (go to definition,
 -- go to line), start typing where it now is.
+local resuming = false
+vim.api.nvim_create_autocmd('InsertEnter', {
+  group = vim.api.nvim_create_augroup('topbar-resume', { clear = true }),
+  callback = function() resuming = false end,
+})
 _G.___topbar_resume_insert = function(win, pos)
   if not (win and vim.api.nvim_win_is_valid(win)) then return end
   if vim.api.nvim_get_current_win() ~= win or vim.fn.mode() ~= 'n' then return end
@@ -1291,6 +1368,13 @@ _G.___topbar_resume_insert = function(win, pos)
   local row, col = cur[1], cur[2]
   if pos and pos[1] == row and math.abs(cur[2] - pos[2]) <= 1 then col = pos[2] end
   local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ''
+  -- Fed keys, not :startinsert (which, from an idle autocmd, waits for
+  -- the next key to run as a command first). Several callers may ask in
+  -- one go (features/vimkeys.lua too); only the first feeds, or a second
+  -- "i" would be typed as text.
+  if resuming then return end
+  resuming = true
+  vim.defer_fn(function() resuming = false end, 500)
   if col >= #line and #line > 0 then
     pcall(vim.api.nvim_win_set_cursor, win, { row, #line - 1 })
     vim.api.nvim_feedkeys('a', 'n', false)
@@ -1316,7 +1400,7 @@ end
 
 for i, m in ipairs(MENUS) do
   if m.mnemonic then
-    vim.keymap.set({ 'n', 'i', 'x' }, '<M-' .. m.mnemonic:lower() .. '>', function()
+    vim.keymap.set({ 'n', 'i', 'x', 's' }, '<M-' .. m.mnemonic:lower() .. '>', function()
       -- Not from inside a drop-down's visual/insert edge cases: schedule so
       -- the mapping has finished before windows change.
       vim.schedule(function() open_by_index(i) end)
@@ -1340,6 +1424,12 @@ end
 
 -- ── Autocmds ─────────────────────────────────────────────────
 local group = vim.api.nvim_create_augroup('topbar', { clear = true })
+
+-- Keep the undo / redo buttons' dimming current.
+vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI', 'BufEnter', 'WinEnter', 'BufWritePost' }, {
+  group = group,
+  callback = function() pcall(vim.cmd, 'redrawtabline') end,
+})
 
 -- Rebuild whenever the layout could have displaced the carrier.
 vim.api.nvim_create_autocmd({ 'WinNew', 'WinClosed', 'WinResized', 'VimResized', 'TabEnter' }, {

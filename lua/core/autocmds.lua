@@ -16,6 +16,25 @@ vim.api.nvim_create_autocmd('VimEnter', {
   end,
 })
 
+-- Right-click menus get a rounded border ('pumborder'), completion menus
+-- keep theirs: on while the menu is open, put back once Neovim is idle
+-- again with it closed (SafeState does not fire while it waits). The
+-- file-tree menu sets it itself (plugins/neo-tree.lua): :popup doesn't
+-- fire MenuPopup.
+vim.api.nvim_create_autocmd('MenuPopup', {
+  desc  = 'Border around the right-click menu',
+  group = vim.api.nvim_create_augroup('core-popup-border', { clear = true }),
+  callback = function()
+    local before = vim.o.pumborder
+    if before == 'rounded' then return end
+    vim.o.pumborder = 'rounded'
+    vim.api.nvim_create_autocmd('SafeState', {
+      once = true,
+      callback = function() vim.o.pumborder = before end,
+    })
+  end,
+})
+
 -- Flash the yanked region briefly so you can see what was copied.
 -- Fires on every yank (y, Y, dd treated as yank-then-delete, etc.)
 vim.api.nvim_create_autocmd('TextYankPost', {
