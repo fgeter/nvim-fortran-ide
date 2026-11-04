@@ -22,6 +22,72 @@ local function session_file()
 end
 
 -- ── Restore ──────────────────────────────────────────────────
+-- :restart (0.12+) saves and restores the session itself, before any of
+-- this config's startup handlers run. Mark it as restored so neo-tree's
+-- UIEnter handler (plugins/neo-tree.lua) does not take it for a bare start
+-- and run its 'enew' + delete step, which wiped the restored current
+-- buffer. :restart! means "no session", so it keeps the normal path.
+if vim.v.startreason == 'restart' then
+  vim.g.session_loaded = true
+end
+
+-- :restart also reuses the original command line, file names included
+-- (only files after `--` are dropped), so `nvim foo.py` reopens foo.py on
+-- every restart even after it was closed: the new server opens it as an
+-- argument, the session's %argdel empties the arg list, but the buffer
+-- stays. So the files really open at exit are recorded, and after a
+-- restart any unmodified file buffer not on that list (i.e. one that only
+-- came back from the command line) is closed again.
+local OPEN_AT_EXIT = vim.fn.stdpath('state') .. '/restart_open_buffers.json'
+
+local function listed_files()
+  local out = {}
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    local name = vim.api.nvim_buf_get_name(b)
+    if vim.bo[b].buflisted and vim.bo[b].buftype == '' and name ~= '' then
+      out[#out + 1] = vim.fn.fnamemodify(name, ':p')
+    end
+  end
+  return out
+end
+
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    pcall(vim.fn.writefile, { vim.json.encode(listed_files()) }, OPEN_AT_EXIT)
+  end,
+})
+
+if vim.v.startreason:match('^restart') then
+  vim.api.nvim_create_autocmd('UIEnter', {
+    once     = true,
+    callback = function()
+      -- Scheduled: after every UIEnter handler (neo-tree's included).
+      vim.schedule(function()
+        -- Only a list written by the server that just exited counts: a
+        -- stale one (another instance, an older config that never wrote
+        -- it) would close files that really were open.
+        local st = (vim.uv or vim.loop).fs_stat(OPEN_AT_EXIT)
+        if not st or os.time() - st.mtime.sec > 60 then return end
+        local ok, data = pcall(function()
+          return vim.json.decode(table.concat(vim.fn.readfile(OPEN_AT_EXIT), '\n'))
+        end)
+        if not ok or type(data) ~= 'table' then return end
+        local keep = {}
+        for _, f in ipairs(data) do keep[f] = true end
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+          local name = vim.api.nvim_buf_get_name(b)
+          if vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted
+              and vim.bo[b].buftype == '' and name ~= ''
+              and not vim.bo[b].modified
+              and not keep[vim.fn.fnamemodify(name, ':p')] then
+            require('features.file').close_buffer(b)
+          end
+        end
+      end)
+    end,
+  })
+end
+
 -- VimEnter fires after all plugins load, so session macros that
 -- reference plugin commands (e.g. Neotree) work correctly.
 -- neo-tree's UIEnter startup handler (which always runs after every
@@ -31,6 +97,8 @@ vim.api.nvim_create_autocmd('VimEnter', {
   once     = true,
   callback = function()
     if vim.fn.argc() ~= 0 then return end
+    -- Already restored by :restart (see above); sourcing again is redundant.
+    if vim.v.startreason == 'restart' then return end
     local sf = session_file()
     if vim.fn.filereadable(sf) == 1 then
       -- A corrupted session file used to fail silently here, leaving every
