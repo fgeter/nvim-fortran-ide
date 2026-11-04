@@ -272,7 +272,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Activates i
 | click gutter | | Toggle breakpoint on the clicked line (sign column, line numbers: anything left of the text, in a file window). `:GutterBreakpointToggle` turns it off | `features/gutter-breakpoint.lua` |
 | `<leader>dB` | `<F8>` | Conditional breakpoint | `plugins/dap.lua` |
 | `<leader>dL` | | Log point | `plugins/dap.lua` |
-| `<leader>dx` | `<F16>` (Shift-F4) | Clear all breakpoints | `plugins/dap.lua` |
+| `<leader>dx` | `<F16>` (Shift-F4) | Remove all breakpoints (reports how many; also in the Debug menu) | `plugins/dap.lua` |
 | `<leader>dw` | | Add word under cursor to watches | `plugins/dap.lua` |
 | right-click | | While debugging: **Add to watches: <expr>** at the top of the right-click menu, for the selection or the expression under the click (Fortran: the whole `a(i)%b%c` reference; elsewhere `a.b`, `a[i]`, `a->b`) | `features/dap-watch-menu.lua` |
 | right-click in Watches | | On a watch (or any line of its expanded children): **Remove watch**, **Edit watch**, plus **Remove all watches** | `features/dap-watch-menu.lua` |

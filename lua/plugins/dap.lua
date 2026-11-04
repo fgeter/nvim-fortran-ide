@@ -275,7 +275,16 @@ vim.keymap.set('n', '<F4>',  with_dap(function(d) d.toggle_breakpoint() end), { 
 -- Kitty (and most terminals) report Shift+F4 as the legacy vt220 keycode
 -- F16, not a modified F4 — see doc/native_nvim_keymaps.md for the F13-F24
 -- shifted-function-key convention.
-vim.keymap.set('n', '<F16>', with_dap(function(d) d.clear_breakpoints() end), { desc = 'DAP: clear all breakpoints' })
+-- Says how many went: clear_breakpoints() itself is silent, so with the
+-- signs off-screen there was no sign anything happened.
+local function remove_all_breakpoints(d)
+  local n = 0
+  for _, list in pairs(require('dap.breakpoints').get()) do n = n + #list end
+  d.clear_breakpoints()
+  vim.notify(n == 0 and 'No breakpoints to remove'
+    or ('Removed ' .. n .. ' breakpoint' .. (n == 1 and '' or 's')), vim.log.levels.INFO)
+end
+vim.keymap.set('n', '<F16>', with_dap(remove_all_breakpoints), { desc = 'DAP: remove all breakpoints' })
 -- F5: start if no session, continue if one is active.
 -- For Fortran, fortran-tools.lua overrides this with the exe/workdata picker.
 -- For Python, dap.continue() already shows the config picker when no session is active.
@@ -309,8 +318,8 @@ end), { desc = 'DAP: conditional breakpoint - F8' })
 vim.keymap.set('n', '<leader>dL', with_dap(function(d)
   d.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))
 end), { desc = 'DAP: log point' })
-vim.keymap.set('n', '<leader>dx', with_dap(function(d) d.clear_breakpoints() end),
-  { desc = 'DAP: clear all breakpoints - Shift-F4 (F16)' })
+vim.keymap.set('n', '<leader>dx', with_dap(remove_all_breakpoints),
+  { desc = 'DAP: remove all breakpoints - Shift-F4 (F16)' })
 
 vim.keymap.set('n', '<leader>dw', with_dap(function(_, ui)
   local word = vim.fn.expand('<cword>')

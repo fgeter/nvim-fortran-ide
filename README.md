@@ -528,7 +528,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 | `<leader>db` | `<F4>` | Toggle breakpoint |
 | `<leader>dB` | `<F8>` | Conditional breakpoint |
 | `<leader>dL` | | Log point |
-| `<leader>dx` | | Clear all breakpoints |
+| `<leader>dx` | | Remove all breakpoints (reports how many) |
 | `<leader>dw` | | Add word under cursor to watches |
 | `<leader>dU` | `<F7>` | Toggle DAP UI |
 | `<leader>dC` | | Open console in floating window |
