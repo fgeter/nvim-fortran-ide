@@ -135,7 +135,8 @@ Inside neo-tree:
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>pr` | Run current file in bottom terminal (reuses toggleterm #1) | `plugins/python.lua` |
+| `<leader>pr` | Run current file in bottom terminal (reuses toggleterm #1). If the script reads command-line arguments (argparse, `sys.argv`, click, typer, getopt, optparse, docopt, fire), opens the argument picker first | `plugins/python.lua` |
+| `<leader>pa` | Run current file, always via the argument picker: run again with the last arguments, pick a folder (workdata dirs, recent first, or browse), pick a file (fuzzy find, gitignored files included), type arguments, or none. The picked path goes into an editable argument line; the last arguments per script are remembered across restarts (`stdpath('state')/python_run_args.json`), and picking a new path swaps it for the old one, keeping the flags | `plugins/python.lua` |
 
 > Activates after the first Python file is opened. Uses the same Python binary resolution as the LSP and DAP (project venv → `$VIRTUAL_ENV` → system `python3`).
 
@@ -178,7 +179,7 @@ The menu bar takes the very top screen row and the buffer tabs move down
 one row beneath it (`features/topbar.lua`):
 
 ```
-  Find   Compile   Debug   Git   Other      ← menu bar   (the tabline)
+  Find   Build   Run   Debug   Git   Other  ← menu bar   (the tabline)
  init.lua │ dap.lua │ ui.lua                ← buffer tabs (bufferline)
 ```
 
@@ -192,7 +193,8 @@ before — clicking one still switches buffers.
 | Title | Actions | Shown |
 |-------|---------|-------|
 | `Find` | `<leader>s` | always |
-| `Compile` | `<leader>c` | inside a coding project: `.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `GNUmakefile`, `pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml` or `go.mod` in cwd or a parent |
+| `Build` | `<leader>c` | inside a coding project: `.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `GNUmakefile`, `pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml` or `go.mod` in cwd or a parent |
+| `Run` | `<leader>cr` (Fortran executable), `<leader>pr` / `<leader>pa` (current Python file) | always; each entry greyed out until its language's tools load |
 | `Debug` | `<leader>d` | inside a coding project (as above) |
 | `Git` | `<leader>g` | inside a git worktree (a `.git` in cwd or a parent) |
 | `Other` | everything else under `<leader>` | always, always last |

@@ -27,7 +27,7 @@ Claude, Grok, and Gemini in that order.
 - **CMake** — preset selection, configure, parallel build, run with workdata picker
 - **Git** — inline hunk signs (gitsigns), lazygit UI, async push/pull, branch management, diffview.nvim reviews (ref diffs, working-tree review, per-file history, 3-way merge resolution)
 - **File navigation** — neo-tree sidebar, Telescope fuzzy finder, recent files
-- **Menu bar** — a clickable menu bar on the very top row, above the buffer tabs: **Find / Compile / Debug / Git / Other**, mirroring `<leader>s`, `<leader>c`, `<leader>d`, `<leader>g` and (under Other) everything else bound to `<leader>`, grouped the way which-key groups it. Left-click a title for its drop-down and click an entry to run it — the entry feeds the keymap, so the menus can never drift from the keys. Entries with no keymap in the current context are greyed out. Find and Other are always present; Compile and Debug appear inside a coding project (`.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml` or `go.mod` in cwd or a parent), Git inside a git worktree — all re-evaluated on `:cd`. `:TopbarToggle` hides the bar
+- **Menu bar** — a clickable menu bar on the very top row, above the buffer tabs: **Find / Build / Run / Debug / Git / Other**, mirroring `<leader>s`, `<leader>c`, `<leader>cr`+`<leader>pr`, `<leader>d`, `<leader>g` and (under Other) everything else bound to `<leader>`, grouped the way which-key groups it. Left-click a title for its drop-down and click an entry to run it — the entry feeds the keymap, so the menus can never drift from the keys. Entries with no keymap in the current context are greyed out. Find, Run and Other are always present; Build and Debug appear inside a coding project (`.git`, `.nvim.lua`, `CMakeLists.txt`, `Makefile`, `pyproject.toml`, `setup.py`, `package.json`, `Cargo.toml` or `go.mod` in cwd or a parent), Git inside a git worktree — all re-evaluated on `:cd`. `:TopbarToggle` hides the bar
 - **Jupyter notebooks** — double-click `.ipynb` in neo-tree opens in JupyterLab (browser); `<leader>jq` stops the server when done
 - **HTML preview** — double-click `.html` in neo-tree opens in the default browser via `xdg-open`
 - **Completion** — `blink.cmp` with LSP, path, snippet, and buffer sources
@@ -345,7 +345,7 @@ Files in `lua/plugins/` and `lua/features/` are auto-loaded alphabetically
     │   ├── edge-scroll.lua      — mouse edge-hover horizontal scrolling
     │   ├── goto-file-line.lua   — gF / <C-g>f: open file:line from compiler errors
     │   ├── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
-    │   ├── topbar.lua           — clickable Compile/Debug/Find/Git menu bar (project dirs only)
+    │   ├── topbar.lua           — clickable Build/Run/Debug/Find/Git menu bar (project dirs only)
     │   └── claude-terminal.lua  — <F9> toggles a Claude Code panel (toggleterm split)
     └── projects/               — shared language configs
         ├── fortran.lua         — sourced by Fortran project .nvim.lua files

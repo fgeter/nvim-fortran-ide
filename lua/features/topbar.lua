@@ -4,10 +4,10 @@
 -- A menu bar across the very top of the screen, above the buffer tabs,
 -- whose titles open left-click drop-down menus:
 --
---     File   Edit   View   Find   Code   Compile   Debug   Git   Other   ← row 0 (tabline)
+--     File   Edit   View   Find   Code   Build   Run   Debug   Git   Other   ← row 0 (tabline)
 --    init.lua │ dap.lua │ ui.lua                ← screen row 1 (bufferline)
 --
--- File / Edit / View / Find / Compile / Debug / Git list the same actions as
+-- File / Edit / View / Find / Build / Debug / Git list the same actions as
 -- their <leader> prefix (<leader>F / <leader>E / <leader>v / <leader>s /
 -- <leader>c / <leader>d / <leader>g; View also takes in the <leader>t display
 -- toggles).  Choosing an
@@ -21,7 +21,9 @@
 --   View     always — layout and display toggles (features/view.lua)
 --   Code     always — language-server actions (features/code.lua)
 --   Find     always — searching is never out of place
---   Compile  only inside a coding project (PROJECT_MARKERS below)
+--   Build    only inside a coding project (PROJECT_MARKERS below)
+--   Run      always — run the built executable (<leader>cr) or the
+--            current Python file (<leader>pr)
 --   Debug    only inside a coding project
 --   Git      only inside a git worktree (a .git in cwd or a parent)
 --   Other    always, and always last: everything else bound to <leader>,
@@ -77,7 +79,7 @@ local BAR_FT = 'topbar'
 local BUFFERLINE_TABLINE = vim.o.tabline
 
 -- A directory counts as a coding project when it — or any parent — holds
--- one of these: what gates the Compile and Debug titles. .git covers
+-- one of these: what gates the Build and Debug titles. .git covers
 -- repos of any language; the rest cover build systems that may live
 -- outside a repo. .nvim.lua is this config's own per-project marker
 -- (see core/options.lua exrc).
@@ -247,7 +249,7 @@ local MENUS = {
     },
   },
   {
-    id = 'c', label = 'Compile', mnemonic = 'p', when = 'project',
+    id = 'c', label = 'Build', mnemonic = 'B', when = 'project',
     items = {
       { key = 'cp', label = 'Select preset + generate' },
       { key = 'cg', label = 'Generate' },
@@ -255,7 +257,18 @@ local MENUS = {
       { key = 'cB', label = 'Build single-threaded' },
       { key = 'cx', label = 'Clean' },
       { key = 'cd', label = 'Delete build directory' },
+    },
+  },
+  {
+    -- Run what this project builds: the Fortran executable (<leader>cr,
+    -- cmake/fortran tools) or the current Python file (<leader>pr,
+    -- plugins/python.lua). id 'p' keeps <leader>p out of "Other".
+    -- Each entry is greyed out until its language's tools have loaded.
+    id = 'p', label = 'Run', mnemonic = 'R', when = 'always',
+    items = {
       { key = 'cr', label = 'Run executable' },
+      { key = 'pr', label = 'Run current Python file' },
+      { key = 'pa', label = 'Run current Python file with arguments…' },
     },
   },
   {
