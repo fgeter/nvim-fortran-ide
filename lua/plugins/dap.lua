@@ -321,14 +321,38 @@ end), { desc = 'DAP: log point' })
 vim.keymap.set('n', '<leader>dx', with_dap(remove_all_breakpoints),
   { desc = 'DAP: remove all breakpoints - Shift-F4 (F16)' })
 
-vim.keymap.set('n', '<leader>dw', with_dap(function(_, ui)
-  local word = vim.fn.expand('<cword>')
-  vim.ui.input({ prompt = 'Add to watches: ', default = word }, function(input)
-    if input and input ~= '' then
-      ui.elements['watches'].add(input)
-      vim.notify('Watching: ' .. input, vim.log.levels.INFO)
+-- Watched straight away, no prompt, the same as the right-click entry
+-- (features/dap-watch-menu.lua): a selection (visual mode, or the menu bar
+-- opened from one) is watched exactly; otherwise the whole expression under
+-- the cursor, through % members and (…) indexes, so the cursor anywhere on
+-- soil1(j)%hsta(1)%c watches all of it. Leaving insert mode (to open the
+-- menu bar) moves the cursor one left, onto the space before a word the
+-- user clicked at its first letter, so the column to the right is tried
+-- too. Only when there is no expression at all is a prompt shown.
+vim.keymap.set({ 'n', 'x' }, '<leader>dw', with_dap(function(_, ui)
+  local function watch(expr)
+    if expr and expr ~= '' then
+      ui.elements['watches'].add(expr)
+      vim.notify('Watching: ' .. expr, vim.log.levels.INFO)
     end
-  end)
+  end
+  local mode = vim.fn.mode()
+  if mode:match('^[vV\22]') then
+    local ok, lines = pcall(vim.fn.getregion, vim.fn.getpos('v'), vim.fn.getpos('.'), { type = mode })
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
+    if ok and #lines > 0 then
+      watch(vim.trim(table.concat(vim.tbl_map(vim.trim, lines), ' ')))
+    end
+    return
+  end
+  local ok, wm = pcall(require, 'features.dap-watch-menu')
+  if ok and wm.expr_at then
+    local line, col = vim.api.nvim_get_current_line(), vim.fn.col('.')
+    local fortran = vim.bo.filetype:match('^fortran') ~= nil
+    local expr = wm.expr_at(line, col, fortran) or wm.expr_at(line, col + 1, fortran)
+    if expr and expr ~= '' then return watch(expr) end
+  end
+  vim.ui.input({ prompt = 'Add to watches: ', default = vim.fn.expand('<cword>') }, watch)
 end), { desc = 'DAP: add to watches' })
 
 vim.keymap.set('n', '<leader>dU', with_dap(function(_, ui) ui.toggle() end), { desc = 'DAP: toggle UI - F7' })
