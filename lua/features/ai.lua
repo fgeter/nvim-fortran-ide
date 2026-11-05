@@ -87,10 +87,12 @@ local function command(acct, args)
 end
 
 -- Does `acct` have a saved conversation for the current folder? Claude
--- keeps them in <config dir>/projects/<cwd with / and . turned into ->/.
+-- keeps them in <config dir>/projects/<cwd with every non-alphanumeric
+-- character (/ . _ and so on) turned into ->/. Matching only / and . missed
+-- folders with an underscore (swatplus_fg_fork), so -c was always dropped.
 -- `-c` with none just prints "No conversation found" and exits.
 local function has_conversation(acct)
-  local key = vim.fn.getcwd():gsub('[/.]', '-')
+  local key = vim.fn.getcwd():gsub('[^%w]', '-')
   return #vim.fn.glob(acct.dir .. '/projects/' .. key .. '/*.jsonl', false, true) > 0
 end
 
