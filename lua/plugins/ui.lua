@@ -102,6 +102,9 @@ vim.pack.add { { src = gh 'folke/which-key.nvim', version = vim.version.range '3
 require('which-key').setup {
   delay = vim.o.timeoutlen,
   icons = { mappings = vim.g.have_nerd_font },
+  -- The menu bar's drop-downs (features/topbar.lua): its type-ahead maps
+  -- every chord character, and which-key's buffer triggers would replace them.
+  disable = { ft = { 'topbar-menu' } },
   spec  = {
     { '<leader>b', group = 'Buffer' },
     { '<leader>c', group = 'CMake' },

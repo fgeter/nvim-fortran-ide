@@ -1098,6 +1098,7 @@ local function run_item(entry)
     open_dropdown({
       id = m.id, idx = m.idx, col = m.col, items = entry.items,
       title = entry.title, parent = m, from_win = m.from_win, from_mode = m.from_mode,
+      prefix = entry.key,
     })
     return
   end
@@ -1118,7 +1119,13 @@ local function run_item(entry)
   if target then pcall(vim.api.nvim_set_current_win, target) end
 
   local keys = entry.lhs
-  if m and m.from_mode and m.from_mode:match('^[vV\22sS\19]') then keys = 'gv' .. keys end
+  -- Reselect only when the chord has a visual-mode mapping. A normal-only
+  -- one typed over a selection runs as plain keys instead: <Space>, then
+  -- d (delete the selection), then the rest.
+  if m and m.from_mode and m.from_mode:match('^[vV\22sS\19]') then
+    local vmap = vim.fn.maparg(vim.api.nvim_replace_termcodes(keys, true, false, true), 'x', false, true)
+    if type(vmap) == 'table' and not vim.tbl_isempty(vmap) then keys = 'gv' .. keys end
+  end
   -- Started from typing: once the action has finished (SafeState: no
   -- keys pending, no prompt open), go back to typing — but only if focus
   -- is still in that window in normal mode (a picker that took focus, or
@@ -1205,6 +1212,10 @@ function open_dropdown(spec)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].modifiable = false
   vim.bo[buf].bufhidden  = 'wipe'
+  -- Its own filetype so which-key (plugins/ui.lua, disable.ft) leaves it
+  -- alone: its buffer-local triggers (<Space>, ', `, [, ], z, …) would
+  -- replace the type-ahead maps below.
+  vim.bo[buf].filetype   = 'topbar-menu'
 
   for i, e in ipairs(entries) do
     if e.sep then
@@ -1273,8 +1284,113 @@ function open_dropdown(spec)
     run_item(menu and menu.items[lnum])
   end)
   for _, k in ipairs({ 'q', '<Esc>' }) do map(k, function() close_menu(true) end) end
-  -- Back out of a group into the list it came from.
+
+  -- Type-ahead: typing the chord shown beside an entry ("cp" in Build)
+  -- runs it, as if <leader>cp had been pressed. The highlight follows
+  -- what has been typed so far. When the chord is also the start of a
+  -- longer one, it runs after 'timeoutlen' unless more is typed. Inside a
+  -- group, typing starts from the group's key, so either "x" or the full
+  -- "gx" reaches <leader>gx. A key that starts no chord here keeps its
+  -- usual meaning (j/k move, q closes).
+  local base  = spec.prefix or ''
+  local typed = base
+  local timer = nil
+  local function stop_timer()
+    if timer then
+      timer:stop()
+      if not timer:is_closing() then timer:close() end
+      timer = nil
+    end
+  end
+  local function matches(prefix)
+    local out = {}
+    for i, e in ipairs(entries) do
+      if not e.sep and e.key and e.key ~= '' and e.key:sub(1, #prefix) == prefix then
+        out[#out + 1] = i
+      end
+    end
+    return out
+  end
+  local function type_key(ch, fallback)
+    stop_timer()
+    local try = typed .. ch
+    local hits = matches(try)
+    if #hits == 0 and typed ~= base then   -- a fresh start
+      try = base .. ch
+      hits = matches(try)
+    end
+    if #hits == 0 then
+      typed = base
+      if fallback then fallback() end
+      return
+    end
+    typed = try
+    local exact
+    for _, i in ipairs(hits) do if entries[i].key == typed then exact = i end end
+    pcall(vim.api.nvim_win_set_cursor, win, { exact or hits[1], 0 })
+    if exact and #hits == 1 then
+      typed = base
+      run_item(menu and menu.items[exact])
+    elseif exact then
+      timer = vim.uv.new_timer()
+      timer:start(vim.o.timeoutlen, 0, vim.schedule_wrap(function()
+        stop_timer()
+        if menu and menu.buf == buf and typed == entries[exact].key then
+          typed = base
+          run_item(menu.items[exact])
+        end
+      end))
+    end
+  end
+  -- Map every printable character used in this menu's chords. Chords in
+  -- <special> notation (<leader><Tab>) are left to the mouse and <CR>.
+  local NOTATION = { [' '] = '<Space>', ['<'] = '<lt>', ['|'] = '<Bar>', ['\\'] = '<Bslash>' }
+  local chars = {}
+  for _, e in ipairs(entries) do
+    local k = (not e.sep) and e.key or ''
+    if not k:find('<%a[%w%-]*>') then
+      for ch in k:gmatch('[%g ]') do chars[ch] = true end
+    end
+  end
+  for ch in pairs(chars) do
+    local fallback
+    if ch == 'q' then
+      fallback = function() close_menu(true) end
+    else
+      fallback = function() vim.api.nvim_feedkeys(ch, 'n', false) end
+    end
+    map(NOTATION[ch] or ch, function() type_key(ch, fallback) end)
+  end
+  -- Typed quickly, a whole chord reaches Neovim at once, and then a global
+  -- map spelling the same keys (nvim-surround's cS, the built-in gc) wins
+  -- over the one-key maps above. A buffer-local map for every chord (and
+  -- each longer prefix of one) wins over those, and feeds the same
+  -- type-ahead one character at a time.
+  local multi = {}
+  for _, e in ipairs(entries) do
+    local k = (not e.sep) and e.key or ''
+    if #k > 1 and not k:find('<%a[%w%-]*>') and not k:find('[^%g ]') then
+      for i = 2, #k do multi[k:sub(1, i)] = true end
+    end
+  end
+  for seq in pairs(multi) do
+    local lhs = seq:gsub('.', function(c) return NOTATION[c] or c end)
+    map(lhs, function()
+      for c in seq:gmatch('.') do
+        if not (menu and menu.buf == buf) then return end   -- it ran
+        type_key(c, nil)
+      end
+    end)
+  end
+
+  -- Back out of a group into the list it came from. Mid-chord, <BS>
+  -- deletes the last typed character instead.
   map('<BS>', function()
+    if typed ~= base then
+      stop_timer()
+      typed = typed:sub(1, -2)
+      return
+    end
     local parent = menu and menu.parent
     if not parent then return end
     close_menu(false)
