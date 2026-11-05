@@ -15,6 +15,10 @@
       "src": "https://github.com/akinsho/bufferline.nvim",
       "version": "4.0.0 - 5.0.0"
     },
+    "claudecode.nvim": {
+      "rev": "af04fbf9c27c5c06b4d1ff022b551aa94e1df4aa",
+      "src": "https://github.com/coder/claudecode.nvim"
+    },
     "cmake-tools.nvim": {
       "rev": "f9a3eb2be0b8148df470244e5c25aede3a3a28a5",
       "src": "https://github.com/civitasv/cmake-tools.nvim"

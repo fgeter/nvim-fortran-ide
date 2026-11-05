@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# nvim-ide — inspect and drive the Neovim IDE this shell was started from.
+# Works only inside that Neovim's terminals ($NVIM is its RPC socket).
+# `nvim-ide help` prints the guide (ai/claude-in-nvim.md).
+set -euo pipefail
+
+here=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+if [[ ${1:-help} == help || ${1:-} == -h || ${1:-} == --help ]]; then
+  cat "$here/ai/claude-in-nvim.md"
+  exit 0
+fi
+if [[ -z ${NVIM:-} ]]; then
+  echo "nvim-ide: \$NVIM is not set — not running inside the Neovim IDE" >&2
+  exit 2
+fi
+
+# Each argument goes over base64-encoded, so quotes and newlines survive.
+list="\"$1\""
+shift
+for a in "$@"; do
+  list+=", \"$(printf '%s' "$a" | base64 -w0)\""
+done
+
+out=$("${NVIM_IDE_EXE:-nvim}" --headless --server "$NVIM" \
+  --remote-expr "luaeval(\"require'features.ai-bridge'.call(_A)\", [$list])" </dev/null)
+printf '%s\n' "$out"
+[[ $out != ERROR:* ]]

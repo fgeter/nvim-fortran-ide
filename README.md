@@ -231,9 +231,16 @@ in `init.lua`.
 3. Open a Fortran/Python file — the "✅ … tools loaded" notification confirms
    the language layer activated
 
-**Optional — Claude Code panel (`<F9>`):** install the
-[Claude Code CLI](https://code.claude.com/docs) so the `claude` binary is on
-your `PATH`; the keymap reports if it is missing.
+**Optional — Claude Code inside the IDE (AI menu, `<leader>i…`, `<F9>`):**
+install the [Claude Code CLI](https://code.claude.com/docs) so `claude` is on
+your `PATH`. The AI menu starts `claude -c` (config `~/.claude`) or
+`claude-personal -c` (`CLAUDE_CONFIG_DIR=~/.claude-personal`) in a split on
+the right, connected to the editor by
+[claudecode.nvim](https://github.com/coder/claudecode.nvim). Claude sees the
+current file and selection, and its edits appear as diffs to accept or
+reject. It can also drive the editor with `bin/nvim-ide`: list and run
+keymaps, run Ex commands or Lua, and read the build terminal (see
+`ai/claude-in-nvim.md`).
 
 
 ## Project-local configuration
@@ -315,6 +322,7 @@ Files in `lua/plugins/` and `lua/features/` are auto-loaded alphabetically
     │   ├── telescope.lua       — fuzzy finder; overrides vim.ui.select
     │   ├── neo-tree.lua        — file explorer
     │   ├── toggleterm.lua      — persistent terminal
+    │   ├── claudecode.lua      — Claude Code IDE connection (claudecode.nvim; started by the AI menu)
     │   ├── markdown.lua        — render-markdown.nvim
     │   ├── session.lua         — per-directory session save/restore
     │   ├── spell.lua           — built-in spell checking (prose filetypes)
@@ -346,7 +354,8 @@ Files in `lua/plugins/` and `lua/features/` are auto-loaded alphabetically
     │   ├── goto-file-line.lua   — gF / <C-g>f: open file:line from compiler errors
     │   ├── neotree-recovery.lua — reopen an editor window when :q leaves only the sidebar
     │   ├── topbar.lua           — clickable Build/Run/Debug/Find/Git menu bar (project dirs only)
-    │   └── claude-terminal.lua  — <F9> toggles a Claude Code panel (toggleterm split)
+    │   ├── ai.lua               — AI menu: claude / claude-personal in a right split, <F9> toggles it
+    │   └── ai-bridge.lua        — what bin/nvim-ide lets Claude do in this Neovim
     └── projects/               — shared language configs
         ├── fortran.lua         — sourced by Fortran project .nvim.lua files
         └── python.lua          — sourced by Python project .nvim.lua files

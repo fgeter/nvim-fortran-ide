@@ -405,6 +405,32 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 
 ---
 
+## AI — Claude Code (`<leader>i`, menu AI / Alt+A)
+
+Claude runs in a split on the right, connected to the editor through
+claudecode.nvim: it sees the current file and selection, and its edits
+arrive as diffs. One session at a time; starting the other account offers
+to stop the running one. While a session runs, the menu puts ✓ beside its
+account's two items. `features/ai.lua`.
+
+| Key | Mode | Action | Notes |
+|---|---|---|---|
+| `<leader>ic` | n | Claude: continue (`claude -c`) | label shows the signed-in email |
+| `<leader>iC` | n | Claude: new session (`claude`) | |
+| `<leader>ip` | n | Claude personal: continue (`claude-personal -c`) | `CLAUDE_CONFIG_DIR=~/.claude-personal` |
+| `<leader>iP` | n | Claude personal: new session | |
+| `<leader>it` / `<F9>` | n (F9 also t) | Show / hide the Claude panel | starts `claude -c` if none is running |
+| `<leader>if` | n | Add the current file to Claude's context | |
+| `<leader>is` | x | Send the selection to Claude | |
+| `<leader>ia` | n | Accept Claude's proposed diff | |
+| `<leader>id` | n | Reject Claude's proposed diff | |
+| `<leader>iq` | n | Stop the Claude session | |
+
+From inside the session Claude can use `nvim-ide` (`bin/nvim-ide`):
+`state`, `keymaps [filter]`, `run '<keys>'`, `cmd '<ex>'`, `lua '<code>'`,
+`term [buf] [n]`, `messages`, `open <file> [line]`. `nvim-ide help` prints
+`ai/claude-in-nvim.md`.
+
 ## Toggles (`<leader>t`)
 
 | Key | Action | Plugin |
@@ -431,5 +457,4 @@ the buffer session; use a `.nvim.lua` or modeline to make it permanent per proje
 | `<leader>1`-`4` | n | Harpoon: jump to pinned file 1-4 | per-project list, persists |
 | `<leader>0` | n | Harpoon: open list menu (editable buffer; `dd` removes) | |
 | `<leader>sR` | n | grug-far: project-wide search & replace | v mode: selection pre-filled |
-| `<F9>` | n/t | Toggle Claude Code panel (vertical toggleterm; session persists while hidden) | `features/claude-terminal.lua` |
 | `<leader>tr` | Toggle relative line numbers | `core/keymaps.lua` |

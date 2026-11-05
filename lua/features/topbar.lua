@@ -344,6 +344,27 @@ local MENUS = {
       { key = 'GA', label = 'GitHub account / sign in' },
     },
   },
+  {
+    -- features/ai.lua: Claude Code in a right-hand split, connected to the
+    -- editor (claudecode.nvim). The labels come from the keymaps' desc,
+    -- which carry each command's signed-in email.
+    id = 'i', label = 'AI', mnemonic = 'A', when = 'always',
+    items = {
+      { key = 'ic', label = 'Claude: continue (claude -c)' },
+      { key = 'iC', label = 'Claude: new session (claude)' },
+      { key = 'ip', label = 'Claude: continue (claude-personal -c)' },
+      { key = 'iP', label = 'Claude: new session (claude-personal)' },
+      { sep = true },
+      { key = 'it', label = 'Show / hide panel - F9' },
+      { key = 'if', label = 'Add current file to context' },
+      { key = 'is', label = 'Send selection (visual mode)' },
+      { sep = true },
+      { key = 'ia', label = 'Accept proposed diff' },
+      { key = 'id', label = 'Reject proposed diff' },
+      { sep = true },
+      { key = 'iq', label = 'Stop session' },
+    },
+  },
   -- Built from the live keymap table rather than a list (see other_items).
   { id = 'o', label = 'Other', mnemonic = 'O', when = 'always', dynamic = true },
 }
@@ -508,7 +529,7 @@ end
 -- ── Keymap lookup ────────────────────────────────────────────
 -- On/off state for toggles comes from features/view.lua (loaded after
 -- this file, hence looked up lazily). nil for anything that isn't a toggle.
-local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code', 'features.vimkeys', 'features.github' }
+local STATE_MODULES = { 'features.file', 'features.edit', 'features.view', 'features.theme', 'features.code', 'features.vimkeys', 'features.github', 'features.ai' }
 local function menu_state(key, win, buf)
   for _, name in ipairs(STATE_MODULES) do
     local ok, mod = pcall(require, name)
