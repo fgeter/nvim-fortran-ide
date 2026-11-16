@@ -28,6 +28,7 @@ vim.g.have_nerd_font = true
 
 -- ── Core modules ────────────────────────────────────────────
 require('core.options')   -- vim.o.* / vim.opt.* settings
+require('core.confirm')   -- vim.fn.confirm: default key UPPERCASE, others lowercase
 require('core.keymaps')   -- global keymaps (non-plugin)
 require('core.autocmds')  -- global autocommands
 

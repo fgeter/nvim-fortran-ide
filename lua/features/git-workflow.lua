@@ -450,18 +450,17 @@ local function delete_branch()
         git_ui_busy = false
         vim.notify('✅ Deleted: ' .. choice, vim.log.levels.INFO)
       else
-        vim.ui.input({ prompt = 'Not fully merged. Force delete "' .. choice .. '"? (y/N): ' },
-          function(confirm)
-            git_ui_busy = false
-            if confirm and confirm:lower() == 'y' then
-              local out = vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice) .. ' 2>&1')
-              if vim.v.shell_error == 0 then
-                vim.notify('✅ Force deleted: ' .. choice, vim.log.levels.INFO)
-              else
-                vim.notify('Force delete failed:\n' .. out, vim.log.levels.ERROR)
-              end
-            end
-          end)
+        local force = vim.fn.confirm('Not fully merged. Force delete "' .. choice .. '"?',
+          '&Yes\n&No', 2, 'Warning') == 1
+        git_ui_busy = false
+        if force then
+          local out = vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice) .. ' 2>&1')
+          if vim.v.shell_error == 0 then
+            vim.notify('✅ Force deleted: ' .. choice, vim.log.levels.INFO)
+          else
+            vim.notify('Force delete failed:\n' .. out, vim.log.levels.ERROR)
+          end
+        end
       end
     end)
 end
@@ -509,18 +508,17 @@ local function discard_buffer_changes()
   end
   local shortname = vim.fn.fnamemodify(file, ':t')
   git_ui_busy = true
-  vim.ui.input({ prompt = 'Discard ALL changes in ' .. shortname .. '? (y/N): ' },
-    function(confirm)
-      git_ui_busy = false
-      if not confirm or confirm:lower() ~= 'y' then return end
-      local out = vim.fn.system('git checkout HEAD -- ' .. vim.fn.shellescape(file) .. ' 2>&1')
-      if vim.v.shell_error == 0 then
-        vim.notify('✅ Discarded changes in: ' .. shortname, vim.log.levels.INFO)
-        vim.cmd('edit!')
-      else
-        vim.notify('Failed to discard changes:\n' .. out, vim.log.levels.ERROR)
-      end
-    end)
+  local discard = vim.fn.confirm('Discard ALL changes in ' .. shortname .. '?',
+    '&Yes\n&No', 2, 'Warning') == 1
+  git_ui_busy = false
+  if not discard then return end
+  local out = vim.fn.system('git checkout HEAD -- ' .. vim.fn.shellescape(file) .. ' 2>&1')
+  if vim.v.shell_error == 0 then
+    vim.notify('✅ Discarded changes in: ' .. shortname, vim.log.levels.INFO)
+    vim.cmd('edit!')
+  else
+    vim.notify('Failed to discard changes:\n' .. out, vim.log.levels.ERROR)
+  end
 end
 
 -- ── Diff / review (diffview.nvim) ──────────────────────────────

@@ -192,13 +192,12 @@ function M.launch(id, args)
       require('claudecode.terminal').open()   -- already running: show / focus it
       return
     end
-    vim.ui.select({ 'Yes', 'No' }, {
-      prompt = ('Stop the running %s session and start %s?'):format(current or 'Claude', id),
-    }, function(choice)
-      if choice ~= 'Yes' then return end
-      require('claudecode.terminal').close()
-      vim.schedule(function() start(acct, args) end)
-    end)
+    if vim.fn.confirm(('Stop the running %s session and start %s?'):format(current or 'Claude', id),
+        '&Yes\n&No', 1, 'Question') ~= 1 then
+      return
+    end
+    require('claudecode.terminal').close()
+    vim.schedule(function() start(acct, args) end)
     return
   end
   start(acct, args)

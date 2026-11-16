@@ -207,7 +207,7 @@ local function replace_step(region, first, last)
         vim.cmd('normal! zz')
         vim.cmd('redraw')
         choice = vim.fn.confirm(('Replace this "%s" (%d of %d, line %d)?'):format(find, i, #matches, m[1]),
-          '&Replace\n&Skip\nReplace &all remaining\n&Stop', 1)
+          '&Replace\n&Skip\nReplace &all remaining\nS&top', 1)
         if choice == 3 then all = true; choice = 1 end
       end
       if choice == 1 then chosen[#chosen + 1] = i

@@ -94,15 +94,13 @@ vim.api.nvim_create_autocmd('FileType', {
             vim.notify(err, vim.log.levels.ERROR)
             return
           end
-          vim.ui.select({ 'No (default)', 'Yes' }, {
-            prompt = 'Keep ' .. vim.fn.fnamemodify(html, ':t') .. '? (<Enter> = No)',
-          }, function(choice)
-            vim.system { 'xdg-open', html }
-            if choice ~= 'Yes' then
-              -- delay so a cold-starting browser reads the file before it goes
-              vim.defer_fn(function() os.remove(html) end, 5000)
-            end
-          end)
+          local keep = vim.fn.confirm('Keep ' .. vim.fn.fnamemodify(html, ':t') .. '?',
+            '&Yes\n&No', 2, 'Question') == 1
+          vim.system { 'xdg-open', html }
+          if not keep then
+            -- delay so a cold-starting browser reads the file before it goes
+            vim.defer_fn(function() os.remove(html) end, 5000)
+          end
         end)
       end)
     end, { buffer = ev.buf, desc = 'Markdown: render to HTML and open browser' })
