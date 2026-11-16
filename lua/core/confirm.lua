@@ -161,6 +161,51 @@ vim.fn.confirm = M.confirm
 --   opts.detail       item -> dimmed text after it (optional)
 --   opts.default      item or index highlighted first
 -- ------------------------------------------------------------
+-- ------------------------------------------------------------
+-- Shared look for the other floating dialogs (core/checklist.lua,
+-- core/folder_picker.lua), so they read like confirm/select above.
+-- ------------------------------------------------------------
+
+-- Button row text: { { key = 'd', text = 'Delete 2 selected', default = true }, … }
+-- -> '[D] delete 2 selected   [b] browse…   [c] cancel' plus each button's
+-- 0-based byte span (after `indent`). The default (<CR>) key is uppercase.
+function M.button_row(buttons, indent)
+  local row = indent or ''
+  local spans = {}
+  for i, b in ipairs(buttons) do
+    if i > 1 then row = row .. '   ' end
+    local tag = '[' .. (b.default and b.key:upper() or b.key:lower()) .. '] '
+      .. lower_first(b.text)
+    spans[i] = { #row, #row + #tag }
+    row = row .. tag
+  end
+  return row, spans
+end
+
+-- Highlight for a button: the default one like confirm's default.
+function M.button_hl(b)
+  return b.hl or (b.default and 'MoreMsg' or 'Normal')
+end
+
+-- Current-row marker for a focused list float: the line in Visual and a
+-- ▶ in column 0 (the rows start with blank columns), as M.select draws it.
+function M.mark_cursor(win, buf)
+  local mns = vim.api.nvim_create_namespace('core_confirm_cursor')
+  vim.wo[win].cursorline = true
+  vim.wo[win].winhighlight = 'CursorLine:Visual'
+  local function paint()
+    if not vim.api.nvim_buf_is_valid(buf) then return end
+    vim.api.nvim_buf_clear_namespace(buf, mns, 0, -1)
+    if not vim.api.nvim_win_is_valid(win) then return end
+    local row = vim.api.nvim_win_get_cursor(win)[1]
+    pcall(vim.api.nvim_buf_set_extmark, buf, mns, row - 1, 0, {
+      virt_text = { { '▶', 'MoreMsg' } }, virt_text_pos = 'overlay', priority = 300,
+    })
+  end
+  vim.api.nvim_create_autocmd({ 'CursorMoved', 'TextChanged' }, { buffer = buf, callback = paint })
+  return paint
+end
+
 local KEYS = '123456789abcdefghijklmnoprstuvwxyz'   -- no j/k/q: they move / cancel
 KEYS = KEYS:gsub('[jkq]', '')
 

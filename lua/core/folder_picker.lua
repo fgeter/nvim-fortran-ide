@@ -9,16 +9,19 @@
 --     │  doc/                                             │
 --     │  src/                                             │
 --     │                                                   │
---     │  [ Select this folder ]  [ Cancel ]               │
---     │  click/Enter: open · ..: up · s: select · …       │
+--     │  [s] select this folder   [c] cancel              │
+--     │  <CR> open   h up   j/k move   <Space> pick line … │
 --     ╰───────────────────────────────────────────────────╯
 --
 -- Navigating:  a click, <CR>, l or <Right> on a folder opens it; ../ (or
 --              h, -, <BS>, <Left>) goes up — above the start folder too.
 -- Selecting:   [ Select this folder ] or s picks the folder being shown;
 --              <Space> on a folder line picks that folder without opening it.
--- Other:       . shows/hides dot-folders; <Esc> / q / [ Cancel ] / a click
---              outside / leaving the float cancels.
+-- Other:       . shows/hides dot-folders; <Esc> / q / c / [c] cancel / a
+--              click outside / leaving the float cancels.
+-- Same look as the confirm / select dialogs (core/confirm.lua). <CR> opens
+-- a folder rather than pressing a button, so both button keys are
+-- lowercase (no default), as confirm shows a dialog without one.
 --
 -- Usage:
 --   require('core.folder_picker').open {
@@ -34,8 +37,9 @@
 local M = {}
 
 local ns = vim.api.nvim_create_namespace('core-folder-picker')
+local ui = require('core.confirm')
 
-local HINT = 'click/Enter: open · ../h: up · s: select this · Space: select line · .: hidden · Esc'
+local HINT = '<CR> open   h up   j/k move   <Space> pick line   . hidden   <Esc> cancel'
 
 local function subdirs(dir, hidden)
   local out = {}
@@ -82,7 +86,7 @@ function M.open(opts)
     col = math.floor((vim.o.columns - width) / 2),
     title = ' ' .. opts.title .. ' ', title_pos = 'center',
   })
-  vim.wo[win].cursorline = true
+  ui.mark_cursor(win, buf)
   local closed = false
 
   local function close()
@@ -132,12 +136,13 @@ function M.open(opts)
     table.insert(lines, '')
 
     local here_tag = opts.tag and opts.tag(cwd) or nil
-    local sel_text = '[ Select this folder' .. (here_tag and (' (' .. here_tag .. ')') or '') .. ' ]'
-    local can_text = '[ Cancel ]'
-    table.insert(lines, '  ' .. sel_text .. '  ' .. can_text)
+    local brow, spans = ui.button_row({
+      { key = 's', text = 'Select this folder' .. (here_tag and (' (' .. here_tag .. ')') or '') },
+      { key = 'c', text = 'Cancel' },
+    }, '  ')
+    table.insert(lines, brow)
     btn_row = #lines
-    btn.select = { 2, 2 + #sel_text }
-    btn.cancel = { 2 + #sel_text + 2, 2 + #sel_text + 2 + #can_text }
+    btn.select, btn.cancel = spans[1], spans[2]
     table.insert(lines, '  ' .. HINT)
 
     vim.bo[buf].modifiable = true
@@ -156,7 +161,7 @@ function M.open(opts)
     vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, btn.select[1],
       { end_col = btn.select[2], hl_group = here_tag and 'DiagnosticWarn' or 'Function' })
     vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, btn.cancel[1],
-      { end_col = btn.cancel[2], hl_group = 'Comment' })
+      { end_col = btn.cancel[2], hl_group = 'Normal' })
     vim.api.nvim_buf_set_extmark(buf, ns, btn_row, 0,
       { end_col = #lines[btn_row + 1], hl_group = 'Comment' })
 
@@ -214,6 +219,7 @@ function M.open(opts)
   map('.', function() hidden = not hidden render() end)
   map('<Esc>', cancel)
   map('q', cancel)
+  map('c', cancel)
 
   -- Mouse: one click acts (opens a folder / presses a button). A double
   -- click's second half (<2-LeftMouse>) is ignored, or it would open the

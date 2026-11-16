@@ -423,8 +423,9 @@ local function activate()
     -- single static or host build can be wiped without losing the others.
     -- Browse… (or b) adds a build directory from anywhere else, but only a
     -- real CMake build tree (see is_build_tree / refused below).
-    -- Space or a mouse click toggles an entry; Enter or the Delete button
-    -- asks for a Y/n confirmation — this is not undoable. Afterwards run <leader>cp +
+    -- Space, a number key or a mouse click toggles an entry; Enter, d or the
+    -- delete button asks for a Yes/No confirmation (Yes default) — this is
+    -- not undoable. Afterwards run <leader>cp +
     -- <leader>cb (or <leader>cS) to rebuild.
     -- Last directory added through Browse, so the prompt starts next to it.
     local last_browsed_build = nil
@@ -468,13 +469,15 @@ local function activate()
       local function delete_selected(chosen)
         local labels = {}
         for _, d in ipairs(chosen) do table.insert(labels, '  ' .. vim.trim(d.label)) end
-        -- Same Y/n convention as the git pull prompt: plain <CR> confirms,
-        -- <Esc> or anything starting with 'n' cancels.
-        vim.ui.input({
-          prompt = 'Delete ' .. #chosen .. ' build director'
-            .. (#chosen == 1 and 'y' or 'ies') .. '? (Y/n): ',
-        }, function(input)
-          if input == nil or input:lower():sub(1, 1) == 'n' then
+        -- The confirm dialog (core/confirm.lua), listing what goes. Yes is
+        -- the default, as the old typed (Y/n) prompt had it: <CR> deletes;
+        -- n, <Esc> or <C-c> cancels.
+        local answer = vim.fn.confirm('Delete ' .. #chosen .. ' build director'
+            .. (#chosen == 1 and 'y' or 'ies') .. '? This cannot be undone.\n\n'
+            .. table.concat(labels, '\n'),
+          '&Yes, delete\n&No', 1, 'Warning')
+        do
+          if answer ~= 1 then
             vim.notify('Delete cancelled.', vim.log.levels.INFO)
             return
           end
@@ -500,7 +503,7 @@ local function activate()
           -- Reset cmake-tools' internal state so it doesn't reference
           -- a now-deleted build directory
           pcall(function() require('cmake-tools').cmake_build_directory = nil end)
-        end)
+        end
       end
 
       -- Browse: add a build directory that lives anywhere (another

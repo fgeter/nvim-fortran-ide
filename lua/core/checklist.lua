@@ -4,18 +4,23 @@
 -- A small centred float listing entries with a [ ] / [x] box each, and a
 -- button row underneath:
 --
---     ╭─ Delete build directories ─────────╮
---     │  [x] build/                        │
---     │  [ ]     build/debug/              │
---     │  [ ] build-ubuntu/                 │
---     │                                    │
---     │  [ Delete 1 selected ]  [ Cancel ] │
---     │  Space/click toggle · a all · …    │
---     ╰────────────────────────────────────╯
+--     ╭──────────── Delete build directories ────────────╮
+--     │▶ 1  [x] build/                                    │
+--     │  2  [ ]     build/debug/                          │
+--     │  3  [ ] build-ubuntu/                             │
+--     │                                                   │
+--     │  [D] delete 1 selected   [b] browse…   [c] cancel │
+--     │  <Space> toggle   1-3 toggle   a all   j/k move   │
+--     ╰───────────────────────────────────────────────────╯
 --
--- Toggling an entry:  <Space> or <Tab> on its line, or a left click on it.
--- Confirming:         <CR>, or a click on the action button.
--- Cancelling:         <Esc> / q, a click on [ Cancel ], or leaving the float.
+-- Same look as the confirm / select dialogs (core/confirm.lua): the key
+-- <CR> stands for is UPPERCASE in the button row, the others lowercase,
+-- and the current row carries a ▶.
+--
+-- Toggling an entry:  <Space>, <Tab> or x on its line, its number key,
+--                     or a left click on it.
+-- Confirming:         <CR> or d, or a click on the action button.
+-- Cancelling:         <Esc> / q / c, a click on [c] cancel, or leaving the float.
 -- Extra button:       opts.extra = { label = 'Browse…', key = 'b', run = fn }
 --                     adds a button (and key) between the action and Cancel.
 --                     Pressing it closes the float and calls run(); run may
@@ -46,6 +51,7 @@
 local M = {}
 
 local ns = vim.api.nvim_create_namespace('core-checklist')
+local ui = require('core.confirm')
 
 function M.open(opts)
   local items = opts.items
@@ -58,10 +64,9 @@ function M.open(opts)
 
   local first   = 1           -- buffer line of items[1] (1-based)
   local btn_row = #items + 2  -- the button line (after a blank line)
-  local hint    = 'Space/click: toggle · a: all · Enter: confirm · Esc: cancel'
-  if opts.extra and opts.extra.key then
-    hint = hint .. ' · ' .. opts.extra.key .. ': ' .. opts.extra.label:gsub('…$', ''):lower()
-  end
+  local hint    = '<Space> toggle   '
+    .. (#items > 1 and ('1-' .. math.min(#items, 9) .. ' toggle   ') or '')
+    .. 'a all   j/k move   <Esc> cancel'
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = 'wipe'
@@ -79,21 +84,23 @@ function M.open(opts)
   local function render()
     local lines = {}
     for i, it in ipairs(items) do
-      lines[i] = '  ' .. (sel[i] and '[x] ' or '[ ] ') .. it.label
+      lines[i] = '  ' .. (i <= 9 and tostring(i) or ' ') .. '  '
+        .. (sel[i] and '[x] ' or '[ ] ') .. it.label
     end
     lines[#items + 1] = ''
     -- Nothing to tick: a placeholder line, so the buttons (Browse…) still show.
     if #items == 0 then lines[1] = '  ' .. (opts.empty or '(nothing to list)') end
-    local row, col = '  ', 2
-    local function button(name, text)
-      text = '[ ' .. text .. ' ]'
-      btn[name] = { col, col + #text }
-      row, col = row .. text .. '  ', col + #text + 2
+    local defs = { { name = 'action', key = 'd', text = opts.action(count()), default = true,
+                     hl = count() > 0 and 'DiagnosticError' or 'Comment' } }
+    if opts.extra then
+      defs[#defs + 1] = { name = 'extra', key = opts.extra.key or 'b', text = opts.extra.label,
+                          hl = 'Function' }
     end
-    button('action', opts.action(count()))
-    if opts.extra then button('extra', opts.extra.label) end
-    button('cancel', 'Cancel')
-    lines[btn_row] = row:gsub('%s+$', '')
+    defs[#defs + 1] = { name = 'cancel', key = 'c', text = 'Cancel' }
+    local row, spans = ui.button_row(defs, '  ')
+    btn = {}
+    for i, d in ipairs(defs) do btn[d.name] = spans[i]; btn[d.name].hl = ui.button_hl(d) end
+    lines[btn_row] = row
     lines[btn_row + 1] = '  ' .. hint
 
     vim.bo[buf].modifiable = true
@@ -102,21 +109,17 @@ function M.open(opts)
 
     vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i = 1, #items do
+      if i <= 9 then
+        vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 2, { end_col = 3, hl_group = 'Number' })
+      end
       if sel[i] then
-        vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 2,
-          { end_col = 5, hl_group = 'DiagnosticWarn' })
+        vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 5,
+          { end_col = 8, hl_group = 'DiagnosticWarn' })
       end
     end
-    vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, btn.action[1], {
-      end_col = btn.action[2],
-      hl_group = count() > 0 and 'DiagnosticError' or 'Comment',
-    })
-    if btn.extra then
-      vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, btn.extra[1],
-        { end_col = btn.extra[2], hl_group = 'Function' })
+    for _, b in pairs(btn) do
+      vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, b[1], { end_col = b[2], hl_group = b.hl })
     end
-    vim.api.nvim_buf_set_extmark(buf, ns, btn_row - 1, btn.cancel[1],
-      { end_col = btn.cancel[2], hl_group = 'Comment' })
     vim.api.nvim_buf_set_extmark(buf, ns, btn_row, 0,
       { end_row = btn_row + 1, hl_group = 'Comment', hl_eol = false })
     return lines
@@ -173,7 +176,7 @@ function M.open(opts)
     col = math.floor((vim.o.columns - width) / 2),
     title = ' ' .. opts.title .. ' ', title_pos = 'center',
   })
-  vim.wo[win].cursorline = true
+  ui.mark_cursor(win, buf)()
   vim.api.nvim_win_set_cursor(win, { first, 0 })
 
   local function map(lhs, fn)
@@ -184,6 +187,10 @@ function M.open(opts)
   map('<Tab>',   function() toggle(vim.fn.line('.')) end)
   map('x',       function() toggle(vim.fn.line('.')) end)
   map('a',       toggle_all)
+  for i = 1, math.min(#items, 9) do
+    map(tostring(i), function() toggle(first + i - 1) end)
+  end
+  map('d', confirm)
   map('<CR>', function()
     local row = vim.fn.line('.')
     if row == btn_row then
@@ -196,6 +203,7 @@ function M.open(opts)
   if opts.extra and opts.extra.key then map(opts.extra.key, extra) end
   map('<Esc>', close)
   map('q',     close)
+  map('c',     close)
 
   -- Mouse: every click is handled here (a double click arrives as
   -- <LeftMouse> then <2-LeftMouse>; both toggle, so each physical click
