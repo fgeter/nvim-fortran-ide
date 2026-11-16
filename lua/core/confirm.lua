@@ -139,27 +139,32 @@ vim.fn.confirm = M.confirm
 
 -- ------------------------------------------------------------
 -- M.select(items, opts, on_choice): the same kind of dialog for picking
--- one entry from a short list. Same signature as vim.ui.select, so it can
+-- one entry from a list. Same signature as vim.ui.select, so it can
 -- stand in for it around a plugin call (see <leader>cp in
--- plugins/cmake-tools.lua). It is NOT installed as vim.ui.select: long
--- lists still want telescope's fuzzy filter.
+-- plugins/cmake-tools.lua). It is NOT installed as vim.ui.select.
 --
---     ╭──────── Select CMake preset ────────╮
---     │  1  gfortran_debug_linux    gfortran…│
---     │▶ 2  gfortran_release_linux  gfortran…│   <- highlighted
---     │                                      │
---     │ <CR> pick   j/k move   1-9 pick   <Esc> cancel │
---     ╰──────────────────────────────────────╯
+--     ╭──────── Select run directory (recent first) ────────╮
+--     │  1  US-Ne3                 2 hours ago              │
+--     │▶ 2  Riesel_one_HRU         yesterday                │   <- highlighted
+--     │  3  IA-Clayton_StewRTop    3 days ago               │
+--     ╰ <CR> pick  j/k move  1-9 pick  / filter  [b] browse…  <Esc> cancel ╯
 --
--- The highlighted row starts on opts.default (an item, or its index) and
--- <CR> picks it, so "keep what I have" is one keypress. j/k or the arrow
--- keys move, a row's number or letter picks it directly, <Esc>/<C-c>/q
--- cancel. on_choice(item, idx), or on_choice(nil, nil) on cancel.
+-- The highlighted row starts on opts.default (an item, or its index;
+-- default 1) and <CR> picks it. j/k, arrows, <C-n>/<C-p>, g/G,
+-- <C-d>/<C-u> and the mouse wheel move (long lists scroll); a row's
+-- number or letter, or a click, picks it directly. / starts a filter:
+-- typed text narrows the list (substring, case-insensitive), <BS> edits,
+-- <CR> picks, <Esc> clears the filter. <Esc>/<C-c>/q cancel.
+-- on_choice(item, idx), or on_choice(nil, nil) on cancel.
 --
 --   opts.prompt       window title
 --   opts.format_item  item -> main text (default tostring)
 --   opts.detail       item -> dimmed text after it (optional)
 --   opts.default      item or index highlighted first
+--   opts.buttons      { { key = 'b', text = 'Browse…', value = X }, … }:
+--                     extra actions in the footer; the key calls
+--                     on_choice(X, nil)
+--   opts.max_height   list rows shown at once (default 20)
 -- ------------------------------------------------------------
 -- ------------------------------------------------------------
 -- Shared look for the other floating dialogs (core/checklist.lua,
@@ -206,97 +211,190 @@ function M.mark_cursor(win, buf)
   return paint
 end
 
-local KEYS = '123456789abcdefghijklmnoprstuvwxyz'   -- no j/k/q: they move / cancel
-KEYS = KEYS:gsub('[jkq]', '')
+local KEYS = '123456789abcdefghijklmnopqrstuvwxyz'
 
 function M.select(items, opts, on_choice)
   opts = opts or {}
   local n = #items
   if n == 0 then on_choice(nil, nil); return end
   local fmt = opts.format_item or tostring
+  local buttons = opts.buttons or {}
 
-  local cur = 1
-  if type(opts.default) == 'number' and items[opts.default] ~= nil then
-    cur = opts.default
-  elseif opts.default ~= nil then
-    for i, it in ipairs(items) do if it == opts.default then cur = i; break end end
-  end
+  -- Row keys: digits, then letters not already used for moving, cancelling
+  -- or a button.
+  local taken = { j = true, k = true, q = true, g = true }
+  for _, b in ipairs(buttons) do taken[b.key:lower()] = true end
+  local keys = {}
+  for c in KEYS:gmatch('.') do if not taken[c] then keys[#keys + 1] = c end end
 
+  local mains, details, hay = {}, {}, {}
   local mainw = 0
-  for _, it in ipairs(items) do mainw = math.max(mainw, vim.fn.strdisplaywidth(fmt(it))) end
-  local lines, keyof = {}, {}
   for i, it in ipairs(items) do
-    local k = KEYS:sub(i, i)
-    keyof[i] = k ~= '' and k or nil
-    local main = fmt(it)
-    local line = ('  %s  %s'):format(keyof[i] or ' ', main)
-    if opts.detail then
-      local d = opts.detail(it)
-      if d and d ~= '' then
-        line = line .. string.rep(' ', mainw - vim.fn.strdisplaywidth(main) + 3) .. d
-      end
-    end
-    lines[i] = line .. ' '
+    mains[i] = fmt(it)
+    details[i] = opts.detail and opts.detail(it) or ''
+    hay[i] = (mains[i] .. ' ' .. details[i]):lower()
+    mainw = math.max(mainw, vim.fn.strdisplaywidth(mains[i]))
   end
-  local last = keyof[n] and (n <= 9 and ('1-' .. n) or ('1-9, a-' .. keyof[n])) or '1-9'
-  lines[n + 1] = ''
-  lines[n + 2] = (' <CR> pick   j/k move   %s pick   <Esc> cancel '):format(last)
 
-  local width = 0
-  for _, l in ipairs(lines) do width = math.max(width, vim.fn.strdisplaywidth(l)) end
+  local default = 1
+  if type(opts.default) == 'number' and items[opts.default] ~= nil then
+    default = opts.default
+  elseif opts.default ~= nil then
+    for i, it in ipairs(items) do if it == opts.default then default = i; break end end
+  end
+
+  local filter            -- nil: not filtering; a string while filtering
+  local visible = {}      -- item indices shown, in order
+  local cur, top = 1, 1   -- highlighted row / first row shown (in visible)
+
+  local function line_for(pos, i)
+    local key = keys[pos] or ' '
+    local l = ('  %s  %s'):format(key, mains[i])
+    if details[i] ~= '' then
+      l = l .. (' '):rep(mainw - vim.fn.strdisplaywidth(mains[i]) + 3) .. details[i]
+    end
+    return l .. ' '
+  end
+
+  local function footer_text()
+    local parts = { '<CR> pick', 'j/k move' }
+    local nk = math.min(#visible, #keys)
+    if nk > 0 then
+      parts[#parts + 1] = (nk <= 9 and ('1-' .. nk) or ('1-9, ' .. keys[10] .. '-' .. keys[nk])) .. ' pick'
+    end
+    parts[#parts + 1] = '/ filter'
+    for _, b in ipairs(buttons) do
+      parts[#parts + 1] = '[' .. b.key:lower() .. '] ' .. lower_first(b.text)
+    end
+    parts[#parts + 1] = '<Esc> cancel'
+    return ' ' .. table.concat(parts, '   ') .. ' '
+  end
+
+  -- Fixed size, from the full list.
+  local width = vim.fn.strdisplaywidth(' ' .. (opts.prompt or 'Select') .. '  /' .. (' '):rep(12))
+  for i = 1, n do width = math.max(width, vim.fn.strdisplaywidth(line_for(i, i))) end
+  visible = {}
+  for i = 1, n do visible[i] = i end
+  width = math.max(width, vim.fn.strdisplaywidth(footer_text()) + 2)
   width = math.min(width, math.max(20, vim.o.columns - 6))
-  local height = math.min(#lines, math.max(1, vim.o.lines - 4))
+  local height = math.min(n, opts.max_height or 20, math.max(1, vim.o.lines - 8))
 
   local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].bufhidden = 'wipe'
-  for i = 1, n do   -- key column and detail text
-    vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 2, { end_col = 3, hl_group = 'Number' })
-    local dstart = 5 + #fmt(items[i])
-    if #lines[i] > dstart then
-      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, dstart, { end_col = #lines[i], hl_group = 'Comment' })
-    end
-  end
-  vim.api.nvim_buf_set_extmark(buf, ns, n + 1, 0, { end_col = #lines[n + 2], hl_group = 'Comment' })
-
   local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor', style = 'minimal', border = 'rounded',
     title = ' ' .. (opts.prompt or 'Select') .. ' ', title_pos = 'center',
+    footer = { { footer_text(), 'Comment' } }, footer_pos = 'center',
     focusable = false, zindex = 250, width = width, height = height,
     row = math.floor((vim.o.lines - height) / 2) - 1,
     col = math.floor((vim.o.columns - width) / 2),
   })
-
   local sel = vim.api.nvim_create_namespace('core_confirm_sel')
-  local function paint()
+
+  local function refilter()
+    visible = {}
+    local f = filter and filter:lower() or ''
+    for i = 1, n do
+      if f == '' or hay[i]:find(f, 1, true) then visible[#visible + 1] = i end
+    end
+    cur, top = 1, 1
+  end
+
+  local function render()
+    local lines = {}
+    for pos, i in ipairs(visible) do lines[pos] = line_for(pos, i) end
+    if #visible == 0 then lines[1] = '  (no match)' end
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     vim.api.nvim_buf_clear_namespace(buf, sel, 0, -1)
-    vim.api.nvim_buf_set_extmark(buf, sel, cur - 1, 0, {
-      line_hl_group = 'Visual', virt_text = { { '▶', 'MoreMsg' } },
-      virt_text_pos = 'overlay', priority = 300,
+    for pos, i in ipairs(visible) do
+      vim.api.nvim_buf_set_extmark(buf, ns, pos - 1, 2, { end_col = 3, hl_group = 'Number' })
+      local dstart = 5 + #mains[i]
+      if #lines[pos] > dstart then
+        vim.api.nvim_buf_set_extmark(buf, ns, pos - 1, dstart,
+          { end_col = #lines[pos], hl_group = 'Comment' })
+      end
+    end
+    if #visible > 0 then
+      if cur < top then top = cur end
+      if cur > top + height - 1 then top = cur - height + 1 end
+      vim.api.nvim_buf_set_extmark(buf, sel, cur - 1, 0, {
+        line_hl_group = 'Visual', virt_text = { { '▶', 'MoreMsg' } },
+        virt_text_pos = 'overlay', priority = 300,
+      })
+      vim.api.nvim_win_call(win, function()
+        vim.fn.winrestview({ topline = top, lnum = cur, col = 0 })
+      end)
+    end
+    local title = ' ' .. (opts.prompt or 'Select') .. ' '
+    if filter then title = title .. ' /' .. filter .. '▏ ' end
+    vim.api.nvim_win_set_config(win, {
+      title = title, title_pos = 'center',
+      footer = { { footer_text(), 'Comment' } }, footer_pos = 'center',
     })
   end
 
-  local down, up = vim.keycode('<Down>'), vim.keycode('<Up>')
-  local pick
-  while true do
-    paint()
+  visible = {}
+  for i = 1, n do visible[i] = i end
+  cur = default
+
+  local K = function(s) return vim.keycode(s) end
+  local down = { [K('<Down>')] = true, [K('<C-n>')] = true, [K('<ScrollWheelDown>')] = true }
+  local up   = { [K('<Up>')] = true,   [K('<C-p>')] = true, [K('<ScrollWheelUp>')] = true }
+  local BS, CD, CU = K('<BS>'), K('<C-d>'), K('<C-u>')
+  local PGDN, PGUP = K('<PageDown>'), K('<PageUp>')
+  local CLICK = K('<LeftMouse>')
+
+  local result, result_idx, done = nil, nil, false
+  local function pick(pos)
+    local i = visible[pos]
+    if i then result, result_idx, done = items[i], i, true end
+  end
+
+  while not done do
+    render()
     vim.cmd('redraw')
     local ok, c = pcall(vim.fn.getcharstr)
-    if not ok or c == '\27' or c == '\3' or c == 'q' then break end
-    if c == '\r' or c == '\n' then pick = cur; break end
-    if c == 'j' or c == down then cur = cur % n + 1
-    elseif c == 'k' or c == up then cur = (cur - 2) % n + 1
-    else
-      for i = 1, n do
-        if keyof[i] == c:lower() then pick = i; break end
+    local m = #visible
+    if not ok or c == '\3' then break end                              -- <C-c>
+    if c == '\27' then                                                 -- <Esc>
+      if filter then filter = nil; refilter() else break end
+    elseif c == '\r' or c == '\n' then pick(cur)
+    elseif down[c] then if m > 0 then cur = cur % m + 1 end
+    elseif up[c] then if m > 0 then cur = (cur - 2) % m + 1 end
+    elseif c == CD or c == PGDN then cur = math.min(m, cur + height)
+    elseif c == CU or c == PGUP then cur = math.max(1, cur - height)
+    elseif c == CLICK then
+      local pos = vim.fn.getmousepos()
+      if pos.winid ~= win then break end
+      if pos.line >= 1 then pick(pos.line) end
+    elseif filter then
+      if c == BS or c == '\8' then
+        filter = filter:sub(1, -2); refilter()
+      elseif #c == 1 and c:byte() >= 32 and c:byte() ~= 127 then
+        filter = filter .. c; refilter()
       end
-      if pick then break end
+    elseif c == 'q' then break
+    elseif c == 'j' then if m > 0 then cur = cur % m + 1 end
+    elseif c == 'k' then if m > 0 then cur = (cur - 2) % m + 1 end
+    elseif c == 'g' then cur = 1
+    elseif c == 'G' then cur = math.max(1, m)
+    elseif c == '/' then filter = ''; refilter()
+    else
+      for _, b in ipairs(buttons) do
+        if c:lower() == b.key:lower() then result, done = b.value, true; break end
+      end
+      if not done then
+        for pos = 1, math.min(m, #keys) do
+          if keys[pos] == c:lower() then pick(pos); break end
+        end
+      end
     end
   end
 
   if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
   vim.cmd('redraw')
-  if pick then on_choice(items[pick], pick) else on_choice(nil, nil) end
+  on_choice(result, result_idx)
 end
 
 return M

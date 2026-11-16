@@ -230,20 +230,16 @@ function M.clean_output_files(dir)
   return #targets
 end
 
--- Sentinel entry leading the run-directory picker. Choosing it opens
--- a path prompt so a dataset that lives outside project_work_root can be
--- used as the run cwd — the workdata dirs are a shortcut, not a limit.
-local BROWSE = { label = '󰉋  Browse for another directory…' }
+-- Values of the run-directory dialog's two footer buttons. [b] browse…
+-- opens the folder browser so a dataset that lives outside
+-- project_work_root can be used as the run cwd — the workdata dirs are a
+-- shortcut, not a limit. [s] flips the ordering.
+local BROWSE = { 'browse' }
+local SORT_TOGGLE = { 'sort' }
 
--- Last directory entered through Browse, offered as the prompt default
--- next time so repeated runs against the same external dataset are cheap.
+-- Last directory picked through Browse; the browser starts next to it
+-- so repeated runs against the same external dataset are cheap.
 local last_browsed = nil
-
--- Sentinel entry that flips the run-directory ordering. A vim.ui.select
--- backend is whatever the user has configured (telescope-ui-select here),
--- so the toggle lives in the list itself rather than in a picker mapping
--- that only one backend would honor.
-local SORT_TOGGLE = { label = '' }
 
 -- Current run-directory ordering: 'mtime' (most recently changed first,
 -- the default) or 'name' (alphabetical). vim.g.project_workdir_sort lets a
@@ -257,24 +253,24 @@ local function sort_mode()
   return workdir_sort
 end
 
--- Prompt for any directory on the filesystem and hand it to `on_dir`.
--- <Tab> completes path components (snacks.input honors `completion`).
-local function browse_workdir(on_dir)
-  vim.ui.input({
-    prompt     = 'Run directory: ',
-    default    = (last_browsed or M.roots().work) .. '/',
-    completion = 'dir',
-  }, function(input)
-    if not input or vim.trim(input) == '' then return end
-    local dir = vim.fn.fnamemodify(vim.fn.expand(vim.trim(input)), ':p')
-    dir = dir:gsub('/+$', '')
-    if vim.fn.isdirectory(dir) == 0 then
-      vim.notify('Not a directory: ' .. dir, vim.log.levels.ERROR)
-      return
-    end
-    last_browsed = dir
-    on_dir(dir)
-  end)
+-- Pick any directory on the filesystem with the folder browser
+-- (core/folder_picker.lua, the one <leader>cd's Browse uses) and hand it
+-- to `on_dir`. Folders holding a file.cio are tagged as SWAT+ inputs.
+-- `on_cancel` (optional) runs when the browser is closed without a pick.
+local function browse_workdir(on_dir, on_cancel)
+  require('core.folder_picker').open {
+    title     = 'Pick a run directory',
+    start     = last_browsed or M.roots().work,
+    tag       = function(path)
+      return vim.fn.filereadable(path .. '/file.cio') == 1 and 'file.cio' or nil
+    end,
+    on_select = function(dir)
+      dir = vim.fn.fnamemodify(dir, ':p'):gsub('/+$', '')
+      last_browsed = dir
+      on_dir(dir)
+    end,
+    on_cancel = on_cancel,
+  }
 end
 
 -- Two-step picker shared by cmake-tools/make-tools <leader>cr and
@@ -301,57 +297,44 @@ function M.pick_and_launch(opts)
       dirs, mtimes = { opts.workdir_fallback }, {}
     end
 
-    -- Browse and the sort toggle lead the list: a project with dozens of
-    -- workdata dirs would otherwise push them off the bottom of the
-    -- picker, where they are invisible until you scroll the whole list.
-    -- Nothing to reorder with a single directory, so the toggle only shows
-    -- up when it would change the list.
-    local items = { BROWSE }
-    if #dirs > 1 then table.insert(items, SORT_TOGGLE) end
-    vim.list_extend(items, dirs)
-
     local function choose(choice)
       if not choice then return end
       if choice == SORT_TOGGLE then
         workdir_sort = (sort == 'mtime') and 'name' or 'mtime'
         pick_workdir(program)
       elseif choice == BROWSE then
-        browse_workdir(function(dir) opts.launch(program, dir) end)
+        -- Closing the browser without a pick returns to this list.
+        browse_workdir(function(dir) opts.launch(program, dir) end,
+          #dirs > 0 and function() pick_workdir(program) end or nil)
       else
         opts.launch(program, choice)
       end
     end
 
-    -- No workdata dirs and no fallback: go straight to the path prompt
-    -- rather than showing a menu with a single entry.
+    -- No workdata dirs and no fallback: go straight to the browser
+    -- rather than showing a menu with nothing in it.
     if #dirs == 0 then
       choose(BROWSE)
       return
     end
 
-    -- Names are padded to a common width so the ages line up in a column;
-    -- the age is what explains the order, so it is shown in both modes.
-    local width = 0
-    for _, dir in ipairs(dirs) do
-      width = math.max(width, vim.fn.strdisplaywidth(utils.basename(dir)))
+    -- The list dialog (core/confirm.lua select): the first row — the most
+    -- recently changed directory, in the default order — is highlighted,
+    -- so <CR> runs there again. Browse and the sort toggle are footer
+    -- buttons ([b], [s]); / filters the list by name. The age column is
+    -- what explains the order, so it is shown in both modes.
+    local buttons = { { key = 'b', text = 'Browse…', value = BROWSE } }
+    if #dirs > 1 then
+      buttons[2] = { key = 's', value = SORT_TOGGLE,
+                     text = sort == 'mtime' and 'Sort A-Z' or 'Sort by recent' }
     end
-
-    vim.ui.select(items, {
-      prompt      = sort == 'mtime'
-                    and 'Select run directory (recent first):'
-                    or  'Select run directory (A-Z):',
-      format_item = function(item)
-        if item == BROWSE then return item.label end
-        if item == SORT_TOGGLE then
-          return sort == 'mtime' and '󰒺  Sort alphabetically'
-                                 or  '󰃰  Sort by most recently changed'
-        end
-        local name = utils.basename(item)
-        local age  = utils.relative_time(mtimes[item])
-        if age == '' then return name end
-        return ('%s%s  %s'):format(
-          name, (' '):rep(width - vim.fn.strdisplaywidth(name)), age)
-      end,
+    require('core.confirm').select(dirs, {
+      prompt      = sort == 'mtime' and 'Select run directory (recent first)'
+                                    or  'Select run directory (A-Z)',
+      format_item = utils.basename,
+      detail      = function(dir) return utils.relative_time(mtimes[dir]) end,
+      default     = 1,
+      buttons     = buttons,
     }, choose)
   end
 
@@ -361,10 +344,12 @@ function M.pick_and_launch(opts)
   end
   -- Rows say where each exe is from (folder, static/dynamic, commit, age),
   -- newest first: SWAT+ names differ only in the commit hash otherwise.
+  -- The newest build is highlighted, so <CR> runs it.
   local execs, label = M.describe_executables(opts.execs, strip)
-  vim.ui.select(execs, {
-    prompt      = opts.exec_prompt or 'Select executable (newest first):',
+  require('core.confirm').select(execs, {
+    prompt      = opts.exec_prompt or 'Select executable (newest first)',
     format_item = label,
+    default     = 1,
   }, function(choice)
     if choice then pick_workdir(choice) end
   end)
