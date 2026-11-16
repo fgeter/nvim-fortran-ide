@@ -144,13 +144,22 @@ local function git_commit()
   -- in one pass. Using `git diff --name-only` alone (as before) missed
   -- changes already staged via `git add` or gitsigns' <leader>hs, so a fully
   -- staged file looked like "nothing to commit" and was silently skipped.
+  -- -z: NUL-separated and never quoted, so names with spaces or other
+  -- special characters arrive as they are (without it git wraps them in
+  -- quotes and `git add` then fails). A rename or copy is two entries, the
+  -- new name then the old one. vim.system, because vim.fn.system turns the
+  -- NULs into another byte.
   local files = {}
-  for _, line in ipairs(vim.fn.systemlist('git status --porcelain')) do
-    local status, name = line:match('^(..)%s(.+)$')
+  local res = vim.system({ 'git', 'status', '--porcelain', '-z' }, { text = true }):wait()
+  local entries = vim.split(res.code == 0 and res.stdout or '', '\0', { plain = true })
+  local i = 1
+  while i <= #entries do
+    local status, name = entries[i]:match('^(..) (.+)$')
     if status and name then
-      name = name:match('%->%s*(.+)$') or name  -- renames: "old -> new"
-      table.insert(files, { name = name, status = status:gsub('%s', '') })
+      table.insert(files, { name = name, status = (status:gsub('%s', '')) })
+      if status:find('[RC]') then i = i + 1 end   -- skip the old name
     end
+    i = i + 1
   end
   if #files == 0 then
     vim.notify('No changes to commit', vim.log.levels.INFO)
@@ -159,15 +168,18 @@ local function git_commit()
   local choices = { 'Commit All Changes' }
   for _, f in ipairs(files) do table.insert(choices, f.status .. '  ' .. f.name) end
   git_ui_busy = true
-  vim.ui.select(choices, { prompt = 'Select files to commit:' }, function(choice)
+  vim.ui.select(choices, { prompt = 'Select files to commit:' }, function(choice, idx)
     if not choice then git_ui_busy = false; return end
     local add_cmd
     if choice == 'Commit All Changes' then
       add_cmd = 'git add -A'
     else
-      local filename = choice:match('%s%s(.+)$')
-      if not filename then git_ui_busy = false; return end
-      add_cmd = 'git add ' .. vim.fn.shellescape(filename)
+      -- By position, not by parsing the label back. The names git reports
+      -- are relative to the top of the repository: ':(top,literal)' makes
+      -- `git add` read them that way from any working directory.
+      local file = idx and files[idx - 1]
+      if not file then git_ui_busy = false; return end
+      add_cmd = 'git add -- ' .. vim.fn.shellescape(':(top,literal)' .. file.name)
     end
     vim.ui.input({ prompt = 'Commit message: ' }, function(msg)
       git_ui_busy = false
@@ -283,7 +295,12 @@ local function check_remote_ahead(verbose)
   remote_check_in_progress = true
   last_remote_check = os.time()
   if verbose then vim.notify('Checking origin…', vim.log.levels.INFO) end
-  vim.system({ 'git', 'fetch' }, {}, function(result)
+  -- Bounded and non-interactive: a fetch that waits for a password has no
+  -- terminal to ask on, and one that never returned left
+  -- remote_check_in_progress set, stopping every later check until restart.
+  local fetch_env = vim.fn.environ()
+  fetch_env.GIT_TERMINAL_PROMPT = '0'
+  vim.system({ 'git', 'fetch' }, { timeout = 60000, env = fetch_env }, function(result)
     remote_check_in_progress = false
     if result.code ~= 0 then
       if verbose then

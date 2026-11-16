@@ -16,9 +16,6 @@ vim.g.loaded_surround = true
 
 vim.pack.add { { src = 'https://github.com/kylechui/nvim-surround', version = vim.version.range '4.*' } }
 
-vim.api.nvim_create_autocmd('BufReadPost', {
-  once     = true,
-  callback = function()
-    require('nvim-surround').setup {}
-  end,
-})
+-- Set up straight away, not on the first BufReadPost: that event never
+-- fires for a new or empty buffer, which left surround unconfigured there.
+require('nvim-surround').setup {}

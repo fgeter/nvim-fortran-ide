@@ -257,6 +257,16 @@ local function with_dap(fn)
   end
 end
 
+-- Ask for a breakpoint condition / log message. nil when the prompt was
+-- cancelled or left empty: vim.fn.input returns '' for <Esc>, and passing
+-- that on set a plain breakpoint anyway.
+local function ask(prompt)
+  local ok, text = pcall(vim.fn.input, prompt)
+  text = ok and vim.trim(text) or ''
+  if text == '' then return nil end
+  return text
+end
+
 -- F1 is Help unless a debug session is already running. Do not require()
 -- dap on a bare F1 — that would steal Help just to load the plugin.
 vim.keymap.set('n', '<F1>', function()
@@ -292,7 +302,8 @@ vim.keymap.set('n', '<F5>',  with_dap(function(d) d.continue() end),          { 
 vim.keymap.set('n', '<F6>',  with_dap(function(d) d.run_to_cursor() end),     { desc = 'DAP: run to cursor' })
 vim.keymap.set('n', '<F7>',  with_dap(function(_, ui) ui.toggle() end),       { desc = 'DAP: toggle UI' })
 vim.keymap.set('n', '<F8>',  with_dap(function(d)
-  d.set_breakpoint(vim.fn.input('Breakpoint condition: '))
+  local cond = ask('Breakpoint condition: ')
+  if cond then d.set_breakpoint(cond) end
 end), { desc = 'DAP: conditional breakpoint' })
 vim.keymap.set('n', '<F10>', with_dap(function(d) d.terminate() end),         { desc = 'DAP: terminate session' })
 
@@ -313,10 +324,12 @@ vim.keymap.set('n', '<leader>dc', with_dap(function(d) d.run_to_cursor() end), {
 vim.keymap.set('n', '<leader>db', with_dap(function(d) d.toggle_breakpoint() end),
   { desc = 'DAP: toggle breakpoint - F4' })
 vim.keymap.set('n', '<leader>dB', with_dap(function(d)
-  d.set_breakpoint(vim.fn.input('Breakpoint condition: '))
+  local cond = ask('Breakpoint condition: ')
+  if cond then d.set_breakpoint(cond) end
 end), { desc = 'DAP: conditional breakpoint - F8' })
 vim.keymap.set('n', '<leader>dL', with_dap(function(d)
-  d.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))
+  local msg = ask('Log point message: ')
+  if msg then d.set_breakpoint(nil, nil, msg) end
 end), { desc = 'DAP: log point' })
 vim.keymap.set('n', '<leader>dx', with_dap(remove_all_breakpoints),
   { desc = 'DAP: remove all breakpoints - Shift-F4 (F16)' })

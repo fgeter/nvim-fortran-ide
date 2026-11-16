@@ -317,7 +317,10 @@ local function activate()
         config.settings.basedpyright = config.settings.basedpyright or {}
         config.settings.basedpyright.analysis =
           config.settings.basedpyright.analysis or {}
-        config.settings.basedpyright.analysis.venvPath = venv
+        -- venvPath is the folder that HOLDS the venv, venv its name.
+        venv = venv:gsub('/+$', '')
+        config.settings.basedpyright.analysis.venvPath = vim.fn.fnamemodify(venv, ':h')
+        config.settings.basedpyright.analysis.venv     = vim.fn.fnamemodify(venv, ':t')
       end
     end,
   })
@@ -329,12 +332,22 @@ local function activate()
   require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
 
+  -- Prefer Mason's debugpy (lsp.lua installs it; mason/bin is on Neovim's
+  -- PATH): the adapter then works in a venv that has no debugpy of its
+  -- own. The program being debugged still runs with the project's Python
+  -- (`python = get_python_bin` in the configurations below). Without
+  -- Mason's copy, fall back to debugpy from the project's Python.
   dap.adapters.python = function(cb)
-    cb({
-      type    = 'executable',
-      command = get_python_bin(),
-      args    = { '-m', 'debugpy.adapter' },
-    })
+    local adapter = vim.fn.exepath('debugpy-adapter')
+    if adapter ~= '' then
+      cb({ type = 'executable', command = adapter })
+    else
+      cb({
+        type    = 'executable',
+        command = get_python_bin(),
+        args    = { '-m', 'debugpy.adapter' },
+      })
+    end
   end
 
   dap.configurations.python = {

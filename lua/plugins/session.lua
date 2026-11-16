@@ -137,8 +137,12 @@ vim.api.nvim_create_autocmd('VimEnter', {
 })
 
 -- ── Save ─────────────────────────────────────────────────────
+-- Only when the session would also be restored: with file arguments
+-- (`nvim somefile`) restore is skipped, so saving here replaced the project's
+-- session with whatever that one-off run had open.
 vim.api.nvim_create_autocmd('VimLeave', {
   callback = function()
+    if vim.fn.argc() ~= 0 then return end
     pcall(vim.cmd, 'mksession! ' .. vim.fn.fnameescape(session_file()))
   end,
 })

@@ -20,7 +20,6 @@ vim.g.loaded_web_tools = true
 
 local function activate()
   if vim.g.web_tools_active then return end
-  vim.g.web_tools_active = true
 
   local mason_path = vim.fn.stdpath('data') .. '/mason/packages'
   local js_debug   = mason_path .. '/js-debug-adapter/js-debug/src/dapDebugServer.js'
@@ -31,6 +30,10 @@ local function activate()
       vim.log.levels.WARN)
     return
   end
+
+  -- Only marked active once the adapter is there, so installing it later
+  -- (:MasonInstall js-debug-adapter) works without a restart.
+  vim.g.web_tools_active = true
 
   require('plugins.dap').activate()  -- install/configure the DAP stack (lazy since #7)
   local dap = require('dap')
@@ -79,6 +82,10 @@ vim.api.nvim_create_autocmd('FileType', {
   pattern  = ft_list,
   callback = function()
     vim.keymap.set('n', '<leader>ds', function()
+      -- Retry the setup: without js-debug-adapter it stopped early and
+      -- nvim-dap was never loaded, so require('dap') below would error.
+      activate()
+      if not vim.g.web_tools_active then return end
       require('dap').continue()
     end, { buffer = true, desc = 'DAP: start / continue (JS/TS) - F5' })
   end,

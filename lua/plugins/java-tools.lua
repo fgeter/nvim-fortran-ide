@@ -106,6 +106,15 @@ end
 vim.api.nvim_create_autocmd('FileType', {
   pattern  = 'java',
   callback = function()
+    -- No JDK, no language server: say so once, not on every Java buffer.
+    if vim.fn.executable('java') == 0 then
+      if not vim.g.java_tools_warned then
+        vim.g.java_tools_warned = true
+        vim.notify('Java tools: no `java` on PATH — install a JDK for the language '
+          .. 'server and debugger (Arch: sudo pacman -S jdk-openjdk).', vim.log.levels.WARN)
+      end
+      return
+    end
     local config = get_jdtls_config()
     if not config then return end
 

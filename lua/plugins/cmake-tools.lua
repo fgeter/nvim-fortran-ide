@@ -290,7 +290,11 @@ local function activate()
         '\nRun <leader>cp then <leader>cg to configure.', vim.log.levels.WARN)
       return nil
     end
-    return { path = path_str, label = path_str:gsub(project.roots().repo .. '/', '') }
+    -- Plain prefix test, not gsub: the repo path is not a Lua pattern
+    -- (a '-' or '.' in it stopped the label being shortened).
+    local repo = project.roots().repo .. '/'
+    local label = vim.startswith(path_str, repo) and path_str:sub(#repo + 1) or path_str
+    return { path = path_str, label = label }
   end
 
   ---------------------------------------------------------------------------

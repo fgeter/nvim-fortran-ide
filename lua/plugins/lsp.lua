@@ -64,7 +64,9 @@ local servers = {
           runtime  = { version = 'LuaJIT', path = { 'lua/?.lua', 'lua/?/init.lua' } },
           workspace = {
             checkThirdParty = false,
-            library = vim.tbl_extend('force',
+            -- list_extend, not tbl_extend: on two lists tbl_extend
+            -- overwrites entries 1 and 2 instead of appending.
+            library = vim.list_extend(
               vim.api.nvim_get_runtime_file('', true), {
                 '${3rd}/luv/library',
                 '${3rd}/busted/library',
@@ -203,6 +205,10 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Reference highlighting: when the cursor rests on a symbol, all
     -- other occurrences in the buffer are highlighted. Cleared on move.
     if client and client:supports_method('textDocument/documentHighlight', ev.buf) then
+      -- LspAttach fires once per client: start from a clean slate so a
+      -- second client on the buffer does not register everything twice.
+      vim.api.nvim_clear_autocmds { group = highlight_augroup, buffer = ev.buf }
+      vim.api.nvim_clear_autocmds { group = detach_augroup,    buffer = ev.buf }
       vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
         buffer   = ev.buf,
         group    = highlight_augroup,
@@ -218,7 +224,15 @@ vim.api.nvim_create_autocmd('LspAttach', {
         buffer   = ev.buf,
         callback = function(ev2)
           vim.lsp.buf.clear_references()
+          -- Keep the highlighting while another client that supports it
+          -- is still attached to this buffer.
+          for _, c in ipairs(vim.lsp.get_clients {
+            bufnr = ev2.buf, method = 'textDocument/documentHighlight',
+          }) do
+            if c.id ~= ev2.data.client_id then return end
+          end
           vim.api.nvim_clear_autocmds { group = 'lsp-highlight', buffer = ev2.buf }
+          return true   -- nothing left to watch: remove this autocmd
         end,
       })
     end

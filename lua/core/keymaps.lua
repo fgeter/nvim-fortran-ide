@@ -101,5 +101,5 @@ vim.keymap.set('n', '<leader>tr', function()
 end, { desc = 'Toggle relative line numbers' })
 
 -- ── Diagnostics ──────────────────────────────────────────────
--- Open all diagnostics for the current buffer in the quickfix list
-vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: quickfix list' })
+-- Open all diagnostics for the current buffer in the location list
+vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Diagnostics: location list' })
