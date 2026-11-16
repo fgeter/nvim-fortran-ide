@@ -143,7 +143,7 @@ local function activate()
   -- maps <CR> to close it, and restores focus/wipes the buffer when it
   -- closes. Called from the WinNew watcher in run_cmake_cmd once the
   -- output window is confirmed to be a terminal.
-  local function attach_output_window(output_win, output_buf, caller_win)
+  local function attach_output_window(output_win, output_buf, caller_win, cmd_name)
     local augroup = vim.api.nvim_create_augroup(
       'cmake_focus_restore_' .. output_win, { clear = true })
 
@@ -157,11 +157,40 @@ local function activate()
     -- <CR> closes the output window, wipes the buffer, and returns focus
     -- to the editor window captured before the cmake command ran.
     -- pcall guards against the buffer becoming invalid before key press.
-    pcall(vim.keymap.set, 'n', '<CR>', function()
+    local function close_output()
       if vim.api.nvim_win_is_valid(output_win) then
         vim.api.nvim_win_close(output_win, true)
       end
-    end, { buffer = output_buf, nowait = true, desc = 'Close cmake output' })
+    end
+    pcall(vim.keymap.set, 'n', '<CR>', close_output,
+      { buffer = output_buf, nowait = true, desc = 'Close cmake output' })
+    pcall(vim.keymap.set, 'n', 'q', close_output,
+      { buffer = output_buf, nowait = true, desc = 'Close cmake output' })
+
+    -- When the cmake process ends, ask whether to close the output, the
+    -- same dialog a build gets (core/utils.run_build_cmd): <CR> = yes.
+    -- Without it nothing on screen said that <CR> in the pane closes it.
+    -- Skipped if the window was already closed (closing it while cmake
+    -- still runs kills the job, which fires TermClose too).
+    local cmd_label = cmd_name or 'CMake'
+    vim.api.nvim_create_autocmd('TermClose', {
+      group = augroup, buffer = output_buf, once = true,
+      callback = function()
+        local status = vim.v.event and vim.v.event.status or 0
+        vim.schedule(function()
+          if not vim.api.nvim_win_is_valid(output_win) then return end
+          local msg = status == 0
+            and (cmd_label .. ' succeeded.\nClose the terminal?')
+            or  (cmd_label .. ' failed (exit status ' .. status .. ').\nClose the terminal?')
+          if vim.fn.confirm(msg, '&Yes\n&No, keep the output', 1, 'Question') == 1 then
+            close_output()
+          else
+            vim.notify('Output kept — press q or <CR> in it to close the terminal.',
+              vim.log.levels.INFO)
+          end
+        end)
+      end,
+    })
 
     -- When the output window closes:
     --   1. Wipe the output buffer so it doesn't linger in the buffer list
@@ -190,6 +219,8 @@ local function activate()
 
   local function run_cmake_cmd(cmd)
     close_empty_unnamed_buffers()
+    -- 'CMakeGenerate' -> 'CMake generate', for the close-the-output dialog
+    local label = 'CMake ' .. cmd:gsub('^CMake', ''):lower()
     local caller_win = get_editor_win()
 
     -- Watch for the output window with WinNew instead of scanning the
@@ -222,7 +253,7 @@ local function activate()
             return
           end
           disarm()
-          attach_output_window(output_win, output_buf, caller_win)
+          attach_output_window(output_win, output_buf, caller_win, label)
         end)
       end,
     })
@@ -568,12 +599,32 @@ local function activate()
     -- reports "task already running" itself in the (now unlikely) case a
     -- previous task is still live. On cancel/error the result is not ok
     -- and Generate is skipped.
+    --
+    -- The picker is the centered dialog from core/confirm.lua, not the
+    -- telescope dropdown: the current preset starts highlighted (so <CR>
+    -- keeps it), each preset has a number key, and the preset NAME is shown
+    -- with its displayName dimmed beside it (the displayNames alone repeat:
+    -- three presets are "gfortran debug version"). cmake-tools calls
+    -- vim.ui.select synchronously from select_configure_preset, so the
+    -- swap below is in place for exactly that one call and restored at once.
     vim.keymap.set('n', '<leader>cp', function()
-      cmake.select_configure_preset(function(result)
+      local current = cmake.get_configure_preset()
+      local ui_select = vim.ui.select
+      vim.ui.select = function(items, opts, on_choice)
+        vim.ui.select = ui_select
+        require('core.confirm').select(items, {
+          prompt  = 'Select CMake preset',
+          detail  = opts and opts.format_item,
+          default = current,
+        }, on_choice)
+      end
+      local ok, err = pcall(cmake.select_configure_preset, function(result)
         if result and result.is_ok and result:is_ok() then
           run_cmake_cmd('CMakeGenerate')
         end
       end)
+      vim.ui.select = ui_select
+      if not ok then vim.notify(tostring(err), vim.log.levels.ERROR) end
     end, { desc = 'CMake: select preset + generate' })
 
     -- Build: runs cmake --build in the persistent terminal

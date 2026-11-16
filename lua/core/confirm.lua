@@ -137,4 +137,121 @@ end
 
 vim.fn.confirm = M.confirm
 
+-- ------------------------------------------------------------
+-- M.select(items, opts, on_choice): the same kind of dialog for picking
+-- one entry from a short list. Same signature as vim.ui.select, so it can
+-- stand in for it around a plugin call (see <leader>cp in
+-- plugins/cmake-tools.lua). It is NOT installed as vim.ui.select: long
+-- lists still want telescope's fuzzy filter.
+--
+--     ╭──────── Select CMake preset ────────╮
+--     │  1  gfortran_debug_linux    gfortran…│
+--     │▶ 2  gfortran_release_linux  gfortran…│   <- highlighted
+--     │                                      │
+--     │ <CR> pick   j/k move   1-9 pick   <Esc> cancel │
+--     ╰──────────────────────────────────────╯
+--
+-- The highlighted row starts on opts.default (an item, or its index) and
+-- <CR> picks it, so "keep what I have" is one keypress. j/k or the arrow
+-- keys move, a row's number or letter picks it directly, <Esc>/<C-c>/q
+-- cancel. on_choice(item, idx), or on_choice(nil, nil) on cancel.
+--
+--   opts.prompt       window title
+--   opts.format_item  item -> main text (default tostring)
+--   opts.detail       item -> dimmed text after it (optional)
+--   opts.default      item or index highlighted first
+-- ------------------------------------------------------------
+local KEYS = '123456789abcdefghijklmnoprstuvwxyz'   -- no j/k/q: they move / cancel
+KEYS = KEYS:gsub('[jkq]', '')
+
+function M.select(items, opts, on_choice)
+  opts = opts or {}
+  local n = #items
+  if n == 0 then on_choice(nil, nil); return end
+  local fmt = opts.format_item or tostring
+
+  local cur = 1
+  if type(opts.default) == 'number' and items[opts.default] ~= nil then
+    cur = opts.default
+  elseif opts.default ~= nil then
+    for i, it in ipairs(items) do if it == opts.default then cur = i; break end end
+  end
+
+  local mainw = 0
+  for _, it in ipairs(items) do mainw = math.max(mainw, vim.fn.strdisplaywidth(fmt(it))) end
+  local lines, keyof = {}, {}
+  for i, it in ipairs(items) do
+    local k = KEYS:sub(i, i)
+    keyof[i] = k ~= '' and k or nil
+    local main = fmt(it)
+    local line = ('  %s  %s'):format(keyof[i] or ' ', main)
+    if opts.detail then
+      local d = opts.detail(it)
+      if d and d ~= '' then
+        line = line .. string.rep(' ', mainw - vim.fn.strdisplaywidth(main) + 3) .. d
+      end
+    end
+    lines[i] = line .. ' '
+  end
+  local last = keyof[n] and (n <= 9 and ('1-' .. n) or ('1-9, a-' .. keyof[n])) or '1-9'
+  lines[n + 1] = ''
+  lines[n + 2] = (' <CR> pick   j/k move   %s pick   <Esc> cancel '):format(last)
+
+  local width = 0
+  for _, l in ipairs(lines) do width = math.max(width, vim.fn.strdisplaywidth(l)) end
+  width = math.min(width, math.max(20, vim.o.columns - 6))
+  local height = math.min(#lines, math.max(1, vim.o.lines - 4))
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].bufhidden = 'wipe'
+  for i = 1, n do   -- key column and detail text
+    vim.api.nvim_buf_set_extmark(buf, ns, i - 1, 2, { end_col = 3, hl_group = 'Number' })
+    local dstart = 5 + #fmt(items[i])
+    if #lines[i] > dstart then
+      vim.api.nvim_buf_set_extmark(buf, ns, i - 1, dstart, { end_col = #lines[i], hl_group = 'Comment' })
+    end
+  end
+  vim.api.nvim_buf_set_extmark(buf, ns, n + 1, 0, { end_col = #lines[n + 2], hl_group = 'Comment' })
+
+  local win = vim.api.nvim_open_win(buf, false, {
+    relative = 'editor', style = 'minimal', border = 'rounded',
+    title = ' ' .. (opts.prompt or 'Select') .. ' ', title_pos = 'center',
+    focusable = false, zindex = 250, width = width, height = height,
+    row = math.floor((vim.o.lines - height) / 2) - 1,
+    col = math.floor((vim.o.columns - width) / 2),
+  })
+
+  local sel = vim.api.nvim_create_namespace('core_confirm_sel')
+  local function paint()
+    vim.api.nvim_buf_clear_namespace(buf, sel, 0, -1)
+    vim.api.nvim_buf_set_extmark(buf, sel, cur - 1, 0, {
+      line_hl_group = 'Visual', virt_text = { { '▶', 'MoreMsg' } },
+      virt_text_pos = 'overlay', priority = 300,
+    })
+  end
+
+  local down, up = vim.keycode('<Down>'), vim.keycode('<Up>')
+  local pick
+  while true do
+    paint()
+    vim.cmd('redraw')
+    local ok, c = pcall(vim.fn.getcharstr)
+    if not ok or c == '\27' or c == '\3' or c == 'q' then break end
+    if c == '\r' or c == '\n' then pick = cur; break end
+    if c == 'j' or c == down then cur = cur % n + 1
+    elseif c == 'k' or c == up then cur = (cur - 2) % n + 1
+    else
+      for i = 1, n do
+        if keyof[i] == c:lower() then pick = i; break end
+      end
+      if pick then break end
+    end
+  end
+
+  if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+  vim.cmd('redraw')
+  if pick then on_choice(items[pick], pick) else on_choice(nil, nil) end
+end
+
 return M
