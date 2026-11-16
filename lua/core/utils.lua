@@ -175,11 +175,14 @@ end
 -- pauses the following; G returns to the end and resumes it.
 --
 -- `on_exit(success)`, if given, runs after the answer is handled.
-function M.run_build_cmd(shell_cmd, on_exit)
+-- `label` (default 'Build') names the job in the dialog: 'Clean' gives
+-- "Clean succeeded. Close the terminal?".
+function M.run_build_cmd(shell_cmd, on_exit, label)
+  label = label or 'Build'
   one_shot_terminal(shell_cmd, function(status, close, buf)
     local msg = status == 0
-      and 'Build succeeded.\nClose the terminal?'
-      or  ('Build terminal exited with status ' .. status .. '.\nClose it?')
+      and (label .. ' succeeded.\nClose the terminal?')
+      or  (label .. ' terminal exited with status ' .. status .. '.\nClose it?')
     local answer = vim.fn.confirm(msg, '&Yes\n&No, keep the output', 1, 'Question')
     if answer == 1 then
       close()

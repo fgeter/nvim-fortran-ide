@@ -43,7 +43,6 @@ local function activate()
 
   local project = require('core.project')
   local utils = require('core.utils')
-  local term  = utils.make_terminal()   -- persistent shell, used by `make clean`
 
   ---------------------------------------------------------------------------
   -- Build: make [-jN] in a dedicated terminal (same UX as cmake-tools)
@@ -58,9 +57,9 @@ local function activate()
   end
 
   local function do_build(jobs)
-    vim.ui.select({ 'debug', 'release' }, {
-      prompt = 'Build type:',
-      format_item = function(item) return item:sub(1, 1):upper() .. item:sub(2) end,
+    require('core.confirm').select({ 'debug', 'release' }, {
+      prompt = 'Build type',
+      default = 1,
     }, function(choice)
       if not choice then return end
       run_build(choice, jobs)
@@ -113,18 +112,21 @@ local function activate()
   vim.keymap.set('n', '<leader>cB', function() do_build(1) end,
     { desc = 'Make: build single-threaded (debug compile errors)', nowait = true })
 
+  -- Clean: the list dialog picks the build type (debug highlighted), then
+  -- `make clean` runs in the same one-shot terminal and close dialog as a
+  -- build ("Clean succeeded. Close the terminal?").
   vim.keymap.set('n', '<leader>cx', function()
-    vim.ui.select({ 'debug', 'release', 'both' }, {
-      prompt = 'Clean build type:',
-      format_item = function(item) return item:sub(1, 1):upper() .. item:sub(2) end,
+    require('core.confirm').select({ 'debug', 'release', 'both' }, {
+      prompt = 'Clean build type',
+      default = 1,
     }, function(choice)
       if not choice then return end
       local base = 'make -C ' .. vim.fn.shellescape(project.roots().repo) .. ' BUILD_TYPE='
-      if choice == 'both' then
-        term.run(base .. 'debug clean && ' .. base .. 'release clean')
-      else
-        term.run(base .. choice .. ' clean')
-      end
+      local cmd = choice == 'both'
+        and (base .. 'debug clean && ' .. base .. 'release clean')
+        or  (base .. choice .. ' clean')
+      utils.run_build_cmd(cmd .. ' && { printf "\\nClean succeeded\\n"; exit 0; }',
+        nil, 'Clean')
     end)
   end, { desc = 'Make: clean' })
 

@@ -411,10 +411,67 @@ local function activate()
       run_cmake_cmd('CMakeGenerate')
     end, { desc = 'CMake: generate' })
 
-    -- Clean: remove build artefacts for the active preset
+    -- Clean: `cmake --build <dir> --target clean` for the selected preset,
+    -- in the same one-shot terminal and close dialog as a build. Both of
+    -- the preset's build trees are candidates: the host one (<leader>cb)
+    -- and the static one from the distrobox (<leader>cS, build/ubuntu-
+    -- <preset>, cleaned inside the box with the cmake that configured it).
+    -- Only trees that have been configured (CMakeCache.txt) are offered.
+    -- One tree: cleaned at once, as before. Both: the list dialog asks
+    -- which, the host tree highlighted. None: says so (cmake-tools'
+    -- CMakeClean returned silently).
     vim.keymap.set('n', '<leader>cx', function()
-      run_cmake_cmd('CMakeClean')
-    end, { desc = 'CMake: clean' })
+      local preset = cmake.get_configure_preset()
+      if not preset or preset == '' then
+        vim.notify('No preset selected.\nRun <leader>cp to select a preset first.',
+          vim.log.levels.WARN)
+        return
+      end
+      local repo = project.roots().repo .. '/'
+      local trees = {}
+      local host = tostring(cmake.get_build_directory() or '')
+      if host ~= '' and vim.fn.filereadable(host .. '/CMakeCache.txt') == 1 then
+        trees[#trees + 1] = { path = host, kind = 'host' }
+      end
+      local box = vim.g.project_distrobox
+      local static = project.roots().build .. '/ubuntu-' .. preset
+      if box and vim.fn.executable('distrobox') == 1
+          and vim.fn.filereadable(static .. '/CMakeCache.txt') == 1 then
+        trees[#trees + 1] = { path = static, kind = 'static', box = box }
+      end
+      if #trees == 0 then
+        vim.notify('Nothing to clean for ' .. preset .. ': no configured build directory.\n'
+          .. 'Run <leader>cp (or <leader>cS for a static build) first.', vim.log.levels.INFO)
+        return
+      end
+      local function rel(p) return vim.startswith(p, repo) and p:sub(#repo + 1) or p end
+      local function clean(list)
+        local cmds = {}
+        for _, t in ipairs(list) do
+          local c = 'cmake --build ' .. vim.fn.shellescape(t.path) .. ' --target clean'
+          if t.box then
+            c = 'distrobox enter ' .. vim.fn.shellescape(t.box) .. ' -- ' .. c
+          end
+          cmds[#cmds + 1] = c
+        end
+        local names = {}
+        for _, t in ipairs(list) do names[#names + 1] = rel(t.path) end
+        vim.notify('Cleaning: ' .. table.concat(names, ', '), vim.log.levels.INFO)
+        utils.run_build_cmd(table.concat(cmds, ' && ')
+          .. ' && { printf "\\nClean succeeded\\n"; exit 0; }', nil, 'Clean')
+      end
+      if #trees == 1 then return clean(trees) end
+      local both = { path = '', kind = 'both' }
+      require('core.confirm').select({ trees[1], trees[2], both }, {
+        prompt      = 'Clean ' .. preset,
+        format_item = function(t) return t == both and 'both' or rel(t.path) end,
+        detail      = function(t) return t == both and '' or t.kind end,
+        default     = 1,
+      }, function(t)
+        if not t then return end
+        clean(t == both and trees or { t })
+      end)
+    end, { desc = 'CMake: clean (host and/or static build of the preset)' })
 
     -- Delete build directories: pick which ones from a checklist.
     -- Offered: every build* directory at the repo root (build/, build-ubuntu/,
