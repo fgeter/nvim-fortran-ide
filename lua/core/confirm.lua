@@ -107,6 +107,9 @@ function M.confirm(msg, choices, default, kind)
   local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor', style = 'minimal', border = 'rounded',
     title = title, title_pos = 'center', focusable = false, zindex = 250,
+    -- A float that is not focusable ignores the mouse too unless told
+    -- otherwise: a click went straight through to the window underneath.
+    mouse = true,
     width = width, height = height,
     row = math.floor((vim.o.lines - height) / 2) - 1,
     col = math.floor((vim.o.columns - width) / 2),
@@ -114,6 +117,7 @@ function M.confirm(msg, choices, default, kind)
   vim.wo[win].wrap = true
   vim.wo[win].winhighlight = 'NormalFloat:NormalFloat,FloatBorder:FloatBorder'
 
+  local CLICK = vim.keycode('<LeftMouse>')
   local answer = 0
   while true do
     vim.cmd('redraw')
@@ -121,6 +125,17 @@ function M.confirm(msg, choices, default, kind)
     if not ok or c == '\27' or c == '\3' then answer = 0; break end   -- <Esc>, <C-c>
     if c == '\r' or c == '\n' then
       if default > 0 then answer = default; break end
+    elseif c == CLICK then
+      -- A click on a button picks it; anywhere else is ignored (the
+      -- question still needs an answer).
+      local mp = vim.fn.getmousepos()
+      local hit
+      if mp.winid == win and mp.line == #lines then
+        for i, s in ipairs(spans) do
+          if mp.column - 1 >= s[1] and mp.column - 1 < s[2] then hit = i; break end
+        end
+      end
+      if hit then answer = hit; break end
     else
       local hit
       for i, b in ipairs(buttons) do
@@ -286,6 +301,7 @@ function M.select(items, opts, on_choice)
     title = ' ' .. (opts.prompt or 'Select') .. ' ', title_pos = 'center',
     footer = { { footer_text(), 'Comment' } }, footer_pos = 'center',
     focusable = false, zindex = 250, width = width, height = height,
+    mouse = true,   -- see confirm(): without it a click on a row lands underneath and cancels
     row = math.floor((vim.o.lines - height) / 2) - 1,
     col = math.floor((vim.o.columns - width) / 2),
   })
