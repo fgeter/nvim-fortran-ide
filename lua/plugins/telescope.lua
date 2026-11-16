@@ -85,6 +85,25 @@ if vim.fn.executable('make') == 1 then
 end
 pcall(require('telescope').load_extension, 'ui-select')
 
+-- One look for every "pick one" prompt. Short lists (git branches, Python
+-- run options, spell language, DAP configurations, code actions, …) use the
+-- same dialog as the build and run pickers (core/confirm.lua): number keys,
+-- j/k, / to filter, a click. Long lists (every filetype, …) stay with
+-- Telescope's dropdown just loaded above, where fuzzy search earns its keep.
+local SELECT_DIALOG_MAX = 30
+local telescope_select = vim.ui.select
+vim.ui.select = function(items, opts, on_choice)
+  opts = opts or {}
+  if #items == 0 or #items > SELECT_DIALOG_MAX then
+    return telescope_select(items, opts, on_choice)
+  end
+  require('core.confirm').select(items, {
+    -- vim.ui.select prompts end in ':' for a command line; a title does not.
+    prompt      = opts.prompt and (opts.prompt:gsub('%s*:%s*$', '')) or nil,
+    format_item = opts.format_item,
+  }, on_choice)
+end
+
 -- ── Keymaps ──────────────────────────────────────────────────
 local builtin = require('telescope.builtin')
 

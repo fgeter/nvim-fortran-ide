@@ -289,9 +289,9 @@ While debugging, press `K` over any variable to inspect its value; cursor enters
 
 | Key | Action | Plugin |
 |-----|--------|--------|
-| `<leader>oi` | Organize imports | `plugins/java-tools.lua` |
-| `<leader>dv` | Extract variable | `plugins/java-tools.lua` |
-| `<leader>dm` | Extract method | `plugins/java-tools.lua` |
+| `<leader>Jo` | Organize imports | `plugins/java-tools.lua` |
+| `<leader>Jv` | Extract variable | `plugins/java-tools.lua` |
+| `<leader>Jm` | Extract method | `plugins/java-tools.lua` |
 
 ---
 

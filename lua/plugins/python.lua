@@ -363,9 +363,7 @@ local function activate()
       type    = 'python',
       request = 'launch',
       name    = 'Launch module',
-      module  = function()
-        return vim.fn.input('Module name: ')
-      end,
+      module  = require('plugins.dap').input_field { prompt = 'Module name: ' },
       python  = get_python_bin,
       console = 'integratedTerminal',
     },
@@ -393,7 +391,7 @@ local function activate()
     if file then args_picker(file) end
   end, { desc = 'Python: run current file with arguments…' })
 
-  vim.notify('✅ Python tools loaded (LSP + DAP)', vim.log.levels.INFO)
+  vim.notify('Python tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
 
 -- activate() is idempotent; <leader>ds is buffer-local so a Fortran

@@ -165,34 +165,56 @@ local function git_commit()
     vim.notify('No changes to commit', vim.log.levels.INFO)
     return
   end
-  local choices = { 'Commit All Changes' }
-  for _, f in ipairs(files) do table.insert(choices, f.status .. '  ' .. f.name) end
+  -- The checklist (core/checklist.lua), every file ticked to start with:
+  -- <CR> commits the lot, as "Commit All Changes" did; untick what should
+  -- stay out. It used to be one file or all of them, nothing in between.
+  local items = {}
+  local width = 0
+  for _, f in ipairs(files) do width = math.max(width, #f.status) end
+  for _, f in ipairs(files) do
+    table.insert(items, {
+      label = f.status .. (' '):rep(width - #f.status + 2) .. f.name,
+      name = f.name, selected = true,
+    })
+  end
   git_ui_busy = true
-  vim.ui.select(choices, { prompt = 'Select files to commit:' }, function(choice, idx)
-    if not choice then git_ui_busy = false; return end
-    local add_cmd
-    if choice == 'Commit All Changes' then
-      add_cmd = 'git add -A'
-    else
-      -- By position, not by parsing the label back. The names git reports
-      -- are relative to the top of the repository: ':(top,literal)' makes
-      -- `git add` read them that way from any working directory.
-      local file = idx and files[idx - 1]
-      if not file then git_ui_busy = false; return end
-      add_cmd = 'git add -- ' .. vim.fn.shellescape(':(top,literal)' .. file.name)
-    end
-    vim.ui.input({ prompt = 'Commit message: ' }, function(msg)
-      git_ui_busy = false
-      if not msg or msg == '' then return end
-      local out = vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg) .. ' 2>&1')
-      if vim.v.shell_error == 0 then
-        vim.notify('✅ Committed successfully', vim.log.levels.INFO)
-        checktime_all_buffers()
+  require('core.checklist').open {
+    title      = 'Commit: files to include',
+    items      = items,
+    action     = function(n)
+      return n == #items and ('Commit all ' .. n) or ('Commit ' .. n .. ' selected')
+    end,
+    action_key = 'm',
+    action_hl  = 'Function',
+    on_cancel  = function() git_ui_busy = false end,
+    on_confirm = function(chosen)
+      local add_cmd
+      if #chosen == #items then
+        add_cmd = 'git add -A'
       else
-        vim.notify('Commit failed:\n' .. out, vim.log.levels.ERROR)
+        -- The names git reports are relative to the top of the repository:
+        -- ':(top,literal)' makes `git add` read them that way from any
+        -- working directory.
+        local specs = {}
+        for _, c in ipairs(chosen) do
+          table.insert(specs, vim.fn.shellescape(':(top,literal)' .. c.name))
+        end
+        add_cmd = 'git add -- ' .. table.concat(specs, ' ')
       end
-    end)
-  end)
+      vim.ui.input({ prompt = 'Commit message: ' }, function(msg)
+        git_ui_busy = false
+        if not msg or msg == '' then return end
+        local out = vim.fn.system(add_cmd .. ' && git commit -m ' .. vim.fn.shellescape(msg) .. ' 2>&1')
+        if vim.v.shell_error == 0 then
+          vim.notify('Committed ' .. #chosen .. ' file' .. (#chosen == 1 and '' or 's'),
+            vim.log.levels.INFO)
+          checktime_all_buffers()
+        else
+          vim.notify('Commit failed:\n' .. out, vim.log.levels.ERROR)
+        end
+      end)
+    end,
+  }
 end
 
 -- Pull: async so a slow network doesn't freeze the UI. Explicit --no-rebase
@@ -206,7 +228,7 @@ local function git_pull()
   vim.system({ 'git', 'pull', '--no-rebase' }, {}, function(result)
     vim.schedule(function()
       if result.code == 0 then
-        vim.notify('✅ Git pull successful', vim.log.levels.INFO)
+        vim.notify('Git pull successful', vim.log.levels.INFO)
         last_known_ahead = 0
         checktime_all_buffers()
       else
@@ -223,7 +245,7 @@ local function git_push()
   vim.system({ 'git', 'push' }, {}, function(result)
     vim.schedule(function()
       if result.code == 0 then
-        vim.notify('✅ Git push successful', vim.log.levels.INFO)
+        vim.notify('Git push successful', vim.log.levels.INFO)
       else
         vim.notify('Git push failed:\n' .. (result.stderr or ''), vim.log.levels.ERROR)
       end
@@ -249,9 +271,9 @@ local PERIODIC_INTERVAL_MS     = 20 * 60 * 1000
 
 -- fn's own prompt (e.g. switch_branch's picker) may already be open when the
 -- fetch resolves — a competing vim.ui.input here would steal the cmdline
--- from it, so wait for git_ui_busy to clear before asking. Defaults to yes:
--- plain <CR> (or anything not starting with "n") pulls; only <Esc> (cancel)
--- or an explicit "n" skip it. Gives up after ~30s and falls back to a
+-- from it, so wait for git_ui_busy to clear before asking. The confirm
+-- dialog (core/confirm.lua), Yes the default: <CR> or y pulls; n, <Esc> or
+-- <C-c> skip it. Gives up after ~30s and falls back to a
 -- passive notify if git_ui_busy is somehow never released.
 local function prompt_pull_when_free(branch, ahead, retries_left)
   retries_left = retries_left or 100
@@ -266,14 +288,11 @@ local function prompt_pull_when_free(branch, ahead, retries_left)
     return
   end
   git_ui_busy = true
-  vim.ui.input(
-    { prompt = ('origin/%s is %d commit(s) ahead — pull now? (Y/n): '):format(branch, ahead) },
-    function(confirm)
-      git_ui_busy = false
-      if confirm == nil then return end -- cancelled
-      if confirm:lower():sub(1, 1) == 'n' then return end
-      git_pull()
-    end)
+  local answer = vim.fn.confirm(
+    ('origin/%s is %d commit%s ahead.\nPull now?'):format(branch, ahead, ahead == 1 and '' or 's'),
+    '&Yes, pull\n&No', 1, 'Question')
+  git_ui_busy = false
+  if answer == 1 then git_pull() end
 end
 
 local function check_remote_ahead(verbose)
@@ -318,7 +337,7 @@ local function check_remote_ahead(verbose)
       end
       last_known_ahead = ahead
       if ahead == 0 then
-        if verbose then vim.notify('✅ Up to date with origin', vim.log.levels.INFO) end
+        if verbose then vim.notify('Up to date with origin', vim.log.levels.INFO) end
         return
       end
       prompt_pull_when_free(current_branch(true), ahead)
@@ -414,7 +433,7 @@ local function git_create_branch()
     local out = vim.fn.system('git checkout -b ' .. vim.fn.shellescape(name) .. ' 2>&1')
     if vim.v.shell_error == 0 then
       vim.g.git_branch = name
-      vim.notify('✅ Created and switched to: ' .. name, vim.log.levels.INFO)
+      vim.notify('Created and switched to: ' .. name, vim.log.levels.INFO)
       checktime_all_buffers()
     else
       vim.notify('Failed to create branch:\n' .. out, vim.log.levels.ERROR)
@@ -465,7 +484,7 @@ local function delete_branch()
       vim.fn.system('git branch -d ' .. vim.fn.shellescape(choice) .. ' 2>&1')
       if vim.v.shell_error == 0 then
         git_ui_busy = false
-        vim.notify('✅ Deleted: ' .. choice, vim.log.levels.INFO)
+        vim.notify('Deleted: ' .. choice, vim.log.levels.INFO)
       else
         local force = vim.fn.confirm('Not fully merged. Force delete "' .. choice .. '"?',
           '&Yes\n&No', 2, 'Warning') == 1
@@ -473,7 +492,7 @@ local function delete_branch()
         if force then
           local out = vim.fn.system('git branch -D ' .. vim.fn.shellescape(choice) .. ' 2>&1')
           if vim.v.shell_error == 0 then
-            vim.notify('✅ Force deleted: ' .. choice, vim.log.levels.INFO)
+            vim.notify('Force deleted: ' .. choice, vim.log.levels.INFO)
           else
             vim.notify('Force delete failed:\n' .. out, vim.log.levels.ERROR)
           end
@@ -531,7 +550,7 @@ local function discard_buffer_changes()
   if not discard then return end
   local out = vim.fn.system('git checkout HEAD -- ' .. vim.fn.shellescape(file) .. ' 2>&1')
   if vim.v.shell_error == 0 then
-    vim.notify('✅ Discarded changes in: ' .. shortname, vim.log.levels.INFO)
+    vim.notify('Discarded changes in: ' .. shortname, vim.log.levels.INFO)
     vim.cmd('edit!')
   else
     vim.notify('Failed to discard changes:\n' .. out, vim.log.levels.ERROR)

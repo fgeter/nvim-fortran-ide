@@ -548,7 +548,7 @@ Uses the same `<leader>c*` keys as CMake so muscle memory transfers. Mutually ex
 
 Press `K` over any variable during a debug session to inspect its value; cursor enters the float so you can scroll. Press `q` or jump to another window to close it. Variable values also appear as virtual text inline in the source while stepping.
 
-Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>oi` organize imports, `<leader>dv` extract variable, `<leader>dm` extract method.
+Java-only keymaps (buffer-local, active after opening a `.java` file): `<leader>Jo` organize imports, `<leader>Jv` extract variable, `<leader>Jm` extract method.
 
 ### Git operations (`<leader>g`)
 

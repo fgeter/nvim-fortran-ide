@@ -9,7 +9,8 @@
 --              every message at once — nothing else changes.
 --   input    — floating vim.ui.input(), the successor to the
 --              archived dressing.nvim (which this replaced).
---              vim.ui.select() stays with telescope-ui-select
+--              vim.ui.select() is the core/confirm.lua dialog for
+--              short lists and telescope-ui-select for long ones
 --              (see plugins/telescope.lua).
 --
 -- LAZY: No — like dressing.nvim before it, the vim.notify and

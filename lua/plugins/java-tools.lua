@@ -128,11 +128,11 @@ vim.api.nvim_create_autocmd('FileType', {
     end
     map('<leader>ds', function() require('dap').continue() end,
       'DAP: start / continue (Java) - F5')
-    map('<leader>oi', function() require('jdtls').organize_imports() end,
+    map('<leader>Jo', function() require('jdtls').organize_imports() end,
       'Java: organize imports')
-    map('<leader>dv', function() require('jdtls').extract_variable() end,
+    map('<leader>Jv', function() require('jdtls').extract_variable() end,
       'Java: extract variable')
-    map('<leader>dm', function() require('jdtls').extract_method() end,
+    map('<leader>Jm', function() require('jdtls').extract_method() end,
       'Java: extract method')
   end,
 })

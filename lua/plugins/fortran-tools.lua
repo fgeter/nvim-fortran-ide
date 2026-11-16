@@ -147,25 +147,31 @@ local function activate()
     -- (a static distrobox one) was configured with a different compiler.
     local debug_dir = project.roots().build .. '/debug'
     if vim.fn.fnamemodify(program, ':h') ~= debug_dir then
-      vim.ui.input(
-        { prompt = 'This build looks older than the source (rebuild it with Build → Static build). Debug it anyway? (y/N): ' },
-        function(answer)
-          if answer and answer:lower():sub(1, 1) == 'y' then do_launch(program, cwd) end
-        end)
+      local answer = vim.fn.confirm(
+        'This build looks older than the source.\n'
+          .. 'Rebuild it with Build → Static build, or debug it as it is.\n'
+          .. 'Debug it anyway?',
+        '&Yes, debug it\n&No', 2, 'Question')
+      if answer == 1 then do_launch(program, cwd) end
       return
     end
-    vim.ui.input(
-      { prompt = 'Debug build looks older than source — breakpoints may not verify. Rebuild? (Y/n): ' },
-      function(confirm)
-        if not confirm or confirm:lower() == 'n' then return end
-        rebuild_debug(function(success)
-          if success then
-            do_launch(program, cwd)
-          else
-            vim.notify('Rebuild failed — not launching debugger.', vim.log.levels.ERROR)
-          end
-        end)
+    -- Three answers where the typed (Y/n) prompt had two: it could rebuild
+    -- or give up, but not debug the build as it stands.
+    local answer = vim.fn.confirm(
+      'The debug build looks older than the source — breakpoints may not verify.\n'
+        .. 'Rebuild it first?',
+      '&Yes, rebuild\n&No, debug it as it is\n&Cancel', 1, 'Question')
+    if answer == 2 then
+      do_launch(program, cwd)
+    elseif answer == 1 then
+      rebuild_debug(function(success)
+        if success then
+          do_launch(program, cwd)
+        else
+          vim.notify('Rebuild failed — not launching debugger.', vim.log.levels.ERROR)
+        end
       end)
+    end
   end
 
   local function pick_and_launch()
@@ -181,7 +187,7 @@ local function activate()
     if dap.session() then dap.continue() else pick_and_launch() end
   end
 
-  vim.notify('✅ Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
+  vim.notify('Fortran tools loaded (LSP + DAP)', vim.log.levels.INFO)
 end
 
 -- ── Trigger ──────────────────────────────────────────────────

@@ -19,7 +19,7 @@
 --
 -- Toggling an entry:  <Space>, <Tab> or x on its line, its number key,
 --                     or a left click on it.
--- Confirming:         <CR> or d, or a click on the action button.
+-- Confirming:         <CR> or the action key (d), or a click on the action button.
 -- Cancelling:         <Esc> / q / c, a click on [c] cancel, or leaving the float.
 -- Extra button:       opts.extra = { label = 'Browse…', key = 'b', run = fn }
 --                     adds a button (and key) between the action and Cancel.
@@ -44,6 +44,10 @@
 --     action   = function(n) return 'Delete ' .. n .. ' selected' end,
 --     on_confirm = function(chosen) ... end,   -- list of the chosen items
 --   }
+-- opts.action_key ('d') and opts.action_hl ('DiagnosticError', for a
+-- destructive action) set the action button's key and colour; any letter
+-- but c, q, x and a. opts.on_cancel() runs when the list is closed without
+-- confirming (and without the extra button).
 -- An item with selected = true starts ticked. opts.empty is the line shown
 -- when items is empty (the buttons still work, e.g. Browse… to add one).
 -- ============================================================
@@ -90,8 +94,9 @@ function M.open(opts)
     lines[#items + 1] = ''
     -- Nothing to tick: a placeholder line, so the buttons (Browse…) still show.
     if #items == 0 then lines[1] = '  ' .. (opts.empty or '(nothing to list)') end
-    local defs = { { name = 'action', key = 'd', text = opts.action(count()), default = true,
-                     hl = count() > 0 and 'DiagnosticError' or 'Comment' } }
+    local defs = { { name = 'action', key = opts.action_key or 'd', text = opts.action(count()),
+                     default = true,
+                     hl = count() > 0 and (opts.action_hl or 'DiagnosticError') or 'Comment' } }
     if opts.extra then
       defs[#defs + 1] = { name = 'extra', key = opts.extra.key or 'b', text = opts.extra.label,
                           hl = 'Function' }
@@ -125,12 +130,14 @@ function M.open(opts)
     return lines
   end
 
+  local handed_on = false   -- confirmed, or left through the extra button
   local function close()
     if closed then return end
     closed = true
     if win and vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
     end
+    if not handed_on and opts.on_cancel then vim.schedule(opts.on_cancel) end
   end
 
   local function confirm()
@@ -140,11 +147,13 @@ function M.open(opts)
       vim.notify('Nothing selected: Space or click an entry first.', vim.log.levels.WARN)
       return
     end
+    handed_on = true
     close()
     vim.schedule(function() opts.on_confirm(chosen) end)
   end
 
   local function extra()
+    handed_on = true
     close()
     vim.schedule(opts.extra.run)
   end
@@ -190,7 +199,7 @@ function M.open(opts)
   for i = 1, math.min(#items, 9) do
     map(tostring(i), function() toggle(first + i - 1) end)
   end
-  map('d', confirm)
+  map(opts.action_key or 'd', confirm)
   map('<CR>', function()
     local row = vim.fn.line('.')
     if row == btn_row then

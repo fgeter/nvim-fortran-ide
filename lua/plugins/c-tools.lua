@@ -39,9 +39,10 @@ local function activate()
       name    = 'Launch executable',
       type    = 'gdb',
       request = 'launch',
-      program = function()
-        return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-      end,
+      program = require('plugins.dap').input_field(function()
+        return { prompt = 'Path to executable: ', default = vim.fn.getcwd() .. '/',
+                 completion = 'file' }
+      end),
       cwd     = '${workspaceFolder}',
       stopAtBeginningOfMainSubprogram = false,
     },

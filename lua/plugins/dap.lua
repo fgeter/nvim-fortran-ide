@@ -257,14 +257,20 @@ local function with_dap(fn)
   end
 end
 
--- Ask for a breakpoint condition / log message. nil when the prompt was
--- cancelled or left empty: vim.fn.input returns '' for <Esc>, and passing
--- that on set a plain breakpoint anyway.
-local function ask(prompt)
-  local ok, text = pcall(vim.fn.input, prompt)
-  text = ok and vim.trim(text) or ''
-  if text == '' then return nil end
-  return text
+-- Ask for a breakpoint condition / log message in the same floating input
+-- as every other prompt, then run fn(text) back in the window it was asked
+-- from. Cancelled or left empty: nothing happens (passing '' on used to set
+-- a plain breakpoint anyway).
+local function ask(prompt, fn)
+  local win = vim.api.nvim_get_current_win()
+  vim.ui.input({ prompt = prompt }, function(text)
+    text = text and vim.trim(text) or ''
+    if text == '' then return end
+    vim.schedule(function()
+      if not vim.api.nvim_win_is_valid(win) then return end
+      vim.api.nvim_win_call(win, function() fn(text) end)
+    end)
+  end)
 end
 
 -- F1 is Help unless a debug session is already running. Do not require()
@@ -302,8 +308,7 @@ vim.keymap.set('n', '<F5>',  with_dap(function(d) d.continue() end),          { 
 vim.keymap.set('n', '<F6>',  with_dap(function(d) d.run_to_cursor() end),     { desc = 'DAP: run to cursor' })
 vim.keymap.set('n', '<F7>',  with_dap(function(_, ui) ui.toggle() end),       { desc = 'DAP: toggle UI' })
 vim.keymap.set('n', '<F8>',  with_dap(function(d)
-  local cond = ask('Breakpoint condition: ')
-  if cond then d.set_breakpoint(cond) end
+  ask('Breakpoint condition: ', function(cond) d.set_breakpoint(cond) end)
 end), { desc = 'DAP: conditional breakpoint' })
 vim.keymap.set('n', '<F10>', with_dap(function(d) d.terminate() end),         { desc = 'DAP: terminate session' })
 
@@ -324,12 +329,10 @@ vim.keymap.set('n', '<leader>dc', with_dap(function(d) d.run_to_cursor() end), {
 vim.keymap.set('n', '<leader>db', with_dap(function(d) d.toggle_breakpoint() end),
   { desc = 'DAP: toggle breakpoint - F4' })
 vim.keymap.set('n', '<leader>dB', with_dap(function(d)
-  local cond = ask('Breakpoint condition: ')
-  if cond then d.set_breakpoint(cond) end
+  ask('Breakpoint condition: ', function(cond) d.set_breakpoint(cond) end)
 end), { desc = 'DAP: conditional breakpoint - F8' })
 vim.keymap.set('n', '<leader>dL', with_dap(function(d)
-  local msg = ask('Log point message: ')
-  if msg then d.set_breakpoint(nil, nil, msg) end
+  ask('Log point message: ', function(msg) d.set_breakpoint(nil, nil, msg) end)
 end), { desc = 'DAP: log point' })
 vim.keymap.set('n', '<leader>dx', with_dap(remove_all_breakpoints),
   { desc = 'DAP: remove all breakpoints - Shift-F4 (F16)' })
@@ -461,4 +464,21 @@ end, { desc = 'DAP: show F-key reference' })
 -- call require('plugins.dap').activate() before require('dap') so the
 -- stack is installed and configured regardless of which entry point
 -- (keypress or FileType activation) comes first.
-return { activate = activate }
+-- For a configuration field that has to ask (program, module, …): the same
+-- floating input as everywhere else. nvim-dap resolves such fields inside a
+-- coroutine and waits for one returned from the function; cancelling or an
+-- empty answer aborts the launch. opts may be a function, for a default
+-- that has to be worked out when the prompt opens (the current directory).
+local function input_field(opts)
+  return function()
+    local o = type(opts) == 'function' and opts() or opts
+    return coroutine.create(function(co)
+      vim.ui.input(o, function(text)
+        text = text and vim.trim(text) or ''
+        coroutine.resume(co, text ~= '' and text or require('dap').ABORT)
+      end)
+    end)
+  end
+end
+
+return { activate = activate, input_field = input_field }

@@ -547,13 +547,13 @@ local function activate()
       local function delete_selected(chosen)
         local labels = {}
         for _, d in ipairs(chosen) do table.insert(labels, '  ' .. vim.trim(d.label)) end
-        -- The confirm dialog (core/confirm.lua), listing what goes. Yes is
-        -- the default, as the old typed (Y/n) prompt had it: <CR> deletes;
-        -- n, <Esc> or <C-c> cancels.
+        -- The confirm dialog (core/confirm.lua), listing what goes. No is
+        -- the default, as for every prompt that destroys something (force-
+        -- deleting a branch, …): y deletes; <CR>, n, <Esc> or <C-c> cancel.
         local answer = vim.fn.confirm('Delete ' .. #chosen .. ' build director'
             .. (#chosen == 1 and 'y' or 'ies') .. '? This cannot be undone.\n\n'
             .. table.concat(labels, '\n'),
-          '&Yes, delete\n&No', 1, 'Warning')
+          '&Yes, delete\n&No', 2, 'Warning')
         do
           if answer ~= 1 then
             vim.notify('Delete cancelled.', vim.log.levels.INFO)
@@ -570,7 +570,7 @@ local function activate()
             end
           end
           if #done > 0 then
-            vim.notify('✅ Deleted:\n' .. table.concat(done, '\n')
+            vim.notify('Deleted:\n' .. table.concat(done, '\n')
               .. '\nRun <leader>cp then <leader>cb (or <leader>cS) to rebuild.',
               vim.log.levels.INFO)
           end
