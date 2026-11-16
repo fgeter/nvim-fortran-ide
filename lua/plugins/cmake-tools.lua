@@ -327,6 +327,22 @@ local function activate()
       vim.notify('distrobox is not installed on this machine.', vim.log.levels.WARN)
       return
     end
+    -- A missing box would make `distrobox enter` ask "Create it now, out of
+    -- … fedora-toolbox? [Y/n]" inside the build terminal — the wrong image,
+    -- in a prompt unlike every other dialog. Say what to run instead.
+    local listed = false
+    for _, l in ipairs(vim.fn.systemlist({ 'distrobox', 'list', '--no-color' })) do
+      local name = l:match('^[^|]*|%s*([^|]-)%s*|')
+      if name == box then listed = true; break end
+    end
+    if not listed then
+      vim.notify('Distrobox "' .. box .. '" does not exist on this machine.\n'
+        .. 'Create it, then install the compilers in it:\n'
+        .. '  distrobox create -n ' .. box .. ' -i docker.io/library/ubuntu:26.04\n'
+        .. '  distrobox enter ' .. box .. ' -- sudo apt install -y gfortran cmake',
+        vim.log.levels.ERROR)
+      return
+    end
     local ok, cmake = pcall(require, 'cmake-tools')
     local preset = ok and cmake.get_configure_preset() or nil
     if not preset or preset == '' then
@@ -346,7 +362,8 @@ local function activate()
       .. ' -B ' .. vim.fn.shellescape(dir)
       .. ' && cmake --build ' .. vim.fn.shellescape(dir) .. ' -j ' .. j
     utils.run_build_cmd('distrobox enter ' .. vim.fn.shellescape(box)
-      .. ' -- sh -c ' .. vim.fn.shellescape(inner) .. project.build_done_suffix)
+      .. ' -- sh -c ' .. vim.fn.shellescape(inner) .. project.build_done_suffix,
+      nil, 'Static build')
   end
 
   ---------------------------------------------------------------------------
