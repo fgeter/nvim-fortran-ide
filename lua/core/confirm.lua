@@ -25,7 +25,9 @@
 -- Not covered: Vimscript's own confirm dialogs (`:confirm quit`, the
 -- swap-file E325 "[O]pen Read-Only, (E)dit anyway…" prompt, plugins
 -- written in Vimscript). They go straight to the C function.
--- Headless (no UI attached) falls back to the built-in.
+-- Headless (no UI attached), and anything asked during startup (before
+-- VimEnter, e.g. vim.pack's first-run install prompt), fall back to the
+-- built-in.
 -- ============================================================
 
 local M = {}
@@ -56,7 +58,11 @@ local function lower_first(s)
 end
 
 function M.confirm(msg, choices, default, kind)
-  if #vim.api.nvim_list_uis() == 0 then
+  -- Before VimEnter the screen has not been drawn, so the float would be
+  -- invisible and nvim would sit on a black screen waiting for a key (seen
+  -- on a fresh machine: vim.pack.add's "install these plugins?" during
+  -- init). The built-in prompt does show then, so use it until startup ends.
+  if #vim.api.nvim_list_uis() == 0 or vim.v.vim_did_enter == 0 then
     return native(msg, choices, default, kind)
   end
   local buttons = parse(choices or '&Ok')
