@@ -413,6 +413,24 @@ vim.keymap.set({ 'n', 'i' }, '<RightMouse>', function()
   return '<RightMouse>'
 end, { expr = true, desc = 'Right-click: file actions in the tree, usual menu elsewhere' })
 
+-- `nvim <folder>`: start exactly as `nvim` started inside that folder. The
+-- folder's own buffer is what caused trouble: neo-tree turned it into a
+-- second, full-window tree beside the left sidebar, so startup ended with an
+-- empty window between two trees. This file runs during init, before that
+-- buffer is entered, so cd there now, drop the argument and the buffer;
+-- startup then takes the no-argument path (session restore, sidebar, cursor
+-- on the first folder). `:e <folder>` later still opens in neo-tree.
+-- It has to run before require('neo-tree').setup(): setup() checks the
+-- current buffer once, and a folder buffer there gets the hijack queued.
+if vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
+  local dir = vim.fn.fnamemodify(vim.fn.argv(0), ':p')
+  local dir_buf = vim.api.nvim_get_current_buf()
+  vim.cmd('cd ' .. vim.fn.fnameescape(dir))
+  vim.cmd('silent! %argdelete')
+  vim.api.nvim_set_current_buf(vim.api.nvim_create_buf(true, false))
+  pcall(vim.api.nvim_buf_delete, dir_buf, { force = true })
+end
+
 -- ── Setup ────────────────────────────────────────────────────
 require('neo-tree').setup {
 
