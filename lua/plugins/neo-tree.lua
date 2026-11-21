@@ -149,6 +149,19 @@ local function open_or_up(state)
   end
 end
 
+-- The other ways to open a node (splits, window picker, preview) do nothing
+-- on the "← .." line. Left to neo-tree they opened its id as a file: an
+-- empty buffer named __nav_up__, outside cwd, which the session then saved
+-- and restored as the current buffer, so every start in that folder asked
+-- "File not in cwd. Change cwd to …?".
+local function skip_nav_up(cmd)
+  return function(state)
+    local node = state.tree:get_node()
+    if node and node.id == '__nav_up__' then return end
+    return state.commands[cmd](state)
+  end
+end
+
 -- Move the node under the cursor to the system trash — no confirmation.
 -- Unlike the built-in 'delete' (permanent rm), trashed items land in
 -- ~/.local/share/Trash and can be restored with a file manager or
@@ -417,8 +430,17 @@ require('neo-tree').setup {
       -- covered twice over by <CR> and a double-click, so the prefix is
       -- worth more here than a third way to open a node. Press `o` alone
       -- to get neo-tree's "Order by" popup, which lists the whole set.
-      ['s']             = 'open_split',
-      ['v']             = 'open_vsplit',
+      ['s']             = { skip_nav_up('open_split'),  desc = 'open_split' },
+      ['v']             = { skip_nav_up('open_vsplit'), desc = 'open_vsplit' },
+      -- neo-tree's own defaults for these keys, guarded the same way
+      ['S']             = { skip_nav_up('open_split'),  desc = 'open_split' },
+      -- neo-tree's default `w` (open_with_window_picker) needs the separate
+      -- nvim-window-picker plugin, which is not installed: it only printed
+      -- "You'll need to install window-picker…". s / v open in a split.
+      ['w']             = 'none',
+      ['l']             = { skip_nav_up('focus_preview'), desc = 'focus_preview' },
+      ['P']             = { skip_nav_up('toggle_preview'), desc = 'toggle_preview',
+                            config = { use_float = true, use_snacks_image = true, use_image_nvim = true } },
       ['<BS>']          = 'navigate_up',
       ['.']             = 'set_root',
       ['a']             = { 'add', config = { show_path = 'relative' } },
