@@ -761,9 +761,49 @@ end
 -- session.lua's restore, which sets vim.g.session_loaded — so this
 -- ordering is guaranteed by Neovim's startup sequence rather than by
 -- hoping a timer (previously 50ms) lands late enough on a loaded machine.
+-- Started without a file name (no argument, or a folder): move the cursor
+-- into the tree, onto the first folder under the root, or onto the first
+-- file when the root has no folders. The tree renders asynchronously, so
+-- poll until its nodes exist (up to ~2 s) instead of guessing a delay.
+local function focus_first_entry()
+  local tries = 0
+  local function attempt()
+    tries = tries + 1
+    local ok, state = pcall(require('neo-tree.sources.manager').get_state, 'filesystem')
+    local win = ok and state and state.winid
+    if not (win and vim.api.nvim_win_is_valid(win) and state.tree) then
+      if tries < 40 then vim.defer_fn(attempt, 50) end
+      return
+    end
+    local first_dir, first_file
+    for lnum = 1, vim.api.nvim_buf_line_count(state.bufnr) do
+      local node = state.tree:get_node(lnum)
+      if node and node.id ~= '__nav_up__' and node:get_depth() == 2 then
+        if node.type == 'directory' then first_dir = lnum; break end
+        if node.type == 'file' and not first_file then first_file = lnum end
+      end
+    end
+    local target = first_dir or first_file
+    if not target then
+      -- Rendered but empty: a folder still loading, or truly empty.
+      if tries < 40 then vim.defer_fn(attempt, 50) end
+      return
+    end
+    vim.api.nvim_set_current_win(win)
+    vim.api.nvim_win_set_cursor(win, { target, 0 })
+  end
+  vim.schedule(attempt)
+end
+
 vim.api.nvim_create_autocmd('UIEnter', {
   once     = true,
   callback = function()
+    -- No file name on the command line (nothing, or only a folder): the
+    -- cursor goes to the tree. A restored session also only happens then.
+    local arg0 = vim.fn.argc() > 0 and vim.fn.argv(0) or ''
+    if vim.fn.argc() == 0 or vim.fn.isdirectory(arg0) == 1 then
+      focus_first_entry()
+    end
     -- When a session was restored (plugins/session.lua sets this flag on
     -- VimEnter, which fires before UIEnter), our buffers and window
     -- layout are already in place — skip the 'enew' step that would wipe
